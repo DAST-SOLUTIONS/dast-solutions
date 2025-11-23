@@ -1,198 +1,203 @@
-import { NavLink, useNavigate } from "react-router-dom"
-import { useAuth } from "@/hooks/useAuth"
-import { Home, LogOut, Settings as SettingsIcon, Moon, Sun } from "lucide-react"
-import { useState } from "react"
+import { Link, useNavigate, useParams, useLocation } from 'react-router-dom'
+import { useAuth } from '@/hooks/useAuth'
+import { LogOut, Menu, X, ChevronDown } from 'lucide-react'
+import { useState } from 'react'
 
 export default function AppHeader() {
+  const { user, signOut } = useAuth()
   const navigate = useNavigate()
-  const { userProfile, signOut } = useAuth()
-  const [darkMode, setDarkMode] = useState(false)
-  const [showUserMenu, setShowUserMenu] = useState(false)
+  const { projectId } = useParams()
+  const location = useLocation()
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null)
 
   const handleSignOut = async () => {
     await signOut()
-    navigate("/login")
+    navigate('/login')
   }
 
-  const link = "px-3 py-2 rounded-lg text-white/90 hover:text-white hover:bg-white/10 transition text-sm"
-  const submenuLink = "block w-full text-left px-4 py-2 hover:bg-gray-100 text-gray-800 text-sm"
+  const toggleDropdown = (menu: string) => {
+    setOpenDropdown(openDropdown === menu ? null : menu)
+  }
+
+  // Détecter si on a un projectId dans l'URL
+  const currentProjectId = projectId || location.pathname.match(/\/project\/([^\/]+)/)?.[1]
+
+  const menuItems = [
+    {
+      label: 'Projets',
+      items: [
+        { label: 'Conception', path: '/projets/conception' },
+        { 
+          label: 'Estimation', 
+          path: currentProjectId ? `/projets/${currentProjectId}/estimation` : '/dashboard',
+          requiresProject: true
+        },
+        { label: 'Gestion', path: '/projets/gestion' }
+      ]
+    },
+    {
+      label: 'Entrepreneurs',
+      items: [
+        { label: 'Vérification RBQ', path: '/entrepreneurs/rbq' },
+        { label: 'Gestion du personnel', path: '/entrepreneurs/personnel' }
+      ]
+    },
+    {
+      label: 'Appels d\'offre',
+      items: [
+        { label: 'SEAO', path: '/appels-offre/seao' },
+        { label: 'MERX', path: '/appels-offre/merx' },
+        { label: 'Buy GC', path: '/appels-offre/buy-gc' },
+        { label: 'Bonfire', path: '/appels-offre/bonfire' }
+      ]
+    },
+    {
+      label: 'Ressources',
+      items: [
+        { label: 'Code Navigator', path: '/ressources/code-navigator' },
+        { label: 'CCQ Navigator', path: '/ressources/ccq-navigator' },
+        { label: 'Documents ACC/CCDC', path: '/ressources/documents-acc-ccdc' },
+        { label: 'Associations', path: '/ressources/associations' }
+      ]
+    },
+    {
+      label: 'Outils avancés',
+      items: [
+        { label: 'Application mobile terrain', path: '/outils-avances/application-mobile' },
+        { label: 'Messagerie équipe', path: '/outils-avances/messagerie' },
+        { label: 'Géolocalisation', path: '/outils-avances/geolocalisation' }
+      ]
+    }
+  ]
 
   return (
-    <header className="bg-gradient-to-r from-teal-600 to-orange-400 text-white sticky top-0 z-50 shadow-lg">
-      <div className="max-w-7xl mx-auto px-4 py-3">
-        
-        {/* TOP ROW - Logo + Navigation */}
-        <div className="flex items-center gap-6 mb-2">
+    <header className="bg-gradient-to-r from-teal-600 to-orange-500 shadow-lg">
+      <div className="max-w-7xl mx-auto px-4">
+        <div className="flex justify-between items-center h-16">
           {/* Logo */}
-          <button onClick={() => navigate("/dashboard")} className="text-left leading-tight hover:opacity-80 transition">
-            <div className="text-xl font-extrabold">DASTCC</div>
-            <div className="text-xs opacity-80 -mt-0.5">Central Cloud</div>
-          </button>
-
-          {/* MAIN NAVIGATION */}
-          <nav className="flex items-center gap-1 flex-wrap">
-            
-            {/* DASHBOARD */}
-            <NavLink to="/dashboard" className={link}>
-              <Home className="inline -mt-1 mr-2" size={16} /> Dashboard
-            </NavLink>
-
-            {/* PROJETS - DROPDOWN */}
-            <div className="relative group">
-              <button className={link}>
-                📁 Projets ▼
-              </button>
-              <div className="hidden group-hover:block absolute left-0 mt-0 w-56 rounded-lg bg-white text-gray-800 shadow-xl p-2">
-                <button onClick={() => navigate("/dashboard")} className={submenuLink}>
-                  📋 Tous les projets
-                </button>
-                <div className="border-t my-2"></div>
-                <div className="px-4 py-1 text-xs font-bold text-gray-600 uppercase tracking-wide">Gestion</div>
-                <button onClick={() => navigate("/projets/conception")} className={submenuLink}>
-                  🎨 Conception
-                </button>
-                <button onClick={() => navigate("/projets/estimation")} className={submenuLink}>
-                  💰 Estimation
-                </button>
-                <button onClick={() => navigate("/projets/gestion")} className={submenuLink}>
-                  📊 Gestion
-                </button>
-              </div>
+          <Link to="/dashboard" className="flex items-center space-x-2">
+            <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center">
+              <span className="text-2xl font-bold text-teal-600">D</span>
             </div>
+            <span className="text-xl font-bold text-white hidden sm:block">
+              DASTCC Central Cloud
+            </span>
+          </Link>
 
-            {/* ENTREPRENEURS - DROPDOWN */}
-            <div className="relative group">
-              <button className={link}>
-                👷 Entrepreneurs ▼
-              </button>
-              <div className="hidden group-hover:block absolute left-0 mt-0 w-56 rounded-lg bg-white text-gray-800 shadow-xl p-2">
-                <button onClick={() => navigate("/entrepreneurs/rbq")} className={submenuLink}>
-                  🏛️ Bottin RBQ
-                </button>
-                <button onClick={() => navigate("/entrepreneurs/personnel")} className={submenuLink}>
-                  📇 Bottin personnels
-                </button>
-              </div>
-            </div>
-
-            {/* APPELS D'OFFRE - DROPDOWN */}
-            <div className="relative group">
-              <button className={link}>
-                📢 Appels d'offre ▼
-              </button>
-              <div className="hidden group-hover:block absolute left-0 mt-0 w-56 rounded-lg bg-white text-gray-800 shadow-xl p-2">
-                <button onClick={() => navigate("/appels-offre/seao")} className={submenuLink}>
-                  🔗 SEAO
-                </button>
-                <button onClick={() => navigate("/appels-offre/merx")} className={submenuLink}>
-                  📈 MERX
-                </button>
-                <button onClick={() => navigate("/appels-offre/buy-gc")} className={submenuLink}>
-                  🏗️ Buy GC
-                </button>
-                <button onClick={() => navigate("/appels-offre/bonfire")} className={submenuLink}>
-                  🔥 Bonfire
-                </button>
-              </div>
-            </div>
-
-            {/* RESSOURCES - DROPDOWN */}
-            <div className="relative group">
-              <button className={link}>
-                📚 Ressources ▼
-              </button>
-              <div className="hidden group-hover:block absolute left-0 mt-0 w-56 rounded-lg bg-white text-gray-800 shadow-xl p-2">
-                <button onClick={() => navigate("/ressources/code-navigator")} className={submenuLink}>
-                  📖 Code Navigator
-                </button>
-                <button onClick={() => navigate("/ressources/ccq-navigator")} className={submenuLink}>
-                  ⚖️ CCQ Navigator
-                </button>
-                <button onClick={() => navigate("/ressources/documents-acc-ccdc")} className={submenuLink}>
-                  📄 Contrats ACC/CCDC
-                </button>
-                <button onClick={() => navigate("/ressources/associations")} className={submenuLink}>
-                  🤝 Associations
-                </button>
-              </div>
-            </div>
-
-            {/* OUTILS AVANCÉS - DROPDOWN */}
-            <div className="relative group">
-              <button className={link}>
-                ⚙️ Outils avancés ▼
-              </button>
-              <div className="hidden group-hover:block absolute left-0 mt-0 w-56 rounded-lg bg-white text-gray-800 shadow-xl p-2">
-                <button onClick={() => navigate("/outils-avances/application-mobile")} className={submenuLink}>
-                  📱 App terrain mobile
-                </button>
-                <button onClick={() => navigate("/outils-avances/messagerie")} className={submenuLink}>
-                  💬 Messagerie d'équipe
-                </button>
-                <button onClick={() => navigate("/outils-avances/geolocalisation")} className={submenuLink}>
-                  🗺️ Géolocalisation
-                </button>
-              </div>
-            </div>
-          </nav>
-
-          {/* RIGHT SIDE - Dark Mode + User Menu */}
-          <div className="ml-auto flex items-center gap-3">
-            
-            {/* Dark Mode Toggle */}
-            <button
-              onClick={() => setDarkMode(!darkMode)}
-              className="p-2 rounded-lg hover:bg-white/10 transition"
-              title="Mode sombre"
+          {/* Desktop Menu */}
+          <nav className="hidden lg:flex items-center space-x-1">
+            <Link
+              to="/dashboard"
+              className="px-4 py-2 text-white hover:bg-white/10 rounded-lg transition"
             >
-              {darkMode ? <Sun size={18} /> : <Moon size={18} />}
-            </button>
+              Tableau de bord
+            </Link>
 
-            {/* User Menu */}
-            {userProfile && (
-              <div className="relative">
+            {menuItems.map((menu) => (
+              <div key={menu.label} className="relative">
                 <button
-                  onClick={() => setShowUserMenu(!showUserMenu)}
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-white/10 transition"
+                  onClick={() => toggleDropdown(menu.label)}
+                  className="px-4 py-2 text-white hover:bg-white/10 rounded-lg transition flex items-center gap-1"
                 >
-                  <div className="w-8 h-8 rounded-full bg-white/20 grid place-items-center font-bold text-xs">
-                    {userProfile.fullName?.charAt(0).toUpperCase() || 'U'}
-                  </div>
-                  <div className="text-left hidden sm:block">
-                    <div className="text-xs font-semibold leading-none">{userProfile.fullName}</div>
-                    <div className="text-xs opacity-90">{userProfile.email}</div>
-                  </div>
+                  {menu.label}
+                  <ChevronDown size={16} />
                 </button>
 
-                {/* User Dropdown Menu */}
-                {showUserMenu && (
-                  <div className="absolute right-0 mt-2 w-48 rounded-lg bg-white text-gray-800 shadow-xl p-1 z-50">
-                    <button
-                      onClick={() => {
-                        navigate("/settings")
-                        setShowUserMenu(false)
-                      }}
-                      className={submenuLink}
-                    >
-                      <SettingsIcon size={16} className="inline mr-2" /> Paramètres
-                    </button>
-                    <div className="border-t my-2"></div>
-                    <button
-                      onClick={() => {
-                        handleSignOut()
-                        setShowUserMenu(false)
-                      }}
-                      className={`${submenuLink} text-red-600 hover:bg-red-50`}
-                    >
-                      <LogOut size={16} className="inline mr-2" /> Déconnexion
-                    </button>
+                {openDropdown === menu.label && (
+                  <div className="absolute top-full left-0 mt-1 w-56 bg-white rounded-lg shadow-xl py-2 z-50">
+                    {menu.items.map((item) => (
+                      <Link
+                        key={item.label}
+                        to={item.path}
+                        onClick={() => {
+                          if (item.requiresProject && !currentProjectId) {
+                            alert('Veuillez d\'abord sélectionner un projet depuis le tableau de bord')
+                          }
+                          setOpenDropdown(null)
+                        }}
+                        className="block px-4 py-2 text-gray-700 hover:bg-teal-50 transition"
+                      >
+                        {item.label}
+                        {item.requiresProject && !currentProjectId && (
+                          <span className="ml-2 text-xs text-orange-500">⚠️ Projet requis</span>
+                        )}
+                      </Link>
+                    ))}
                   </div>
                 )}
               </div>
-            )}
+            ))}
+          </nav>
+
+          {/* User Menu */}
+          <div className="flex items-center gap-4">
+            <span className="text-white text-sm hidden sm:block">
+              {user?.email}
+            </span>
+            <button
+              onClick={handleSignOut}
+              className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition"
+            >
+              <LogOut size={18} />
+              <span className="hidden sm:inline">Déconnexion</span>
+            </button>
+
+            {/* Mobile Menu Button */}
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="lg:hidden text-white"
+            >
+              {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+            </button>
           </div>
         </div>
+
+        {/* Mobile Menu */}
+        {mobileMenuOpen && (
+          <div className="lg:hidden py-4 border-t border-white/20">
+            <Link
+              to="/dashboard"
+              className="block px-4 py-2 text-white hover:bg-white/10 rounded-lg"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Tableau de bord
+            </Link>
+
+            {menuItems.map((menu) => (
+              <div key={menu.label} className="mt-2">
+                <div className="px-4 py-2 text-white font-semibold">{menu.label}</div>
+                {menu.items.map((item) => (
+                  <Link
+                    key={item.label}
+                    to={item.path}
+                    onClick={() => {
+                      if (item.requiresProject && !currentProjectId) {
+                        alert('Veuillez d\'abord sélectionner un projet depuis le tableau de bord')
+                      }
+                      setMobileMenuOpen(false)
+                    }}
+                    className="block px-8 py-2 text-white/90 hover:bg-white/10 rounded-lg text-sm"
+                  >
+                    {item.label}
+                    {item.requiresProject && !currentProjectId && (
+                      <span className="ml-2 text-xs text-orange-300">⚠️</span>
+                    )}
+                  </Link>
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
+
+      {/* Fermer dropdown si on clique ailleurs */}
+      {openDropdown && (
+        <div
+          className="fixed inset-0 z-40"
+          onClick={() => setOpenDropdown(null)}
+        />
+      )}
     </header>
   )
 }
