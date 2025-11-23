@@ -1,133 +1,280 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { useAuth } from '@/hooks/useAuth'
-
-// Pages principales - IMPORTS NOMMÉS
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
+import { AuthProvider } from '@/hooks/useAuth'
+import { ProjectsProvider } from '@/hooks/useProjects'
+import { ToastProvider } from '@/components/ToastProvider'
 import { Login } from '@/pages/Login'
 import { Dashboard } from '@/pages/Dashboard'
-import { Pricing } from '@/pages/Pricing'
 import { ProjectDetails } from '@/pages/ProjectDetails'
-import ProjectCosts from '@/pages/ProjectCosts'
 import { Takeoff } from '@/pages/Takeoff'
 import { Settings } from '@/pages/Settings'
-import CloudStorage from '@/pages/CloudStorage'
-import BidProposal from '@/pages/BidProposal'
+import { Pricing } from '@/pages/Pricing'
+import { CloudStorage } from '@/pages/CloudStorage'
+import { BidProposal } from '@/pages/BidProposal'
+import { ProjectCosts } from '@/pages/ProjectCosts'
 
-import PrivateLayout from '@/components/PrivateLayout'
-import { ToastProvider } from '@/components/ToastProvider'
-import './index.css'
+// Pages Projets
+import { ProjetsConcept } from '@/pages/Projets/Conception'
+import { ProjetsEstimation } from '@/pages/Projets/Estimation'
+import { ProjetsGestion } from '@/pages/Projets/Gestion'
 
-// Loading component
-const LoadingPage = () => (
-  <div className="min-h-screen flex items-center justify-center">
-    <div className="text-center">
-      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600 mx-auto mb-4"></div>
-      <p className="text-gray-600">Chargement...</p>
-    </div>
-  </div>
-)
+// Pages Entrepreneurs
+import { EntrepreneursRBQ } from '@/pages/Entrepreneurs/RBQ'
+import { EntrepreneursPersonnel } from '@/pages/Entrepreneurs/Personnel'
+
+// Pages Appels d'offre
+import { AppelsOffreSEAO } from '@/pages/AppelsOffre/SEAO'
+import { AppelsOffreMERX } from '@/pages/AppelsOffre/MERX'
+import { AppelsOffreBuyGC } from '@/pages/AppelsOffre/BuyGC'
+import { AppelsOffreBonfire } from '@/pages/AppelsOffre/Bonfire'
+
+// Pages Ressources
+import { CodeNavigator } from '@/pages/Ressources/CodeNavigator'
+import { CCQNavigator } from '@/pages/Ressources/CCQNavigator'
+import { DocumentsACCCDC } from '@/pages/Ressources/DocumentsACCCCDC'
+import { Associations } from '@/pages/Ressources/Associations'
+
+// Pages Outils Avancés
+import { ApplicationMobileTerrain } from '@/pages/OutilsAvances/ApplicationMobile'
+import { MessagerieEquipe } from '@/pages/OutilsAvances/Messagerie'
+import { Geolocalisation } from '@/pages/OutilsAvances/Geolocalisation'
+
+import { AppHeader } from '@/components/AppHeader'
+import { useAuth } from '@/hooks/useAuth'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
-
+  
   if (loading) {
-    return <LoadingPage />
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="spinner" />
+      </div>
+    )
   }
-
+  
   return user ? <>{children}</> : <Navigate to="/login" />
+}
+
+function PrivateLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <AppHeader />
+      <main className="max-w-7xl mx-auto px-4 py-8">
+        {children}
+      </main>
+    </div>
+  )
 }
 
 export default function App() {
   return (
-    <ToastProvider>
-      <BrowserRouter>
-        <Routes>
-          {/* PUBLIC ROUTES */}
-          <Route path="/login" element={<Login />} />
-          <Route path="/pricing" element={<Pricing />} />
+    <Router>
+      <AuthProvider>
+        <ProjectsProvider>
+          <ToastProvider>
+            <Routes>
+              {/* Public Routes */}
+              <Route path="/login" element={<Login />} />
+              <Route path="/pricing" element={<Pricing />} />
 
-          {/* PRIVATE ROUTES */}
-          <Route
-            path="/dashboard"
-            element={
-              <PrivateRoute>
-                <PrivateLayout>
-                  <Dashboard />
-                </PrivateLayout>
-              </PrivateRoute>
-            }
-          />
+              {/* Private Routes - Dashboard */}
+              <Route path="/dashboard" element={
+                <PrivateRoute>
+                  <PrivateLayout>
+                    <Dashboard />
+                  </PrivateLayout>
+                </PrivateRoute>
+              } />
 
-          <Route
-            path="/project/:projectId"
-            element={
-              <PrivateRoute>
-                <PrivateLayout>
-                  <ProjectDetails />
-                </PrivateLayout>
-              </PrivateRoute>
-            }
-          />
+              {/* Private Routes - Projects */}
+              <Route path="/project/:projectId" element={
+                <PrivateRoute>
+                  <PrivateLayout>
+                    <ProjectDetails />
+                  </PrivateLayout>
+                </PrivateRoute>
+              } />
 
-          <Route
-            path="/project/:projectId/costs"
-            element={
-              <PrivateRoute>
-                <PrivateLayout>
-                  <ProjectCosts />
-                </PrivateLayout>
-              </PrivateRoute>
-            }
-          />
+              <Route path="/takeoff/:projectId" element={
+                <PrivateRoute>
+                  <PrivateLayout>
+                    <Takeoff />
+                  </PrivateLayout>
+                </PrivateRoute>
+              } />
 
-          <Route
-            path="/takeoff/:projectId"
-            element={
-              <PrivateRoute>
-                <PrivateLayout>
-                  <Takeoff />
-                </PrivateLayout>
-              </PrivateRoute>
-            }
-          />
+              <Route path="/cloud-storage/:projectId" element={
+                <PrivateRoute>
+                  <PrivateLayout>
+                    <CloudStorage />
+                  </PrivateLayout>
+                </PrivateRoute>
+              } />
 
-          <Route
-            path="/cloud-storage/:projectId"
-            element={
-              <PrivateRoute>
-                <PrivateLayout>
-                  <CloudStorage />
-                </PrivateLayout>
-              </PrivateRoute>
-            }
-          />
+              <Route path="/bid-proposal/:projectId" element={
+                <PrivateRoute>
+                  <PrivateLayout>
+                    <BidProposal />
+                  </PrivateLayout>
+                </PrivateRoute>
+              } />
 
-          <Route
-            path="/bid-proposal/:projectId"
-            element={
-              <PrivateRoute>
-                <PrivateLayout>
-                  <BidProposal />
-                </PrivateLayout>
-              </PrivateRoute>
-            }
-          />
+              <Route path="/project-costs/:projectId" element={
+                <PrivateRoute>
+                  <PrivateLayout>
+                    <ProjectCosts />
+                  </PrivateLayout>
+                </PrivateRoute>
+              } />
 
-          <Route
-            path="/settings"
-            element={
-              <PrivateRoute>
-                <PrivateLayout>
-                  <Settings />
-                </PrivateLayout>
-              </PrivateRoute>
-            }
-          />
+              {/* Private Routes - Projets Menu */}
+              <Route path="/projets/conception" element={
+                <PrivateRoute>
+                  <PrivateLayout>
+                    <ProjetsConcept />
+                  </PrivateLayout>
+                </PrivateRoute>
+              } />
 
-          {/* CATCH ALL */}
-          <Route path="/" element={<Navigate to="/dashboard" />} />
-          <Route path="*" element={<Navigate to="/dashboard" />} />
-        </Routes>
-      </BrowserRouter>
-    </ToastProvider>
+              <Route path="/projets/estimation" element={
+                <PrivateRoute>
+                  <PrivateLayout>
+                    <ProjetsEstimation />
+                  </PrivateLayout>
+                </PrivateRoute>
+              } />
+
+              <Route path="/projets/gestion" element={
+                <PrivateRoute>
+                  <PrivateLayout>
+                    <ProjetsGestion />
+                  </PrivateLayout>
+                </PrivateRoute>
+              } />
+
+              {/* Private Routes - Entrepreneurs */}
+              <Route path="/entrepreneurs/rbq" element={
+                <PrivateRoute>
+                  <PrivateLayout>
+                    <EntrepreneursRBQ />
+                  </PrivateLayout>
+                </PrivateRoute>
+              } />
+
+              <Route path="/entrepreneurs/personnel" element={
+                <PrivateRoute>
+                  <PrivateLayout>
+                    <EntrepreneursPersonnel />
+                  </PrivateLayout>
+                </PrivateRoute>
+              } />
+
+              {/* Private Routes - Appels d'offre */}
+              <Route path="/appels-offre/seao" element={
+                <PrivateRoute>
+                  <PrivateLayout>
+                    <AppelsOffreSEAO />
+                  </PrivateLayout>
+                </PrivateRoute>
+              } />
+
+              <Route path="/appels-offre/merx" element={
+                <PrivateRoute>
+                  <PrivateLayout>
+                    <AppelsOffreMERX />
+                  </PrivateLayout>
+                </PrivateRoute>
+              } />
+
+              <Route path="/appels-offre/buy-gc" element={
+                <PrivateRoute>
+                  <PrivateLayout>
+                    <AppelsOffreBuyGC />
+                  </PrivateLayout>
+                </PrivateRoute>
+              } />
+
+              <Route path="/appels-offre/bonfire" element={
+                <PrivateRoute>
+                  <PrivateLayout>
+                    <AppelsOffreBonfire />
+                  </PrivateLayout>
+                </PrivateRoute>
+              } />
+
+              {/* Private Routes - Ressources */}
+              <Route path="/ressources/code-navigator" element={
+                <PrivateRoute>
+                  <PrivateLayout>
+                    <CodeNavigator />
+                  </PrivateLayout>
+                </PrivateRoute>
+              } />
+
+              <Route path="/ressources/ccq-navigator" element={
+                <PrivateRoute>
+                  <PrivateLayout>
+                    <CCQNavigator />
+                  </PrivateLayout>
+                </PrivateRoute>
+              } />
+
+              <Route path="/ressources/documents-acc-ccdc" element={
+                <PrivateRoute>
+                  <PrivateLayout>
+                    <DocumentsACCCDC />
+                  </PrivateLayout>
+                </PrivateRoute>
+              } />
+
+              <Route path="/ressources/associations" element={
+                <PrivateRoute>
+                  <PrivateLayout>
+                    <Associations />
+                  </PrivateLayout>
+                </PrivateRoute>
+              } />
+
+              {/* Private Routes - Outils Avancés */}
+              <Route path="/outils-avances/application-mobile" element={
+                <PrivateRoute>
+                  <PrivateLayout>
+                    <ApplicationMobileTerrain />
+                  </PrivateLayout>
+                </PrivateRoute>
+              } />
+
+              <Route path="/outils-avances/messagerie" element={
+                <PrivateRoute>
+                  <PrivateLayout>
+                    <MessagerieEquipe />
+                  </PrivateLayout>
+                </PrivateRoute>
+              } />
+
+              <Route path="/outils-avances/geolocalisation" element={
+                <PrivateRoute>
+                  <PrivateLayout>
+                    <Geolocalisation />
+                  </PrivateLayout>
+                </PrivateRoute>
+              } />
+
+              {/* Settings */}
+              <Route path="/settings" element={
+                <PrivateRoute>
+                  <PrivateLayout>
+                    <Settings />
+                  </PrivateLayout>
+                </PrivateRoute>
+              } />
+
+              {/* Redirect */}
+              <Route path="/" element={<Navigate to="/dashboard" />} />
+            </Routes>
+          </ToastProvider>
+        </ProjectsProvider>
+      </AuthProvider>
+    </Router>
   )
 }
