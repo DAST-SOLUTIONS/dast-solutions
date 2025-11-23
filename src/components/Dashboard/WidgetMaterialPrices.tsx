@@ -211,7 +211,7 @@ export function WidgetMaterialPrices({ materials, onPriceAlert }: WidgetMaterial
                 width={40}
               />
               <Tooltip
-                formatter={(value) => `$${value.toFixed(2)}`}
+                formatter={(value) => `$${Number(value).toFixed(2)}`}
                 contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }}
               />
               <Line
