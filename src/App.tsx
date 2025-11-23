@@ -1,6 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
-import { useProjects } from '@/hooks/useProjects'
 import { ToastProvider } from '@/components/ToastProvider'
 import { Login } from '@/pages/Login'
 import { Dashboard } from '@/pages/Dashboard'
@@ -133,7 +132,8 @@ export default function App() {
             </PrivateRoute>
           } />
 
-          <Route path="/projets/estimation" element={
+          {/* FIX: Route Estimation avec projectId */}
+          <Route path="/projets/:projectId/estimation" element={
             <PrivateRoute>
               <PrivateLayout>
                 <ProjetsEstimation />
