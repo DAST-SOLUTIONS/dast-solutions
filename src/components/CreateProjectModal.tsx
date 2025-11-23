@@ -14,23 +14,15 @@ export function CreateProjectModal({ isOpen, onClose }: CreateProjectModalProps)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  // Section 1 - Obligatoires
   const [formData, setFormData] = useState({
-    // SECTION 1 - OBLIGATOIRE
     name: '',
     type: '',
     address: '',
-
-    // SECTION 2 - OPTIONNEL
     description: '',
     project_number: '',
     model: '',
-
-    // SECTION 3 - OPTIONNEL
     start_date: '',
     end_date: '',
-
-    // SECTION 4 - OPTIONNEL
     project_value: '',
     currency: 'CAD',
   })
@@ -50,7 +42,7 @@ export function CreateProjectModal({ isOpen, onClose }: CreateProjectModalProps)
       return false
     }
     if (!formData.address.trim()) {
-      setError('L\'adresse est obligatoire')
+      setError("L'adresse est obligatoire")
       return false
     }
     setError('')
@@ -65,20 +57,20 @@ export function CreateProjectModal({ isOpen, onClose }: CreateProjectModalProps)
     try {
       setLoading(true)
       
-      // Créer le projet
-      const newProject = await createProject(formData.name, {
-        type: formData.type,
-        address: formData.address,
-        description: formData.description || null,
-        project_number: formData.project_number || null,
-        model: formData.model || null,
-        start_date: formData.start_date || null,
-        end_date: formData.end_date || null,
-        project_value: formData.project_value ? parseFloat(formData.project_value) : null,
-        currency: formData.currency,
-      })
+      // ✅ LIGNE 69 FIXÉE - Paramètres séparés au lieu d'un objet
+      const newProject = await createProject(
+        formData.name,
+        formData.description || undefined,
+        formData.type || undefined,
+        undefined, // clientName
+        formData.project_number || undefined,
+        formData.address || undefined,
+        formData.start_date || undefined,
+        formData.end_date || undefined,
+        formData.project_value ? parseFloat(formData.project_value) : undefined,
+        formData.currency || undefined
+      )
 
-      // Rediriger vers le projet
       onClose()
       navigate(`/project/${newProject.id}`)
     } catch (err) {
@@ -94,18 +86,13 @@ export function CreateProjectModal({ isOpen, onClose }: CreateProjectModalProps)
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg shadow-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        {/* Header */}
         <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
           <h2 className="text-2xl font-bold text-gray-900">Créer un projet</h2>
-          <button
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-700"
-          >
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
             <X size={24} />
           </button>
         </div>
 
-        {/* Body */}
         <form onSubmit={handleSubmit} className="p-6 space-y-8">
           {error && (
             <div className="p-4 bg-red-100 border border-red-400 text-red-700 rounded">
@@ -113,13 +100,11 @@ export function CreateProjectModal({ isOpen, onClose }: CreateProjectModalProps)
             </div>
           )}
 
-          {/* SECTION 1 - OBLIGATOIRE */}
           <div className="border-b pb-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
               <span className="text-red-500">*</span> Informations de base
             </h3>
             <div className="space-y-4">
-              {/* Nom */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Nom du projet <span className="text-red-500">*</span>
@@ -135,7 +120,6 @@ export function CreateProjectModal({ isOpen, onClose }: CreateProjectModalProps)
                 />
               </div>
 
-              {/* Type */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Type de projet <span className="text-red-500">*</span>
@@ -156,7 +140,6 @@ export function CreateProjectModal({ isOpen, onClose }: CreateProjectModalProps)
                 </select>
               </div>
 
-              {/* Adresse */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Adresse <span className="text-red-500">*</span>
@@ -174,15 +157,11 @@ export function CreateProjectModal({ isOpen, onClose }: CreateProjectModalProps)
             </div>
           </div>
 
-          {/* SECTION 2 - DÉTAILS (OPTIONNEL) */}
           <div className="border-b pb-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Détails (optionnel)</h3>
             <div className="space-y-4">
-              {/* Description */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Description
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
                 <textarea
                   name="description"
                   value={formData.description}
@@ -194,11 +173,8 @@ export function CreateProjectModal({ isOpen, onClose }: CreateProjectModalProps)
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                {/* Numéro de projet */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Numéro de projet
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Numéro de projet</label>
                   <input
                     type="text"
                     name="project_number"
@@ -209,11 +185,8 @@ export function CreateProjectModal({ isOpen, onClose }: CreateProjectModalProps)
                   />
                 </div>
 
-                {/* Modèle */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Modèle
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Modèle</label>
                   <input
                     type="text"
                     name="model"
@@ -227,15 +200,11 @@ export function CreateProjectModal({ isOpen, onClose }: CreateProjectModalProps)
             </div>
           </div>
 
-          {/* SECTION 3 - DATES (OPTIONNEL) */}
           <div className="border-b pb-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Dates (optionnel)</h3>
             <div className="grid grid-cols-2 gap-4">
-              {/* Date de début */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Date de début
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Date de début</label>
                 <input
                   type="date"
                   name="start_date"
@@ -245,11 +214,8 @@ export function CreateProjectModal({ isOpen, onClose }: CreateProjectModalProps)
                 />
               </div>
 
-              {/* Date de fin */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Date de fin
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Date de fin</label>
                 <input
                   type="date"
                   name="end_date"
@@ -261,15 +227,11 @@ export function CreateProjectModal({ isOpen, onClose }: CreateProjectModalProps)
             </div>
           </div>
 
-          {/* SECTION 4 - VALEUR (OPTIONNEL) */}
           <div>
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Valeur (optionnel)</h3>
             <div className="grid grid-cols-3 gap-4">
-              {/* Valeur */}
               <div className="col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Valeur du projet
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Valeur du projet</label>
                 <input
                   type="number"
                   name="project_value"
@@ -281,11 +243,8 @@ export function CreateProjectModal({ isOpen, onClose }: CreateProjectModalProps)
                 />
               </div>
 
-              {/* Devise */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Devise
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Devise</label>
                 <select
                   name="currency"
                   value={formData.currency}
@@ -300,7 +259,6 @@ export function CreateProjectModal({ isOpen, onClose }: CreateProjectModalProps)
             </div>
           </div>
 
-          {/* Footer */}
           <div className="flex justify-end gap-4 pt-6 border-t">
             <button
               type="button"
