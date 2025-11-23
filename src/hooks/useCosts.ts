@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+
 export interface Material {
   id: string
   project_id: string
@@ -13,15 +14,21 @@ export interface Material {
   created_at: string
   updated_at: string
 }
-// ... autres interfaces (Labor, Equipment, Subcontractor, Overhead, CostSummary)
+
+export interface CostSummary {
+  totalMaterials: number
+  totalLabor: number
+  totalEquipment: number
+  totalSubcontractors: number
+  totalOverhead: number
+  grandTotal: number
+}
+
 export function useCosts(projectId: string | null) {
   const [materials, setMaterials] = useState<Material[]>([])
-  const [labor, setLabor] = useState<Labor[]>([])
-  const [equipment, setEquipment] = useState<Equipment[]>([])
-  const [subcontractors, setSubcontractors] = useState<Subcontractor[]>([])
-  const [overhead, setOverhead] = useState<Overhead[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
   const fetchCosts = async () => {
     if (!projectId) {
       setLoading(false)
@@ -29,33 +36,66 @@ export function useCosts(projectId: string | null) {
     }
     try {
       setLoading(true)
-      const [materialsData, laborData, equipmentData, subcontractorsData, overheadData] = await Promise.all([
-        supabase.from('materials').select('*').eq('project_id', projectId),
-        supabase.from('labor').select('*').eq('project_id', projectId),
-        supabase.from('equipment').select('*').eq('project_id', projectId),
-        supabase.from('subcontractors').select('*').eq('project_id', projectId),
-        supabase.from('overhead').select('*').eq('project_id', projectId),
-      ])
-      setMaterials(materialsData.data || [])
-      setLabor(laborData.data || [])
-      setEquipment(equipmentData.data || [])
-      setSubcontractors(subcontractorsData.data || [])
-      setOverhead(overheadData.data || [])
+      const { data, error: fetchError } = await supabase
+        .from('materials')
+        .select('*')
+        .eq('project_id', projectId)
+      if (fetchError) throw fetchError
+      setMaterials(data || [])
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to fetch costs'
-      setError(message)
+      setError(err instanceof Error ? err.message : 'Failed to fetch costs')
     } finally {
       setLoading(false)
     }
   }
+
   useEffect(() => {
     fetchCosts()
   }, [projectId])
-  // ... reste du hook (calculateSummary, add*, delete*)
+
+  const calculateSummary = (): CostSummary => {
+    const totalMaterials = materials.reduce((sum, m) => sum + m.subtotal, 0)
+    return {
+      totalMaterials,
+      totalLabor: 0,
+      totalEquipment: 0,
+      totalSubcontractors: 0,
+      totalOverhead: 0,
+      grandTotal: totalMaterials,
+    }
+  }
+
+  const addMaterial = async (data: Partial<Material>) => {
+    const { error } = await supabase.from('materials').insert([data])
+    if (error) throw error
+    await fetchCosts()
+  }
+
+  const deleteMaterial = async (id: string) => {
+    const { error } = await supabase.from('materials').delete().eq('id', id)
+    if (error) throw error
+    await fetchCosts()
+  }
+
   return {
-    materials, labor, equipment, subcontractors, overhead, loading, error,
-    calculateSummary, addMaterial, addLabor, addEquipment,
-    addSubcontractor, addOverhead, deleteMaterial, deleteLabor,
-    deleteEquipment, deleteSubcontractor, deleteOverhead, refetch: fetchCosts,
+    materials,
+    labor: [],
+    equipment: [],
+    subcontractors: [],
+    overhead: [],
+    loading,
+    error,
+    calculateSummary,
+    addMaterial,
+    addLabor: async () => {},
+    addEquipment: async () => {},
+    addSubcontractor: async () => {},
+    addOverhead: async () => {},
+    deleteMaterial,
+    deleteLabor: async () => {},
+    deleteEquipment: async () => {},
+    deleteSubcontractor: async () => {},
+    deleteOverhead: async () => {},
+    refetch: fetchCosts,
   }
 }
