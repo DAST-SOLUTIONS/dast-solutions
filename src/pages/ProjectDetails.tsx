@@ -1,207 +1,132 @@
-import { DocumentUpload } from '@/components/DocumentUpload'
-import { DocumentList } from '@/components/DocumentList'
 import { useParams, useNavigate } from 'react-router-dom'
-import { useProjects, Project } from '@/hooks/useProjects'
-import { useState, useEffect } from 'react'
-import { Save, Cloud } from 'lucide-react'
+import { useProject } from '@/hooks/useProjects'
 import { PageTitle } from '@/components/PageTitle'
+import { Calculator, FileText, DollarSign, Users } from 'lucide-react'
 
 export function ProjectDetails() {
-  const { projectId } = useParams()
+  const { projectId } = useParams<{ projectId: string }>()
   const navigate = useNavigate()
-  const { projects, updateProject } = useProjects()
-  const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    project_type: 'Résidentiel',
-    client_name: '',
-    project_number: '',
-    address: '',
-    start_date: '',
-    end_date: '',
-    project_value: '',
-    timezone: 'America/Toronto',
-  })
-  const [loading, setLoading] = useState(false)
-  const [saved, setSaved] = useState(false)
+  const { project, loading } = useProject(projectId || '')
 
-  const project = projects.find(p => p.id === projectId)
-
-  useEffect(() => {
-    if (project) {
-      setFormData({
-        name: project.name || '',
-        description: project.description || '',
-        project_type: project.project_type || 'Résidentiel',
-        client_name: project.client_name || '',
-        project_number: project.project_number || '',
-        address: project.address || '',
-        start_date: project.start_date ? project.start_date.split('T')[0] : '',
-        end_date: project.end_date ? project.end_date.split('T')[0] : '',
-        project_value: project.project_value ? project.project_value.toString() : '',
-        timezone: project.timezone || 'America/Toronto',
-      })
-    }
-  }, [project])
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target
-    setFormData(prev => ({ ...prev, [name]: value }))
-  }
-
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-    setSaved(false)
-
-    try {
-      const updates: Partial<Project> = {
-        name: formData.name,
-        description: formData.description || null,
-        project_type: formData.project_type || null,
-        client_name: formData.client_name || null,
-        project_number: formData.project_number || null,
-        address: formData.address || null,
-        start_date: formData.start_date || null,
-        end_date: formData.end_date || null,
-        project_value: formData.project_value ? parseFloat(formData.project_value) : null,
-        timezone: formData.timezone || null,
-      }
-      await updateProject(projectId || '', updates)
-      setSaved(true)
-      setTimeout(() => setSaved(false), 3000)
-    } catch (error) {
-      console.error('Error saving project:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  if (!project) {
+  if (loading) {
     return (
-      <div className="min-h-[50vh] flex items-center justify-center">
-        <p className="text-gray-600">Projet non trouvé</p>
+      <div className="flex justify-center items-center h-64">
+        <div className="spinner" />
       </div>
     )
   }
 
-  const projectTypes = ['Résidentiel', 'Commercial', 'Industriel', 'Institutionnel', 'Mixte']
-  const timezones = ['America/Toronto', 'America/Vancouver', 'America/Denver', 'America/Chicago', 'America/New_York']
+  if (!project) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-gray-600">Projet introuvable</p>
+      </div>
+    )
+  }
 
   return (
     <div className="animate-fade-in">
-      <PageTitle title="Détails du projet" subtitle={project.name} />
+      <PageTitle title={project.name} subtitle={project.description || 'Détails du projet'} />
 
-      {saved && (
-        <div className="mb-6 p-4 bg-green-100 border border-green-400 text-green-700 rounded-lg">
-          Projet sauvegardé avec succès!
+      {/* Modules du projet */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+        
+        {/* CARTE ESTIMATION/TAKEOFF */}
+        <div 
+          onClick={() => navigate(`/projets/${projectId}/estimation`)}
+          className="bg-white rounded-lg shadow-lg p-6 cursor-pointer hover:shadow-xl transition-shadow"
+        >
+          <div className="flex items-center gap-4 mb-4">
+            <div className="w-12 h-12 bg-teal-100 rounded-lg flex items-center justify-center">
+              <Calculator className="text-teal-600" size={24} />
+            </div>
+            <h3 className="text-xl font-bold text-gray-900">Estimation</h3>
+          </div>
+          <p className="text-gray-600 mb-4">
+            Relevé de quantités (Takeoff) et estimation des coûts
+          </p>
+          <button className="btn btn-primary w-full">
+            Ouvrir le module →
+          </button>
         </div>
-      )}
 
-      {/* BOUTONS D'ACTION */}
-      <div className="flex gap-4 mb-6">
-        <button 
+        {/* CARTE DOCUMENTS */}
+        <div 
           onClick={() => navigate(`/cloud-storage/${projectId}`)}
-          className="btn btn-primary flex items-center gap-2"
+          className="bg-white rounded-lg shadow-lg p-6 cursor-pointer hover:shadow-xl transition-shadow"
         >
-          <Cloud size={20} />
-          ☁️ Cloud Storage
-        </button>
-        <button 
-          onClick={() => navigate(`/takeoff/${projectId}`)}
-          className="btn btn-secondary flex items-center gap-2"
-        >
-          📐 Takeoff
-        </button>
-        <button 
+          <div className="flex items-center gap-4 mb-4">
+            <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+              <FileText className="text-blue-600" size={24} />
+            </div>
+            <h3 className="text-xl font-bold text-gray-900">Documents</h3>
+          </div>
+          <p className="text-gray-600 mb-4">
+            Plans, contrats et documents du projet
+          </p>
+          <button className="btn btn-secondary w-full">
+            Voir les documents →
+          </button>
+        </div>
+
+        {/* CARTE SOUMISSIONS */}
+        <div 
           onClick={() => navigate(`/bid-proposal/${projectId}`)}
-          className="btn btn-secondary flex items-center gap-2"
+          className="bg-white rounded-lg shadow-lg p-6 cursor-pointer hover:shadow-xl transition-shadow"
         >
-          💰 Soumission
-        </button>
+          <div className="flex items-center gap-4 mb-4">
+            <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
+              <DollarSign className="text-orange-600" size={24} />
+            </div>
+            <h3 className="text-xl font-bold text-gray-900">Soumissions</h3>
+          </div>
+          <p className="text-gray-600 mb-4">
+            Gestion des appels d'offre et soumissions
+          </p>
+          <button className="btn btn-secondary w-full">
+            Gérer les soumissions →
+          </button>
+        </div>
+
+        {/* CARTE COÛTS */}
+        <div 
+          onClick={() => navigate(`/project-costs/${projectId}`)}
+          className="bg-white rounded-lg shadow-lg p-6 cursor-pointer hover:shadow-xl transition-shadow"
+        >
+          <div className="flex items-center gap-4 mb-4">
+            <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+              <DollarSign className="text-green-600" size={24} />
+            </div>
+            <h3 className="text-xl font-bold text-gray-900">Contrôle des coûts</h3>
+          </div>
+          <p className="text-gray-600 mb-4">
+            Suivi budgétaire et contrôle des dépenses
+          </p>
+          <button className="btn btn-secondary w-full">
+            Voir les coûts →
+          </button>
+        </div>
+
       </div>
 
-      <form onSubmit={handleSave} className="bg-white p-8 rounded-lg shadow space-y-6">
-        {/* Nom et Description */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Nom du projet *</label>
-          <input
-            type="text" name="name" value={formData.name} onChange={handleChange} required
-            className="input-field"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
-          <textarea name="description" value={formData.description} onChange={handleChange} rows={3} className="input-field" />
-        </div>
-
-        {/* Infos Générales */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {/* Informations du projet */}
+      <div className="bg-white rounded-lg shadow p-6">
+        <h3 className="text-lg font-bold text-gray-900 mb-4">Informations</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Type de projet</label>
-            <select name="project_type" value={formData.project_type} onChange={handleChange} className="input-field">
-              {projectTypes.map((t) => <option key={t} value={t}>{t}</option>)}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Client</label>
-            <input type="text" name="client_name" value={formData.client_name} onChange={handleChange} className="input-field" />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">No. de projet</label>
-            <input type="text" name="project_number" value={formData.project_number} onChange={handleChange} className="input-field" />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Adresse</label>
-            <input type="text" name="address" value={formData.address} onChange={handleChange} className="input-field" />
-          </div>
-        </div>
-
-        {/* Dates */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Date de début</label>
-            <input type="date" name="start_date" value={formData.start_date} onChange={handleChange} className="input-field" />
+            <p className="text-sm text-gray-600">Nom du projet</p>
+            <p className="font-semibold">{project.name}</p>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Date de fin</label>
-            <input type="date" name="end_date" value={formData.end_date} onChange={handleChange} className="input-field" />
+            <p className="text-sm text-gray-600">Statut</p>
+            <p className="font-semibold capitalize">{project.status || 'En cours'}</p>
           </div>
-        </div>
-
-        {/* Valeur du projet */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Valeur du projet ($)</label>
-          <input type="number" name="project_value" value={formData.project_value} onChange={handleChange} step="0.01" className="input-field" />
-        </div>
-
-        {/* Actions */}
-        <div className="flex gap-4 pt-2">
-          <button type="submit" disabled={loading} className="btn btn-primary">
-            <Save className="inline -mt-1 mr-2" size={18} /> {loading ? 'Sauvegarde...' : 'Sauvegarder'}
-          </button>
-          <button type="button" onClick={() => navigate('/dashboard')} className="btn btn-secondary">
-            Annuler
-          </button>
-        </div>
-      </form>
-
-      {/* Documents */}
-      <div className="border-t pt-8 mt-8 bg-white p-8 rounded-lg shadow">
-        <h2 className="text-2xl font-bold text-gray-900 mb-6">Documents du projet</h2>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Ajouter des documents</h3>
-            <DocumentUpload projectId={projectId || ''} />
-          </div>
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Documents uploadés</h3>
-            <DocumentList projectId={projectId || ''} />
-          </div>
+          {project.description && (
+            <div className="md:col-span-2">
+              <p className="text-sm text-gray-600">Description</p>
+              <p className="text-gray-900">{project.description}</p>
+            </div>
+          )}
         </div>
       </div>
     </div>
