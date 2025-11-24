@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useTakeoff } from '@/hooks/takeoff/useTakeoff'
 import { useProjects } from '@/hooks/useProjects'
 import { useState, useRef } from 'react'
-import { Upload, FileText, Plus, Download, DollarSign, Layers, Save, FolderOpen } from 'lucide-react'
+import { Upload, FileText, Plus, Download, DollarSign, Layers, Save, FolderOpen, X } from 'lucide-react'
 
 // Catégories prédéfinies pour la construction
 const CATEGORIES = [
@@ -50,8 +50,36 @@ const TEMPLATES = {
 
 // Composant pour sélectionner un projet
 function ProjectSelector() {
-  const { projects, loading } = useProjects()
+  const { projects, loading, createProject } = useProjects()
   const navigate = useNavigate()
+  const [showNewProject, setShowNewProject] = useState(false)
+  const [newProject, setNewProject] = useState({ name: '', description: '', client: '' })
+  const [creating, setCreating] = useState(false)
+
+  const handleCreateProject = async () => {
+    if (!newProject.name.trim()) {
+      alert('Veuillez entrer un nom de projet')
+      return
+    }
+
+    try {
+      setCreating(true)
+      const project = await createProject({
+        name: newProject.name,
+        description: newProject.description,
+        client_name: newProject.client,
+        status: 'active'
+      })
+      
+      if (project?.id) {
+        navigate(`/projets/${project.id}/estimation`)
+      }
+    } catch (err) {
+      alert('Erreur lors de la création du projet')
+    } finally {
+      setCreating(false)
+    }
+  }
 
   if (loading) {
     return (
@@ -69,19 +97,20 @@ function ProjectSelector() {
         <div className="text-center mb-8">
           <FolderOpen size={64} className="mx-auto mb-4 text-teal-500" />
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Choisir un projet</h2>
-          <p className="text-gray-600">Sélectionnez le projet pour lequel vous souhaitez faire un relevé de quantités</p>
+          <p className="text-gray-600 mb-4">Sélectionnez le projet pour lequel vous souhaitez faire un relevé de quantités</p>
+          
+          <button
+            onClick={() => setShowNewProject(true)}
+            className="btn btn-primary"
+          >
+            <Plus size={16} className="mr-2" />
+            Nouveau projet
+          </button>
         </div>
 
         {projects.length === 0 ? (
           <div className="text-center py-8">
-            <p className="text-gray-500 mb-4">Aucun projet trouvé</p>
-            <button
-              onClick={() => navigate('/projects/new')}
-              className="btn btn-primary"
-            >
-              <Plus size={16} className="mr-2" />
-              Créer un projet
-            </button>
+            <p className="text-gray-500">Aucun projet trouvé. Créez votre premier projet!</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -102,6 +131,72 @@ function ProjectSelector() {
           </div>
         )}
       </div>
+
+      {/* Modal Nouveau Projet */}
+      {showNewProject && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold text-gray-900">Nouveau projet</h3>
+              <button onClick={() => setShowNewProject(false)} className="text-gray-500 hover:text-gray-700">
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nom du projet *</label>
+                <input
+                  type="text"
+                  value={newProject.name}
+                  onChange={(e) => setNewProject({...newProject, name: e.target.value})}
+                  placeholder="Ex: Résidence Tremblay"
+                  className="input-field"
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Client</label>
+                <input
+                  type="text"
+                  value={newProject.client}
+                  onChange={(e) => setNewProject({...newProject, client: e.target.value})}
+                  placeholder="Ex: Jean Tremblay"
+                  className="input-field"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <textarea
+                  value={newProject.description}
+                  onChange={(e) => setNewProject({...newProject, description: e.target.value})}
+                  placeholder="Ex: Construction maison unifamiliale 2 étages"
+                  className="input-field"
+                  rows={3}
+                />
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  onClick={() => setShowNewProject(false)}
+                  className="btn btn-secondary flex-1"
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={handleCreateProject}
+                  disabled={creating}
+                  className="btn btn-primary flex-1"
+                >
+                  {creating ? 'Création...' : 'Créer et commencer'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
