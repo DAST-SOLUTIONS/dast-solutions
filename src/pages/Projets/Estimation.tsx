@@ -64,12 +64,12 @@ function ProjectSelector() {
 
     try {
       setCreating(true)
-      const project = await createProject({
-        name: newProject.name,
-        description: newProject.description,
-        client_name: newProject.client,
-        status: 'active'
-      })
+      const project = await createProject(
+        newProject.name,
+        newProject.description,
+        undefined,
+        newProject.client
+      )
       
       if (project?.id) {
         navigate(`/projets/${project.id}/estimation`)
