@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useTakeoff } from '@/hooks/takeoff/useTakeoff'
 import { useProjects } from '@/hooks/useProjects'
 import { useState, useRef } from 'react'
-import { Upload, FileText, Plus, Download, DollarSign, Layers, Save, FolderOpen, X } from 'lucide-react'
+import { Upload, FileText, Plus, Download, DollarSign, Layers, Save, FolderOpen, X, MapPin, Calendar, Building } from 'lucide-react'
 
 // Catégories prédéfinies pour la construction
 const CATEGORIES = [
@@ -22,6 +22,37 @@ const CATEGORIES = [
   { id: 'plancher', name: 'Revêtement de sol', color: '#A16207' },
   { id: 'armoires', name: 'Armoires / Comptoirs', color: '#78350F' },
   { id: 'autre', name: 'Autre', color: '#374151' }
+]
+
+// Types de projets
+const PROJECT_TYPES = [
+  'Résidentiel',
+  'Commercial',
+  'Institutionnel',
+  'Industriel',
+  'Multi-résidentiel',
+  'Rénovation',
+  'Agrandissement',
+  'Génie civil',
+  'Infrastructure',
+  'Autre'
+]
+
+// Provinces canadiennes
+const PROVINCES = [
+  { code: 'QC', name: 'Québec' },
+  { code: 'ON', name: 'Ontario' },
+  { code: 'BC', name: 'Colombie-Britannique' },
+  { code: 'AB', name: 'Alberta' },
+  { code: 'MB', name: 'Manitoba' },
+  { code: 'SK', name: 'Saskatchewan' },
+  { code: 'NS', name: 'Nouvelle-Écosse' },
+  { code: 'NB', name: 'Nouveau-Brunswick' },
+  { code: 'NL', name: 'Terre-Neuve-et-Labrador' },
+  { code: 'PE', name: 'Île-du-Prince-Édouard' },
+  { code: 'NT', name: 'Territoires du Nord-Ouest' },
+  { code: 'YT', name: 'Yukon' },
+  { code: 'NU', name: 'Nunavut' }
 ]
 
 // Templates de takeoff prédéfinis
@@ -53,8 +84,50 @@ function ProjectSelector() {
   const { projects, loading, createProject } = useProjects()
   const navigate = useNavigate()
   const [showNewProject, setShowNewProject] = useState(false)
-  const [newProject, setNewProject] = useState({ name: '', description: '', client: '' })
   const [creating, setCreating] = useState(false)
+  const [geolocating, setGeolocating] = useState(false)
+  
+  const [newProject, setNewProject] = useState({
+    name: '',
+    description: '',
+    client: '',
+    projectType: 'Résidentiel',
+    projectNumber: '',
+    street: '',
+    city: '',
+    province: 'QC',
+    postalCode: '',
+    country: 'Canada',
+    latitude: '',
+    longitude: '',
+    startDate: '',
+    endDate: '',
+    projectValue: ''
+  })
+
+  const getGeolocation = () => {
+    if (!navigator.geolocation) {
+      alert('La géolocalisation n\'est pas supportée par votre navigateur')
+      return
+    }
+
+    setGeolocating(true)
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setNewProject(prev => ({
+          ...prev,
+          latitude: position.coords.latitude.toFixed(6),
+          longitude: position.coords.longitude.toFixed(6)
+        }))
+        setGeolocating(false)
+      },
+      (error) => {
+        alert('Erreur de géolocalisation: ' + error.message)
+        setGeolocating(false)
+      },
+      { enableHighAccuracy: true }
+    )
+  }
 
   const handleCreateProject = async () => {
     if (!newProject.name.trim()) {
@@ -64,11 +137,29 @@ function ProjectSelector() {
 
     try {
       setCreating(true)
+      
+      const fullAddress = [
+        newProject.street,
+        newProject.city,
+        newProject.province,
+        newProject.postalCode,
+        newProject.country
+      ].filter(Boolean).join(', ')
+
+      const addressWithGeo = newProject.latitude && newProject.longitude
+        ? `${fullAddress} [${newProject.latitude}, ${newProject.longitude}]`
+        : fullAddress
+
       const project = await createProject(
         newProject.name,
-        newProject.description,
-        undefined,
-        newProject.client
+        newProject.description || undefined,
+        newProject.projectType,
+        newProject.client || undefined,
+        newProject.projectNumber || undefined,
+        addressWithGeo || undefined,
+        newProject.startDate || undefined,
+        newProject.endDate || undefined,
+        newProject.projectValue ? parseFloat(newProject.projectValue) : undefined
       )
       
       if (project?.id) {
@@ -79,6 +170,27 @@ function ProjectSelector() {
     } finally {
       setCreating(false)
     }
+  }
+
+  const resetForm = () => {
+    setNewProject({
+      name: '',
+      description: '',
+      client: '',
+      projectType: 'Résidentiel',
+      projectNumber: '',
+      street: '',
+      city: '',
+      province: 'QC',
+      postalCode: '',
+      country: 'Canada',
+      latitude: '',
+      longitude: '',
+      startDate: '',
+      endDate: '',
+      projectValue: ''
+    })
+    setShowNewProject(false)
   }
 
   if (loading) {
@@ -132,67 +244,239 @@ function ProjectSelector() {
         )}
       </div>
 
-      {/* Modal Nouveau Projet */}
+      {/* Modal Nouveau Projet - FORMULAIRE COMPLET */}
       {showNewProject && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4">
-            <div className="flex justify-between items-center mb-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-2xl my-8">
+            <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-bold text-gray-900">Nouveau projet</h3>
-              <button onClick={() => setShowNewProject(false)} className="text-gray-500 hover:text-gray-700">
+              <button onClick={resetForm} className="text-gray-500 hover:text-gray-700">
                 <X size={24} />
               </button>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-2">
+              
+              {/* Section: Informations générales */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Nom du projet *</label>
-                <input
-                  type="text"
-                  value={newProject.name}
-                  onChange={(e) => setNewProject({...newProject, name: e.target.value})}
-                  placeholder="Ex: Résidence Tremblay"
-                  className="input-field"
-                  autoFocus
-                />
+                <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-3 flex items-center gap-2">
+                  <Building size={16} />
+                  Informations générales
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Nom du projet *</label>
+                    <input
+                      type="text"
+                      value={newProject.name}
+                      onChange={(e) => setNewProject({...newProject, name: e.target.value})}
+                      placeholder="Ex: Résidence Tremblay"
+                      className="input-field"
+                      autoFocus
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Numéro de projet</label>
+                    <input
+                      type="text"
+                      value={newProject.projectNumber}
+                      onChange={(e) => setNewProject({...newProject, projectNumber: e.target.value})}
+                      placeholder="Ex: PRJ-2024-001"
+                      className="input-field"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Type de projet</label>
+                    <select
+                      value={newProject.projectType}
+                      onChange={(e) => setNewProject({...newProject, projectType: e.target.value})}
+                      className="input-field"
+                    >
+                      {PROJECT_TYPES.map(type => (
+                        <option key={type} value={type}>{type}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Client</label>
+                    <input
+                      type="text"
+                      value={newProject.client}
+                      onChange={(e) => setNewProject({...newProject, client: e.target.value})}
+                      placeholder="Ex: Jean Tremblay"
+                      className="input-field"
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                    <textarea
+                      value={newProject.description}
+                      onChange={(e) => setNewProject({...newProject, description: e.target.value})}
+                      placeholder="Ex: Construction maison unifamiliale 2 étages, 3 chambres, garage double"
+                      className="input-field"
+                      rows={2}
+                    />
+                  </div>
+                </div>
               </div>
 
+              {/* Section: Adresse */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Client</label>
-                <input
-                  type="text"
-                  value={newProject.client}
-                  onChange={(e) => setNewProject({...newProject, client: e.target.value})}
-                  placeholder="Ex: Jean Tremblay"
-                  className="input-field"
-                />
+                <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-3 flex items-center gap-2">
+                  <MapPin size={16} />
+                  Adresse du projet
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Adresse (rue et numéro)</label>
+                    <input
+                      type="text"
+                      value={newProject.street}
+                      onChange={(e) => setNewProject({...newProject, street: e.target.value})}
+                      placeholder="Ex: 123 Rue Principale"
+                      className="input-field"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Ville</label>
+                    <input
+                      type="text"
+                      value={newProject.city}
+                      onChange={(e) => setNewProject({...newProject, city: e.target.value})}
+                      placeholder="Ex: Montréal"
+                      className="input-field"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Province</label>
+                    <select
+                      value={newProject.province}
+                      onChange={(e) => setNewProject({...newProject, province: e.target.value})}
+                      className="input-field"
+                    >
+                      {PROVINCES.map(prov => (
+                        <option key={prov.code} value={prov.code}>{prov.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Code postal</label>
+                    <input
+                      type="text"
+                      value={newProject.postalCode}
+                      onChange={(e) => setNewProject({...newProject, postalCode: e.target.value.toUpperCase()})}
+                      placeholder="Ex: H2X 1Y4"
+                      className="input-field"
+                      maxLength={7}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Pays</label>
+                    <input
+                      type="text"
+                      value={newProject.country}
+                      onChange={(e) => setNewProject({...newProject, country: e.target.value})}
+                      placeholder="Canada"
+                      className="input-field"
+                    />
+                  </div>
+                </div>
+
+                {/* Géolocalisation */}
+                <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-sm font-medium text-gray-700">Géolocalisation</span>
+                    <button
+                      type="button"
+                      onClick={getGeolocation}
+                      disabled={geolocating}
+                      className="btn btn-secondary text-sm py-1 px-3"
+                    >
+                      <MapPin size={14} className="mr-1" />
+                      {geolocating ? 'Localisation...' : 'Obtenir ma position'}
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Latitude</label>
+                      <input
+                        type="text"
+                        value={newProject.latitude}
+                        onChange={(e) => setNewProject({...newProject, latitude: e.target.value})}
+                        placeholder="Ex: 45.508888"
+                        className="input-field text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Longitude</label>
+                      <input
+                        type="text"
+                        value={newProject.longitude}
+                        onChange={(e) => setNewProject({...newProject, longitude: e.target.value})}
+                        placeholder="Ex: -73.561668"
+                        className="input-field text-sm"
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
 
+              {/* Section: Dates et Budget */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                <textarea
-                  value={newProject.description}
-                  onChange={(e) => setNewProject({...newProject, description: e.target.value})}
-                  placeholder="Ex: Construction maison unifamiliale 2 étages"
-                  className="input-field"
-                  rows={3}
-                />
+                <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-3 flex items-center gap-2">
+                  <Calendar size={16} />
+                  Dates et Budget
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Date de début</label>
+                    <input
+                      type="date"
+                      value={newProject.startDate}
+                      onChange={(e) => setNewProject({...newProject, startDate: e.target.value})}
+                      className="input-field"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Date de fin prévue</label>
+                    <input
+                      type="date"
+                      value={newProject.endDate}
+                      onChange={(e) => setNewProject({...newProject, endDate: e.target.value})}
+                      className="input-field"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Valeur estimée ($)</label>
+                    <input
+                      type="number"
+                      value={newProject.projectValue}
+                      onChange={(e) => setNewProject({...newProject, projectValue: e.target.value})}
+                      placeholder="Ex: 500000"
+                      className="input-field"
+                      min="0"
+                      step="1000"
+                    />
+                  </div>
+                </div>
               </div>
+            </div>
 
-              <div className="flex gap-3 pt-4">
-                <button
-                  onClick={() => setShowNewProject(false)}
-                  className="btn btn-secondary flex-1"
-                >
-                  Annuler
-                </button>
-                <button
-                  onClick={handleCreateProject}
-                  disabled={creating}
-                  className="btn btn-primary flex-1"
-                >
-                  {creating ? 'Création...' : 'Créer et commencer'}
-                </button>
-              </div>
+            {/* Boutons d'action */}
+            <div className="flex gap-3 pt-6 mt-6 border-t">
+              <button
+                onClick={resetForm}
+                className="btn btn-secondary flex-1"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={handleCreateProject}
+                disabled={creating}
+                className="btn btn-primary flex-1"
+              >
+                {creating ? 'Création...' : 'Créer et commencer le takeoff'}
+              </button>
             </div>
           </div>
         </div>
@@ -582,11 +866,9 @@ function TakeoffModule({ projectId }: { projectId: string }) {
 export function ProjetsEstimation() {
   const { projectId } = useParams<{ projectId: string }>()
 
-  // Si pas de projectId, afficher le sélecteur de projet
   if (!projectId) {
     return <ProjectSelector />
   }
 
-  // Sinon, afficher le module Takeoff
   return <TakeoffModule projectId={projectId} />
 }
