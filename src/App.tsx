@@ -132,6 +132,14 @@ export default function App() {
             </PrivateRoute>
           } />
 
+          {/* Route Estimation sans projectId - affiche sélecteur */}
+          <Route path="/projets/estimation" element={
+            <PrivateRoute>
+              <PrivateLayout>
+                <ProjetsEstimation />
+              </PrivateLayout>
+            </PrivateRoute>
+          } />
           {/* FIX: Route Estimation avec projectId */}
           <Route path="/projets/:projectId/estimation" element={
             <PrivateRoute>
