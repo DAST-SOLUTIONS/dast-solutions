@@ -1,12 +1,14 @@
 import { useParams, useNavigate } from 'react-router-dom'
-import { useProject } from '@/hooks/useProjects'
+import { useProjects } from '@/hooks/useProjects'
 import { PageTitle } from '@/components/PageTitle'
-import { Calculator, FileText, DollarSign, Users } from 'lucide-react'
+import { Calculator, FileText, DollarSign } from 'lucide-react'
 
 export function ProjectDetails() {
   const { projectId } = useParams<{ projectId: string }>()
   const navigate = useNavigate()
-  const { project, loading } = useProject(projectId || '')
+  const { projects, loading } = useProjects()
+
+  const project = projects.find(p => p.id === projectId)
 
   if (loading) {
     return (
@@ -28,10 +30,8 @@ export function ProjectDetails() {
     <div className="animate-fade-in">
       <PageTitle title={project.name} subtitle={project.description || 'Détails du projet'} />
 
-      {/* Modules du projet */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
         
-        {/* CARTE ESTIMATION/TAKEOFF */}
         <div 
           onClick={() => navigate(`/projets/${projectId}/estimation`)}
           className="bg-white rounded-lg shadow-lg p-6 cursor-pointer hover:shadow-xl transition-shadow"
@@ -50,7 +50,6 @@ export function ProjectDetails() {
           </button>
         </div>
 
-        {/* CARTE DOCUMENTS */}
         <div 
           onClick={() => navigate(`/cloud-storage/${projectId}`)}
           className="bg-white rounded-lg shadow-lg p-6 cursor-pointer hover:shadow-xl transition-shadow"
@@ -69,7 +68,6 @@ export function ProjectDetails() {
           </button>
         </div>
 
-        {/* CARTE SOUMISSIONS */}
         <div 
           onClick={() => navigate(`/bid-proposal/${projectId}`)}
           className="bg-white rounded-lg shadow-lg p-6 cursor-pointer hover:shadow-xl transition-shadow"
@@ -88,28 +86,8 @@ export function ProjectDetails() {
           </button>
         </div>
 
-        {/* CARTE COÛTS */}
-        <div 
-          onClick={() => navigate(`/project-costs/${projectId}`)}
-          className="bg-white rounded-lg shadow-lg p-6 cursor-pointer hover:shadow-xl transition-shadow"
-        >
-          <div className="flex items-center gap-4 mb-4">
-            <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-              <DollarSign className="text-green-600" size={24} />
-            </div>
-            <h3 className="text-xl font-bold text-gray-900">Contrôle des coûts</h3>
-          </div>
-          <p className="text-gray-600 mb-4">
-            Suivi budgétaire et contrôle des dépenses
-          </p>
-          <button className="btn btn-secondary w-full">
-            Voir les coûts →
-          </button>
-        </div>
-
       </div>
 
-      {/* Informations du projet */}
       <div className="bg-white rounded-lg shadow p-6">
         <h3 className="text-lg font-bold text-gray-900 mb-4">Informations</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
