@@ -1,8 +1,9 @@
 import { PageTitle } from '@/components/PageTitle'
-import { useParams } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { useTakeoff } from '@/hooks/takeoff/useTakeoff'
+import { useProjects } from '@/hooks/useProjects'
 import { useState, useRef } from 'react'
-import { Upload, FileText, Plus, Download, DollarSign, Layers, Save } from 'lucide-react'
+import { Upload, FileText, Plus, Download, DollarSign, Layers, Save, FolderOpen } from 'lucide-react'
 
 // Catégories prédéfinies pour la construction
 const CATEGORIES = [
@@ -47,9 +48,67 @@ const TEMPLATES = {
   ]
 }
 
-export function ProjetsEstimation() {
-  const { projectId } = useParams<{ projectId: string }>()
-  const { documents, items, loading, uploadDocument, createMeasurement, createItem } = useTakeoff(projectId || '')
+// Composant pour sélectionner un projet
+function ProjectSelector() {
+  const { projects, loading } = useProjects()
+  const navigate = useNavigate()
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="spinner" />
+      </div>
+    )
+  }
+
+  return (
+    <div className="animate-fade-in">
+      <PageTitle title="Estimation - Takeoff" subtitle="Sélectionnez un projet pour commencer" />
+
+      <div className="bg-white rounded-lg shadow p-8 max-w-4xl mx-auto">
+        <div className="text-center mb-8">
+          <FolderOpen size={64} className="mx-auto mb-4 text-teal-500" />
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Choisir un projet</h2>
+          <p className="text-gray-600">Sélectionnez le projet pour lequel vous souhaitez faire un relevé de quantités</p>
+        </div>
+
+        {projects.length === 0 ? (
+          <div className="text-center py-8">
+            <p className="text-gray-500 mb-4">Aucun projet trouvé</p>
+            <button
+              onClick={() => navigate('/projects/new')}
+              className="btn btn-primary"
+            >
+              <Plus size={16} className="mr-2" />
+              Créer un projet
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {projects.map(project => (
+              <div
+                key={project.id}
+                onClick={() => navigate(`/projets/${project.id}/estimation`)}
+                className="p-4 border-2 border-gray-200 rounded-lg cursor-pointer hover:border-teal-500 hover:bg-teal-50 transition-all"
+              >
+                <h3 className="font-bold text-gray-900 mb-1">{project.name}</h3>
+                <p className="text-sm text-gray-500 truncate">{project.description || 'Pas de description'}</p>
+                <div className="mt-3 flex items-center justify-between">
+                  <span className="text-xs px-2 py-1 bg-gray-100 rounded capitalize">{project.status || 'En cours'}</span>
+                  <span className="text-teal-600 text-sm font-medium">Ouvrir →</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// Composant principal du Takeoff
+function TakeoffModule({ projectId }: { projectId: string }) {
+  const { documents, items, loading, uploadDocument, createMeasurement, createItem } = useTakeoff(projectId)
   const [selectedDoc, setSelectedDoc] = useState<any>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
@@ -149,7 +208,6 @@ export function ProjetsEstimation() {
     a.click()
   }
 
-  // Calculs
   const filteredItems = activeCategory === 'all' 
     ? items 
     : items.filter(i => i.category === CATEGORIES.find(c => c.id === activeCategory)?.name)
@@ -216,8 +274,6 @@ export function ProjetsEstimation() {
         
         {/* Colonne 1: Documents + Templates */}
         <div className="lg:col-span-1 space-y-4">
-          
-          {/* Documents */}
           <div className="bg-white rounded-lg shadow p-4">
             <h3 className="font-bold text-gray-900 mb-4">Plans ({documents.length})</h3>
             <button
@@ -256,7 +312,6 @@ export function ProjetsEstimation() {
             </div>
           </div>
 
-          {/* Templates */}
           <div className="bg-white rounded-lg shadow p-4">
             <h3 className="font-bold text-gray-900 mb-4">Templates</h3>
             <div className="space-y-2">
@@ -304,8 +359,6 @@ export function ProjetsEstimation() {
 
         {/* Colonne 4: Formulaire + Items */}
         <div className="lg:col-span-1 space-y-4">
-          
-          {/* Formulaire ajout */}
           <div className="bg-white rounded-lg shadow p-4">
             <h3 className="font-bold text-gray-900 mb-4">Ajouter un item</h3>
             <div className="space-y-3">
@@ -379,7 +432,6 @@ export function ProjetsEstimation() {
             </div>
           </div>
 
-          {/* Liste items */}
           <div className="bg-white rounded-lg shadow p-4">
             <div className="flex justify-between items-center mb-4">
               <h3 className="font-bold text-gray-900">Items ({items.length})</h3>
@@ -390,7 +442,6 @@ export function ProjetsEstimation() {
               )}
             </div>
 
-            {/* Filtre par catégorie */}
             <div className="mb-3">
               <select
                 value={activeCategory}
@@ -430,4 +481,17 @@ export function ProjetsEstimation() {
       </div>
     </div>
   )
+}
+
+// Composant principal avec logique de routage
+export function ProjetsEstimation() {
+  const { projectId } = useParams<{ projectId: string }>()
+
+  // Si pas de projectId, afficher le sélecteur de projet
+  if (!projectId) {
+    return <ProjectSelector />
+  }
+
+  // Sinon, afficher le module Takeoff
+  return <TakeoffModule projectId={projectId} />
 }
