@@ -8,13 +8,13 @@ import type {
   SoumissionSTStatus
 } from '@/types/entrepreneur-types'
 import { generateAppelOffreNumero, findBestPrice } from '@/types/entrepreneur-types'
+import { sendBatchInvitations, isValidEmail, type SendInvitationEmailParams } from '@/services/emailService'
 
 export function useAppelOffres(projectId?: string) {
   const [appelOffres, setAppelOffres] = useState<AppelOffre[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Charger les appels d'offres
   const fetchAppelOffres = async () => {
     try {
       let query = supabase
@@ -42,7 +42,6 @@ export function useAppelOffres(projectId?: string) {
     }
   }
 
-  // Obtenir un appel d'offres avec ses invitations
   const getAppelOffre = async (id: string): Promise<AppelOffre | null> => {
     try {
       const { data, error } = await supabase
@@ -66,10 +65,8 @@ export function useAppelOffres(projectId?: string) {
     }
   }
 
-  // Créer un appel d'offres
   const createAppelOffre = async (params: CreateAppelOffreParams): Promise<AppelOffre | null> => {
     try {
-      // Créer l'appel d'offres
       const { data: appelOffre, error: aoError } = await supabase
         .from('appel_offres')
         .insert({
@@ -87,7 +84,6 @@ export function useAppelOffres(projectId?: string) {
 
       if (aoError) throw aoError
 
-      // Créer les invitations
       if (params.entrepreneur_ids.length > 0) {
         const invitations = params.entrepreneur_ids.map(entrepreneur_id => ({
           appel_offre_id: appelOffre.id,
@@ -112,7 +108,6 @@ export function useAppelOffres(projectId?: string) {
     }
   }
 
-  // Mettre à jour un appel d'offres
   const updateAppelOffre = async (id: string, updates: Partial<AppelOffre>): Promise<boolean> => {
     try {
       const { error } = await supabase
@@ -133,7 +128,6 @@ export function useAppelOffres(projectId?: string) {
     }
   }
 
-  // Changer le statut d'un appel d'offres
   const updateStatus = async (id: string, status: AppelOffreStatus): Promise<boolean> => {
     const updates: Partial<AppelOffre> = { status }
     
@@ -144,10 +138,8 @@ export function useAppelOffres(projectId?: string) {
     return updateAppelOffre(id, updates)
   }
 
-  // Supprimer un appel d'offres
   const deleteAppelOffre = async (id: string): Promise<boolean> => {
     try {
-      // Supprimer d'abord les invitations
       const { error: invError } = await supabase
         .from('invitation_soumissions')
         .delete()
@@ -155,7 +147,6 @@ export function useAppelOffres(projectId?: string) {
 
       if (invError) throw invError
 
-      // Puis l'appel d'offres
       const { error } = await supabase
         .from('appel_offres')
         .delete()
@@ -171,11 +162,6 @@ export function useAppelOffres(projectId?: string) {
     }
   }
 
-  // ============================================================================
-  // INVITATIONS
-  // ============================================================================
-
-  // Ajouter une invitation
   const addInvitation = async (appelOffreId: string, entrepreneurId: string): Promise<boolean> => {
     try {
       const { error } = await supabase
@@ -197,7 +183,6 @@ export function useAppelOffres(projectId?: string) {
     }
   }
 
-  // Supprimer une invitation
   const removeInvitation = async (invitationId: string): Promise<boolean> => {
     try {
       const { error } = await supabase
@@ -215,7 +200,6 @@ export function useAppelOffres(projectId?: string) {
     }
   }
 
-  // Mettre à jour une invitation (recevoir une soumission)
   const updateInvitation = async (invitationId: string, updates: Partial<InvitationSoumission>): Promise<boolean> => {
     try {
       const { error } = await supabase
@@ -236,7 +220,6 @@ export function useAppelOffres(projectId?: string) {
     }
   }
 
-  // Enregistrer la réception d'une soumission
   const receiveSoumission = async (
     invitationId: string, 
     montant: number, 
@@ -250,10 +233,8 @@ export function useAppelOffres(projectId?: string) {
     })
   }
 
-  // Sélectionner une soumission
   const selectSoumission = async (appelOffreId: string, invitationId: string): Promise<boolean> => {
     try {
-      // Désélectionner toutes les autres
       const { error: deselectError } = await supabase
         .from('invitation_soumissions')
         .update({ is_selected: false })
@@ -261,7 +242,6 @@ export function useAppelOffres(projectId?: string) {
 
       if (deselectError) throw deselectError
 
-      // Sélectionner celle-ci
       const { error: selectError } = await supabase
         .from('invitation_soumissions')
         .update({ 
@@ -280,7 +260,6 @@ export function useAppelOffres(projectId?: string) {
     }
   }
 
-  // Marquer les invitations comme envoyées
   const markInvitationsSent = async (appelOffreId: string): Promise<boolean> => {
     try {
       const { error } = await supabase
@@ -301,11 +280,73 @@ export function useAppelOffres(projectId?: string) {
     }
   }
 
-  // ============================================================================
-  // COMPARAISON
-  // ============================================================================
+  /**
+   * NOUVELLE FONCTION: Envoyer les invitations par courriel
+   */
+  const sendInvitationEmails = async (appelOffreId: string): Promise<{ success: number; failed: number; errors: string[] }> => {
+    try {
+      // Récupérer l'appel d'offres complet avec toutes les données
+      const appelOffre = await getAppelOffre(appelOffreId)
+      
+      if (!appelOffre) {
+        return { success: 0, failed: 0, errors: ['Appel d\'offres introuvable'] }
+      }
 
-  // Obtenir le tableau comparatif pour un appel d'offres
+      const invitations = appelOffre.invitations || []
+      const errors: string[] = []
+
+      // Filtrer les invitations valides (avec email)
+      const validInvitations = invitations.filter(inv => {
+        if (!inv.entrepreneur?.email) {
+          errors.push(`${inv.entrepreneur?.company_name || 'Entrepreneur inconnu'}: Pas de courriel`)
+          return false
+        }
+        if (!isValidEmail(inv.entrepreneur.email)) {
+          errors.push(`${inv.entrepreneur.company_name}: Courriel invalide (${inv.entrepreneur.email})`)
+          return false
+        }
+        return true
+      })
+
+      if (validInvitations.length === 0) {
+        return { success: 0, failed: invitations.length, errors: ['Aucun entrepreneur avec courriel valide'] }
+      }
+
+      // Préparer les données pour l'envoi
+      const emailParams: SendInvitationEmailParams[] = validInvitations.map(inv => ({
+        to: inv.entrepreneur!.email!,
+        entrepreneurName: inv.entrepreneur!.company_name,
+        contactName: inv.entrepreneur!.contact_name,
+        appelOffreNumero: appelOffre.numero,
+        appelOffreTitre: appelOffre.titre,
+        projectName: appelOffre.project?.name || 'Projet',
+        description: appelOffre.description || '',
+        etendueGravaux: appelOffre.etendue_travaux || '',
+        dateLimite: appelOffre.date_limite,
+        documents: appelOffre.documents || []
+      }))
+
+      // Envoyer les courriels
+      const result = await sendBatchInvitations(emailParams)
+
+      // Marquer les invitations comme envoyées
+      if (result.success > 0) {
+        await markInvitationsSent(appelOffreId)
+        await updateStatus(appelOffreId, 'envoye')
+      }
+
+      return { ...result, errors }
+
+    } catch (err) {
+      console.error('Error sending invitations:', err)
+      return { 
+        success: 0, 
+        failed: 0, 
+        errors: [err instanceof Error ? err.message : 'Erreur inconnue'] 
+      }
+    }
+  }
+
   const getComparaison = async (appelOffreId: string) => {
     const ao = await getAppelOffre(appelOffreId)
     if (!ao || !ao.invitations) return null
@@ -323,14 +364,8 @@ export function useAppelOffres(projectId?: string) {
     }
   }
 
-  // ============================================================================
-  // INTÉGRATION À L'ESTIMATION
-  // ============================================================================
-
-  // Intégrer la soumission sélectionnée dans l'estimation
   const integrateToEstimation = async (invitationId: string): Promise<boolean> => {
     try {
-      // Récupérer l'invitation avec l'entrepreneur et l'appel d'offres
       const { data: invitation, error: invError } = await supabase
         .from('invitation_soumissions')
         .select(`
@@ -343,7 +378,6 @@ export function useAppelOffres(projectId?: string) {
 
       if (invError || !invitation) throw invError || new Error('Invitation non trouvée')
 
-      // Créer un item dans le takeoff
       const { error: itemError } = await supabase
         .from('takeoff_items')
         .insert({
@@ -391,6 +425,7 @@ export function useAppelOffres(projectId?: string) {
     receiveSoumission,
     selectSoumission,
     markInvitationsSent,
+    sendInvitationEmails, // NOUVELLE FONCTION
     getComparaison,
     integrateToEstimation,
     refetch: fetchAppelOffres
