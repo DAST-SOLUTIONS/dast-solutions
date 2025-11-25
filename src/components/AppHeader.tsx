@@ -57,6 +57,9 @@ export default function AppHeader() {
                 <button onClick={() => navigate("/projets/gestion")} className={submenuLink}>
                   📊 Gestion
                 </button>
+                <button onClick={() => navigate("/projets/appels-offres")} className={submenuLink}>
+                  📢 Appels d'offres
+                </button>
               </div>
             </div>
 
