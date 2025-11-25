@@ -15,6 +15,7 @@ import ProjectCosts from '@/pages/ProjectCosts'
 import { ProjetsConcept } from '@/pages/Projets/Conception'
 import { ProjetsEstimation } from '@/pages/Projets/Estimation'
 import { ProjetsGestion } from '@/pages/Projets/Gestion'
+import { AppelOffresPage } from '@/pages/Projets/AppelOffres'
 
 // Pages Entrepreneurs
 import { EntrepreneursRBQ } from '@/pages/Entrepreneurs/RBQ'
@@ -157,6 +158,15 @@ export default function App() {
             </PrivateRoute>
           } />
 
+          {/* Private Routes - Appels d'offres internes */}
+          <Route path="/projets/appels-offres" element={
+            <PrivateRoute>
+              <PrivateLayout>
+                <AppelOffresPage />
+              </PrivateLayout>
+            </PrivateRoute>
+          } />
+
           {/* Private Routes - Entrepreneurs */}
           <Route path="/entrepreneurs/rbq" element={
             <PrivateRoute>
@@ -174,7 +184,7 @@ export default function App() {
             </PrivateRoute>
           } />
 
-          {/* Private Routes - Appels d'offre */}
+          {/* Private Routes - Appels d'offre publics */}
           <Route path="/appels-offre/seao" element={
             <PrivateRoute>
               <PrivateLayout>
