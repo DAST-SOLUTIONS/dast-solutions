@@ -2,9 +2,11 @@ import { PageTitle } from '@/components/PageTitle'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useTakeoff } from '@/hooks/takeoff/useTakeoff'
 import { useProjects } from '@/hooks/useProjects'
+import { useCCQRates } from '@/hooks/ccq/useCCQRates'
 import { useState, useRef } from 'react'
-import { Upload, FileText, Plus, Download, DollarSign, Layers, Save, FolderOpen, Trash2, Edit2, Copy, X, Check } from 'lucide-react'
+import { Upload, FileText, Plus, Download, DollarSign, Layers, Save, FolderOpen, Trash2, Edit2, Copy, X, Check, Users, Wrench, HardHat } from 'lucide-react'
 import { CreateProjectModal } from '@/components/CreateProjectModal'
+import { CCQ_CONSTANTS } from '@/types/ccq-types'
 
 // Catégories prédéfinies pour la construction
 const CATEGORIES = [
@@ -22,6 +24,7 @@ const CATEGORIES = [
   { id: 'peinture', name: 'Peinture / Finition', color: '#F472B6' },
   { id: 'plancher', name: 'Revêtement de sol', color: '#A16207' },
   { id: 'armoires', name: 'Armoires / Comptoirs', color: '#78350F' },
+  { id: 'main-oeuvre', name: 'Main-d\'œuvre CCQ', color: '#DC2626' },
   { id: 'autre', name: 'Autre', color: '#374151' }
 ]
 
@@ -118,6 +121,8 @@ function ProjectSelector() {
 // Composant principal du Takeoff
 function TakeoffModule({ projectId }: { projectId: string }) {
   const { documents, items, loading, uploadDocument, createMeasurement, createItem, updateItem, deleteItem, duplicateItem } = useTakeoff(projectId)
+  const { trades, sectors, rates, loading: ccqLoading, getRate } = useCCQRates()
+  
   const [selectedDoc, setSelectedDoc] = useState<any>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
@@ -125,12 +130,25 @@ function TakeoffModule({ projectId }: { projectId: string }) {
   const [editingItem, setEditingItem] = useState<string | null>(null)
   const [editForm, setEditForm] = useState({ quantity: '', unit_price: '' })
   
+  // Toggle entre matériaux et main-d'œuvre CCQ
+  const [itemType, setItemType] = useState<'material' | 'labor'>('material')
+  
+  // Formulaire pour matériaux
   const [newItem, setNewItem] = useState({
     category: 'structure',
     name: '',
     quantity: '',
     unit: 'm',
     unitPrice: ''
+  })
+
+  // Formulaire pour main-d'œuvre CCQ
+  const [laborItem, setLaborItem] = useState({
+    tradeCode: '',
+    sectorCode: 'RES_LEGER',
+    hours: '',
+    workers: '1',
+    description: ''
   })
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -147,6 +165,7 @@ function TakeoffModule({ projectId }: { projectId: string }) {
     }
   }
 
+  // Ajouter un item matériau
   const handleAddItem = async () => {
     if (!newItem.name || !newItem.quantity) {
       alert('Veuillez remplir le nom et la quantité')
@@ -181,6 +200,67 @@ function TakeoffModule({ projectId }: { projectId: string }) {
     }
   }
 
+  // Ajouter un item main-d'œuvre CCQ
+  const handleAddLaborItem = async () => {
+    if (!laborItem.tradeCode || !laborItem.hours) {
+      alert('Veuillez sélectionner un métier et entrer les heures')
+      return
+    }
+
+    try {
+      // Trouver le taux CCQ
+      const rate = await getRate(laborItem.tradeCode, laborItem.sectorCode)
+      
+      if (!rate) {
+        alert('Taux CCQ non trouvé pour ce métier/secteur')
+        return
+      }
+
+      const trade = trades.find(t => t.code === laborItem.tradeCode)
+      const sector = sectors.find(s => s.code === laborItem.sectorCode)
+      const hours = parseFloat(laborItem.hours)
+      const workers = parseInt(laborItem.workers) || 1
+      const totalHours = hours * workers
+
+      // Calcul du coût avec avantages sociaux CCQ
+      const baseSalary = rate.base_rate * totalHours
+      const vacationPay = baseSalary * CCQ_CONSTANTS.VACATION_RATE // 13%
+      const holidayPay = baseSalary * CCQ_CONSTANTS.STATUTORY_HOLIDAYS_RATE // 5.5%
+      const totalWithBenefits = baseSalary + vacationPay + holidayPay
+
+      // Nom de l'item avec détails
+      const itemName = laborItem.description 
+        ? `${trade?.name_fr} - ${laborItem.description}`
+        : `${trade?.name_fr} (${sector?.name_fr})`
+
+      await createItem({
+        category: 'Main-d\'œuvre CCQ',
+        item_name: itemName,
+        quantity: totalHours,
+        unit: 'heures',
+        unit_price: rate.base_rate,
+        total_price: totalWithBenefits,
+        // Metadata pour référence
+        notes: JSON.stringify({
+          trade_code: laborItem.tradeCode,
+          sector_code: laborItem.sectorCode,
+          workers: workers,
+          base_rate: rate.base_rate,
+          vacation_rate: CCQ_CONSTANTS.VACATION_RATE,
+          holiday_rate: CCQ_CONSTANTS.STATUTORY_HOLIDAYS_RATE,
+          base_salary: baseSalary,
+          vacation_pay: vacationPay,
+          holiday_pay: holidayPay
+        })
+      })
+
+      setLaborItem({ tradeCode: '', sectorCode: 'RES_LEGER', hours: '', workers: '1', description: '' })
+    } catch (err) {
+      console.error(err)
+      alert('Erreur lors de l\'ajout de la main-d\'œuvre')
+    }
+  }
+
   const startEditing = (item: any) => {
     setEditingItem(item.id)
     setEditForm({
@@ -194,10 +274,19 @@ function TakeoffModule({ projectId }: { projectId: string }) {
       const quantity = parseFloat(editForm.quantity) || 0
       const unitPrice = parseFloat(editForm.unit_price) || 0
       
+      // Si c'est un item CCQ, recalculer avec les avantages sociaux
+      let totalPrice = quantity * unitPrice
+      if (item.category === 'Main-d\'œuvre CCQ') {
+        const baseSalary = quantity * unitPrice
+        const vacationPay = baseSalary * CCQ_CONSTANTS.VACATION_RATE
+        const holidayPay = baseSalary * CCQ_CONSTANTS.STATUTORY_HOLIDAYS_RATE
+        totalPrice = baseSalary + vacationPay + holidayPay
+      }
+      
       await updateItem(item.id, {
         quantity,
         unit_price: unitPrice,
-        total_price: quantity * unitPrice
+        total_price: totalPrice
       })
       
       setEditingItem(null)
@@ -268,10 +357,17 @@ function TakeoffModule({ projectId }: { projectId: string }) {
 
   const filteredItems = activeCategory === 'all' 
     ? items 
-    : items.filter(i => i.category === CATEGORIES.find(c => c.id === activeCategory)?.name)
+    : activeCategory === 'main-oeuvre'
+      ? items.filter(i => i.category === 'Main-d\'œuvre CCQ')
+      : items.filter(i => i.category === CATEGORIES.find(c => c.id === activeCategory)?.name)
 
-  const totalCost = items.reduce((sum, item) => sum + (item.total_price || 0), 0)
-  const itemsWithCost = items.filter(i => i.total_price && i.total_price > 0).length
+  // Calculs des totaux
+  const materialItems = items.filter(i => i.category !== 'Main-d\'œuvre CCQ')
+  const laborItems = items.filter(i => i.category === 'Main-d\'œuvre CCQ')
+  
+  const totalMaterials = materialItems.reduce((sum, item) => sum + (item.total_price || 0), 0)
+  const totalLabor = laborItems.reduce((sum, item) => sum + (item.total_price || 0), 0)
+  const totalCost = totalMaterials + totalLabor
 
   if (loading) {
     return (
@@ -283,9 +379,10 @@ function TakeoffModule({ projectId }: { projectId: string }) {
 
   return (
     <div className="animate-fade-in">
-      <PageTitle title="Estimation - Takeoff" subtitle="Relevé de quantités sur plans" />
+      <PageTitle title="Estimation - Takeoff" subtitle="Relevé de quantités et coûts CCQ" />
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+      {/* Barre de résumé */}
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
         <div className="bg-white rounded-lg shadow p-4 flex items-center gap-3">
           <div className="w-10 h-10 bg-teal-100 rounded-lg flex items-center justify-center">
             <Layers className="text-teal-600" size={20} />
@@ -298,21 +395,33 @@ function TakeoffModule({ projectId }: { projectId: string }) {
         
         <div className="bg-white rounded-lg shadow p-4 flex items-center gap-3">
           <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-            <FileText className="text-blue-600" size={20} />
+            <Wrench className="text-blue-600" size={20} />
           </div>
           <div>
-            <p className="text-sm text-gray-600">Documents</p>
-            <p className="text-xl font-bold text-gray-900">{documents.length}</p>
+            <p className="text-sm text-gray-600">Matériaux</p>
+            <p className="text-lg font-bold text-blue-600">{totalMaterials.toLocaleString('fr-CA', { style: 'currency', currency: 'CAD' })}</p>
           </div>
         </div>
 
         <div className="bg-white rounded-lg shadow p-4 flex items-center gap-3">
-          <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-            <DollarSign className="text-green-600" size={20} />
+          <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
+            <HardHat className="text-red-600" size={20} />
           </div>
           <div>
-            <p className="text-sm text-gray-600">Items avec prix</p>
-            <p className="text-xl font-bold text-gray-900">{itemsWithCost} / {items.length}</p>
+            <p className="text-sm text-gray-600">Main-d'œuvre CCQ</p>
+            <p className="text-lg font-bold text-red-600">{totalLabor.toLocaleString('fr-CA', { style: 'currency', currency: 'CAD' })}</p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow p-4 flex items-center gap-3">
+          <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+            <Users className="text-purple-600" size={20} />
+          </div>
+          <div>
+            <p className="text-sm text-gray-600">Heures CCQ</p>
+            <p className="text-xl font-bold text-purple-600">
+              {laborItems.reduce((sum, item) => sum + (item.quantity || 0), 0).toFixed(1)}h
+            </p>
           </div>
         </div>
 
@@ -328,6 +437,7 @@ function TakeoffModule({ projectId }: { projectId: string }) {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        {/* Colonne 1: Documents + Templates */}
         <div className="lg:col-span-1 space-y-4">
           <div className="bg-white rounded-lg shadow p-4">
             <h3 className="font-bold text-gray-900 mb-4">Plans ({documents.length})</h3>
@@ -382,6 +492,7 @@ function TakeoffModule({ projectId }: { projectId: string }) {
           </div>
         </div>
 
+        {/* Colonne 2-3: Viewer */}
         <div className="lg:col-span-2">
           <div className="bg-white rounded-lg shadow p-4">
             {selectedDoc ? (
@@ -405,80 +516,202 @@ function TakeoffModule({ projectId }: { projectId: string }) {
           </div>
         </div>
 
+        {/* Colonne 4: Formulaires + Items */}
         <div className="lg:col-span-1 space-y-4">
+          {/* Toggle Matériaux / Main-d'œuvre */}
           <div className="bg-white rounded-lg shadow p-4">
-            <h3 className="font-bold text-gray-900 mb-4">Ajouter un item</h3>
-            <div className="space-y-3">
-              <div>
-                <label className="text-sm text-gray-600">Catégorie</label>
-                <select
-                  value={newItem.category}
-                  onChange={(e) => setNewItem({...newItem, category: e.target.value})}
-                  className="input-field"
-                >
-                  {CATEGORIES.map(cat => (
-                    <option key={cat.id} value={cat.id}>{cat.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="text-sm text-gray-600">Nom de l'item</label>
-                <input
-                  type="text"
-                  value={newItem.name}
-                  onChange={(e) => setNewItem({...newItem, name: e.target.value})}
-                  placeholder="Ex: Mur extérieur"
-                  className="input-field"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-2">
+            <div className="flex gap-2 mb-4">
+              <button
+                onClick={() => setItemType('material')}
+                className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition ${
+                  itemType === 'material' 
+                    ? 'bg-teal-600 text-white' 
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                <Wrench size={14} className="inline mr-1" />
+                Matériaux
+              </button>
+              <button
+                onClick={() => setItemType('labor')}
+                className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition ${
+                  itemType === 'labor' 
+                    ? 'bg-red-600 text-white' 
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                <HardHat size={14} className="inline mr-1" />
+                CCQ
+              </button>
+            </div>
+
+            {itemType === 'material' ? (
+              // Formulaire Matériaux
+              <div className="space-y-3">
+                <h3 className="font-bold text-gray-900">Ajouter un matériau</h3>
                 <div>
-                  <label className="text-sm text-gray-600">Quantité</label>
+                  <label className="text-sm text-gray-600">Catégorie</label>
+                  <select
+                    value={newItem.category}
+                    onChange={(e) => setNewItem({...newItem, category: e.target.value})}
+                    className="input-field"
+                  >
+                    {CATEGORIES.filter(c => c.id !== 'main-oeuvre').map(cat => (
+                      <option key={cat.id} value={cat.id}>{cat.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-sm text-gray-600">Nom de l'item</label>
                   <input
-                    type="number"
-                    step="0.01"
-                    value={newItem.quantity}
-                    onChange={(e) => setNewItem({...newItem, quantity: e.target.value})}
-                    placeholder="0"
+                    type="text"
+                    value={newItem.name}
+                    onChange={(e) => setNewItem({...newItem, name: e.target.value})}
+                    placeholder="Ex: Mur extérieur"
                     className="input-field"
                   />
                 </div>
-                <div>
-                  <label className="text-sm text-gray-600">Unité</label>
-                  <select
-                    value={newItem.unit}
-                    onChange={(e) => setNewItem({...newItem, unit: e.target.value})}
-                    className="input-field"
-                  >
-                    <option value="m">m</option>
-                    <option value="m²">m²</option>
-                    <option value="m³">m³</option>
-                    <option value="pi">pi</option>
-                    <option value="pi²">pi²</option>
-                    <option value="pi.l.">pi.l.</option>
-                    <option value="kg">kg</option>
-                    <option value="unité">unité</option>
-                    <option value="forfait">forfait</option>
-                  </select>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-sm text-gray-600">Quantité</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={newItem.quantity}
+                      onChange={(e) => setNewItem({...newItem, quantity: e.target.value})}
+                      placeholder="0"
+                      className="input-field"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm text-gray-600">Unité</label>
+                    <select
+                      value={newItem.unit}
+                      onChange={(e) => setNewItem({...newItem, unit: e.target.value})}
+                      className="input-field"
+                    >
+                      <option value="m">m</option>
+                      <option value="m²">m²</option>
+                      <option value="m³">m³</option>
+                      <option value="pi">pi</option>
+                      <option value="pi²">pi²</option>
+                      <option value="pi.l.">pi.l.</option>
+                      <option value="kg">kg</option>
+                      <option value="unité">unité</option>
+                      <option value="forfait">forfait</option>
+                    </select>
+                  </div>
                 </div>
+                <div>
+                  <label className="text-sm text-gray-600">Prix unitaire ($)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={newItem.unitPrice}
+                    onChange={(e) => setNewItem({...newItem, unitPrice: e.target.value})}
+                    placeholder="0.00"
+                    className="input-field"
+                  />
+                </div>
+                <button onClick={handleAddItem} className="btn btn-primary w-full">
+                  <Plus size={16} className="mr-2" /> Ajouter
+                </button>
               </div>
-              <div>
-                <label className="text-sm text-gray-600">Prix unitaire ($)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={newItem.unitPrice}
-                  onChange={(e) => setNewItem({...newItem, unitPrice: e.target.value})}
-                  placeholder="0.00"
-                  className="input-field"
-                />
+            ) : (
+              // Formulaire Main-d'œuvre CCQ
+              <div className="space-y-3">
+                <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                  <HardHat size={18} className="text-red-600" />
+                  Main-d'œuvre CCQ
+                </h3>
+                
+                {ccqLoading ? (
+                  <p className="text-sm text-gray-500">Chargement des taux CCQ...</p>
+                ) : (
+                  <>
+                    <div>
+                      <label className="text-sm text-gray-600">Métier *</label>
+                      <select
+                        value={laborItem.tradeCode}
+                        onChange={(e) => setLaborItem({...laborItem, tradeCode: e.target.value})}
+                        className="input-field"
+                      >
+                        <option value="">-- Sélectionner un métier --</option>
+                        {trades.map(trade => (
+                          <option key={trade.code} value={trade.code}>{trade.name_fr}</option>
+                        ))}
+                      </select>
+                    </div>
+                    
+                    <div>
+                      <label className="text-sm text-gray-600">Secteur</label>
+                      <select
+                        value={laborItem.sectorCode}
+                        onChange={(e) => setLaborItem({...laborItem, sectorCode: e.target.value})}
+                        className="input-field"
+                      >
+                        {sectors.map(sector => (
+                          <option key={sector.code} value={sector.code}>{sector.name_fr}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-sm text-gray-600">Heures *</label>
+                        <input
+                          type="number"
+                          step="0.5"
+                          value={laborItem.hours}
+                          onChange={(e) => setLaborItem({...laborItem, hours: e.target.value})}
+                          placeholder="Ex: 40"
+                          className="input-field"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm text-gray-600">Travailleurs</label>
+                        <input
+                          type="number"
+                          min="1"
+                          value={laborItem.workers}
+                          onChange={(e) => setLaborItem({...laborItem, workers: e.target.value})}
+                          placeholder="1"
+                          className="input-field"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-sm text-gray-600">Description (optionnel)</label>
+                      <input
+                        type="text"
+                        value={laborItem.description}
+                        onChange={(e) => setLaborItem({...laborItem, description: e.target.value})}
+                        placeholder="Ex: Installation plomberie salle de bain"
+                        className="input-field"
+                      />
+                    </div>
+
+                    {/* Aperçu du calcul */}
+                    {laborItem.tradeCode && laborItem.hours && (
+                      <div className="p-3 bg-red-50 rounded-lg border border-red-200">
+                        <p className="text-xs text-red-800 font-medium mb-1">Aperçu du coût:</p>
+                        <p className="text-xs text-red-700">
+                          Inclut: Vacances (13%) + Jours fériés (5.5%)
+                        </p>
+                      </div>
+                    )}
+
+                    <button onClick={handleAddLaborItem} className="btn w-full bg-red-600 hover:bg-red-700 text-white">
+                      <Plus size={16} className="mr-2" /> Ajouter main-d'œuvre
+                    </button>
+                  </>
+                )}
               </div>
-              <button onClick={handleAddItem} className="btn btn-primary w-full">
-                <Plus size={16} className="mr-2" /> Ajouter
-              </button>
-            </div>
+            )}
           </div>
 
+          {/* Liste des items */}
           <div className="bg-white rounded-lg shadow p-4">
             <div className="flex justify-between items-center mb-4">
               <h3 className="font-bold text-gray-900">Items ({items.length})</h3>
@@ -507,14 +740,16 @@ function TakeoffModule({ projectId }: { projectId: string }) {
                 <div 
                   key={item.id} 
                   className="p-3 bg-gray-50 rounded border-l-4 group" 
-                  style={{ borderColor: CATEGORIES.find(c => c.name === item.category)?.color || '#6B7280' }}
+                  style={{ borderColor: item.category === 'Main-d\'œuvre CCQ' ? '#DC2626' : (CATEGORIES.find(c => c.name === item.category)?.color || '#6B7280') }}
                 >
                   {editingItem === item.id ? (
                     <div className="space-y-2">
                       <p className="font-medium text-gray-900 text-sm">{item.item_name}</p>
                       <div className="grid grid-cols-2 gap-2">
                         <div>
-                          <label className="text-xs text-gray-500">Quantité</label>
+                          <label className="text-xs text-gray-500">
+                            {item.category === 'Main-d\'œuvre CCQ' ? 'Heures' : 'Quantité'}
+                          </label>
                           <input
                             type="number"
                             step="0.01"
@@ -525,7 +760,9 @@ function TakeoffModule({ projectId }: { projectId: string }) {
                           />
                         </div>
                         <div>
-                          <label className="text-xs text-gray-500">Prix unit.</label>
+                          <label className="text-xs text-gray-500">
+                            {item.category === 'Main-d\'œuvre CCQ' ? 'Taux/h' : 'Prix unit.'}
+                          </label>
                           <input
                             type="number"
                             step="0.01"
@@ -555,7 +792,10 @@ function TakeoffModule({ projectId }: { projectId: string }) {
                       <div className="flex justify-between items-start">
                         <div className="flex-1 min-w-0">
                           <p className="font-medium text-gray-900 text-sm truncate">{item.item_name}</p>
-                          <p className="text-xs text-gray-500">{item.category}</p>
+                          <p className="text-xs text-gray-500">
+                            {item.category === 'Main-d\'œuvre CCQ' && <HardHat size={10} className="inline mr-1 text-red-500" />}
+                            {item.category}
+                          </p>
                         </div>
                         <div className="text-right ml-2">
                           <p className="font-bold text-teal-700 text-sm">{item.quantity} {item.unit}</p>
