@@ -16,7 +16,7 @@ export function useTakeoff(projectId: string) {
       .select('*')
       .eq('project_id', projectId)
       .order('created_at', { ascending: false })
-    
+
     if (error) throw error
     setDocuments(data || [])
   }
@@ -28,7 +28,7 @@ export function useTakeoff(projectId: string) {
       .select('*')
       .eq('project_id', projectId)
       .order('created_at', { ascending: false })
-    
+
     if (error) throw error
     setMeasurements(data || [])
   }
@@ -40,7 +40,7 @@ export function useTakeoff(projectId: string) {
       .select('*')
       .eq('project_id', projectId)
       .order('created_at', { ascending: false })
-    
+
     if (error) throw error
     setItems(data || [])
   }
@@ -51,7 +51,7 @@ export function useTakeoff(projectId: string) {
       // Upload du fichier dans Supabase Storage
       const fileExt = file.name.split('.').pop()
       const fileName = `${projectId}/${Date.now()}.${fileExt}`
-      
+
       const { error: uploadError } = await supabase.storage
         .from('takeoff-documents')
         .upload(fileName, file)
@@ -83,6 +83,32 @@ export function useTakeoff(projectId: string) {
       return data
     } catch (err) {
       console.error('Upload error:', err)
+      throw err
+    }
+  }
+
+  // Supprimer un document
+  const deleteDocument = async (id: string, fileUrl: string) => {
+    try {
+      // Extraire le chemin du fichier depuis l'URL
+      const urlParts = fileUrl.split('/takeoff-documents/')
+      if (urlParts.length > 1) {
+        const filePath = urlParts[1]
+        await supabase.storage
+          .from('takeoff-documents')
+          .remove([filePath])
+      }
+
+      // Supprimer l'entrée de la base de données
+      const { error } = await supabase
+        .from('takeoff_documents')
+        .delete()
+        .eq('id', id)
+
+      if (error) throw error
+      await fetchDocuments()
+    } catch (err) {
+      console.error('Delete document error:', err)
       throw err
     }
   }
@@ -132,6 +158,54 @@ export function useTakeoff(projectId: string) {
     return data
   }
 
+  // Mettre à jour un item
+  const updateItem = async (id: string, updates: Partial<TakeoffItem>): Promise<TakeoffItem> => {
+    const { data, error } = await supabase
+      .from('takeoff_items')
+      .update({
+        ...updates,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) throw error
+
+    await fetchItems()
+    return data
+  }
+
+  // Supprimer un item
+  const deleteItem = async (id: string) => {
+    const { error } = await supabase
+      .from('takeoff_items')
+      .delete()
+      .eq('id', id)
+
+    if (error) throw error
+    await fetchItems()
+  }
+
+  // Dupliquer un item
+  const duplicateItem = async (item: TakeoffItem): Promise<TakeoffItem> => {
+    const { id, created_at, updated_at, ...itemData } = item
+    const { data, error } = await supabase
+      .from('takeoff_items')
+      .insert({
+        ...itemData,
+        item_name: `${item.item_name} (copie)`,
+        project_id: projectId
+      })
+      .select()
+      .single()
+
+    if (error) throw error
+
+    await fetchItems()
+    return data
+  }
+
   // Exporter vers estimation
   const exportToEstimate = async () => {
     // Cette fonction sera complétée plus tard
@@ -153,7 +227,7 @@ export function useTakeoff(projectId: string) {
         setLoading(false)
       }
     }
-    
+
     if (projectId) {
       loadData()
     }
@@ -166,9 +240,13 @@ export function useTakeoff(projectId: string) {
     loading,
     error,
     uploadDocument,
+    deleteDocument,
     createMeasurement,
     deleteMeasurement,
     createItem,
+    updateItem,
+    deleteItem,
+    duplicateItem,
     exportToEstimate,
     refetch: () => {
       fetchDocuments()

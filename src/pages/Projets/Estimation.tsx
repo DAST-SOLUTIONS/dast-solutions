@@ -3,7 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useTakeoff } from '@/hooks/takeoff/useTakeoff'
 import { useProjects } from '@/hooks/useProjects'
 import { useState, useRef } from 'react'
-import { Upload, FileText, Plus, Download, DollarSign, Layers, Save, FolderOpen, X, MapPin, Calendar, Building } from 'lucide-react'
+import { Upload, FileText, Plus, Download, DollarSign, Layers, Save, FolderOpen, Trash2, Edit2, Copy, X, Check } from 'lucide-react'
+import { CreateProjectModal } from '@/components/CreateProjectModal'
 
 // Catégories prédéfinies pour la construction
 const CATEGORIES = [
@@ -22,37 +23,6 @@ const CATEGORIES = [
   { id: 'plancher', name: 'Revêtement de sol', color: '#A16207' },
   { id: 'armoires', name: 'Armoires / Comptoirs', color: '#78350F' },
   { id: 'autre', name: 'Autre', color: '#374151' }
-]
-
-// Types de projets
-const PROJECT_TYPES = [
-  'Résidentiel',
-  'Commercial',
-  'Institutionnel',
-  'Industriel',
-  'Multi-résidentiel',
-  'Rénovation',
-  'Agrandissement',
-  'Génie civil',
-  'Infrastructure',
-  'Autre'
-]
-
-// Provinces canadiennes
-const PROVINCES = [
-  { code: 'QC', name: 'Québec' },
-  { code: 'ON', name: 'Ontario' },
-  { code: 'BC', name: 'Colombie-Britannique' },
-  { code: 'AB', name: 'Alberta' },
-  { code: 'MB', name: 'Manitoba' },
-  { code: 'SK', name: 'Saskatchewan' },
-  { code: 'NS', name: 'Nouvelle-Écosse' },
-  { code: 'NB', name: 'Nouveau-Brunswick' },
-  { code: 'NL', name: 'Terre-Neuve-et-Labrador' },
-  { code: 'PE', name: 'Île-du-Prince-Édouard' },
-  { code: 'NT', name: 'Territoires du Nord-Ouest' },
-  { code: 'YT', name: 'Yukon' },
-  { code: 'NU', name: 'Nunavut' }
 ]
 
 // Templates de takeoff prédéfinis
@@ -81,117 +51,9 @@ const TEMPLATES = {
 
 // Composant pour sélectionner un projet
 function ProjectSelector() {
-  const { projects, loading, createProject } = useProjects()
+  const { projects, loading } = useProjects()
   const navigate = useNavigate()
   const [showNewProject, setShowNewProject] = useState(false)
-  const [creating, setCreating] = useState(false)
-  const [geolocating, setGeolocating] = useState(false)
-  
-  const [newProject, setNewProject] = useState({
-    name: '',
-    description: '',
-    client: '',
-    projectType: 'Résidentiel',
-    projectNumber: '',
-    street: '',
-    city: '',
-    province: 'QC',
-    postalCode: '',
-    country: 'Canada',
-    latitude: '',
-    longitude: '',
-    startDate: '',
-    endDate: '',
-    projectValue: ''
-  })
-
-  const getGeolocation = () => {
-    if (!navigator.geolocation) {
-      alert('La géolocalisation n\'est pas supportée par votre navigateur')
-      return
-    }
-
-    setGeolocating(true)
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setNewProject(prev => ({
-          ...prev,
-          latitude: position.coords.latitude.toFixed(6),
-          longitude: position.coords.longitude.toFixed(6)
-        }))
-        setGeolocating(false)
-      },
-      (error) => {
-        alert('Erreur de géolocalisation: ' + error.message)
-        setGeolocating(false)
-      },
-      { enableHighAccuracy: true }
-    )
-  }
-
-  const handleCreateProject = async () => {
-    if (!newProject.name.trim()) {
-      alert('Veuillez entrer un nom de projet')
-      return
-    }
-
-    try {
-      setCreating(true)
-      
-      const fullAddress = [
-        newProject.street,
-        newProject.city,
-        newProject.province,
-        newProject.postalCode,
-        newProject.country
-      ].filter(Boolean).join(', ')
-
-      const addressWithGeo = newProject.latitude && newProject.longitude
-        ? `${fullAddress} [${newProject.latitude}, ${newProject.longitude}]`
-        : fullAddress
-
-      const project = await createProject(
-        newProject.name,
-        newProject.description || undefined,
-        newProject.projectType,
-        newProject.client || undefined,
-        newProject.projectNumber || undefined,
-        addressWithGeo || undefined,
-        newProject.startDate || undefined,
-        newProject.endDate || undefined,
-        newProject.projectValue ? parseFloat(newProject.projectValue) : undefined
-      )
-      
-      if (project?.id) {
-        navigate(`/projets/${project.id}/estimation`)
-      }
-    } catch (err) {
-      alert('Erreur lors de la création du projet')
-    } finally {
-      setCreating(false)
-    }
-  }
-
-  const resetForm = () => {
-    setNewProject({
-      name: '',
-      description: '',
-      client: '',
-      projectType: 'Résidentiel',
-      projectNumber: '',
-      street: '',
-      city: '',
-      province: 'QC',
-      postalCode: '',
-      country: 'Canada',
-      latitude: '',
-      longitude: '',
-      startDate: '',
-      endDate: '',
-      projectValue: ''
-    })
-    setShowNewProject(false)
-  }
 
   if (loading) {
     return (
@@ -244,254 +106,24 @@ function ProjectSelector() {
         )}
       </div>
 
-      {/* Modal Nouveau Projet - FORMULAIRE COMPLET */}
-      {showNewProject && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-2xl my-8">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-bold text-gray-900">Nouveau projet</h3>
-              <button onClick={resetForm} className="text-gray-500 hover:text-gray-700">
-                <X size={24} />
-              </button>
-            </div>
-
-            <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-2">
-              
-              {/* Section: Informations générales */}
-              <div>
-                <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-3 flex items-center gap-2">
-                  <Building size={16} />
-                  Informations générales
-                </h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Nom du projet *</label>
-                    <input
-                      type="text"
-                      value={newProject.name}
-                      onChange={(e) => setNewProject({...newProject, name: e.target.value})}
-                      placeholder="Ex: Résidence Tremblay"
-                      className="input-field"
-                      autoFocus
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Numéro de projet</label>
-                    <input
-                      type="text"
-                      value={newProject.projectNumber}
-                      onChange={(e) => setNewProject({...newProject, projectNumber: e.target.value})}
-                      placeholder="Ex: PRJ-2024-001"
-                      className="input-field"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Type de projet</label>
-                    <select
-                      value={newProject.projectType}
-                      onChange={(e) => setNewProject({...newProject, projectType: e.target.value})}
-                      className="input-field"
-                    >
-                      {PROJECT_TYPES.map(type => (
-                        <option key={type} value={type}>{type}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Client</label>
-                    <input
-                      type="text"
-                      value={newProject.client}
-                      onChange={(e) => setNewProject({...newProject, client: e.target.value})}
-                      placeholder="Ex: Jean Tremblay"
-                      className="input-field"
-                    />
-                  </div>
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                    <textarea
-                      value={newProject.description}
-                      onChange={(e) => setNewProject({...newProject, description: e.target.value})}
-                      placeholder="Ex: Construction maison unifamiliale 2 étages, 3 chambres, garage double"
-                      className="input-field"
-                      rows={2}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Section: Adresse */}
-              <div>
-                <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-3 flex items-center gap-2">
-                  <MapPin size={16} />
-                  Adresse du projet
-                </h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Adresse (rue et numéro)</label>
-                    <input
-                      type="text"
-                      value={newProject.street}
-                      onChange={(e) => setNewProject({...newProject, street: e.target.value})}
-                      placeholder="Ex: 123 Rue Principale"
-                      className="input-field"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Ville</label>
-                    <input
-                      type="text"
-                      value={newProject.city}
-                      onChange={(e) => setNewProject({...newProject, city: e.target.value})}
-                      placeholder="Ex: Montréal"
-                      className="input-field"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Province</label>
-                    <select
-                      value={newProject.province}
-                      onChange={(e) => setNewProject({...newProject, province: e.target.value})}
-                      className="input-field"
-                    >
-                      {PROVINCES.map(prov => (
-                        <option key={prov.code} value={prov.code}>{prov.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Code postal</label>
-                    <input
-                      type="text"
-                      value={newProject.postalCode}
-                      onChange={(e) => setNewProject({...newProject, postalCode: e.target.value.toUpperCase()})}
-                      placeholder="Ex: H2X 1Y4"
-                      className="input-field"
-                      maxLength={7}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Pays</label>
-                    <input
-                      type="text"
-                      value={newProject.country}
-                      onChange={(e) => setNewProject({...newProject, country: e.target.value})}
-                      placeholder="Canada"
-                      className="input-field"
-                    />
-                  </div>
-                </div>
-
-                {/* Géolocalisation */}
-                <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-sm font-medium text-gray-700">Géolocalisation</span>
-                    <button
-                      type="button"
-                      onClick={getGeolocation}
-                      disabled={geolocating}
-                      className="btn btn-secondary text-sm py-1 px-3"
-                    >
-                      <MapPin size={14} className="mr-1" />
-                      {geolocating ? 'Localisation...' : 'Obtenir ma position'}
-                    </button>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs text-gray-500 mb-1">Latitude</label>
-                      <input
-                        type="text"
-                        value={newProject.latitude}
-                        onChange={(e) => setNewProject({...newProject, latitude: e.target.value})}
-                        placeholder="Ex: 45.508888"
-                        className="input-field text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs text-gray-500 mb-1">Longitude</label>
-                      <input
-                        type="text"
-                        value={newProject.longitude}
-                        onChange={(e) => setNewProject({...newProject, longitude: e.target.value})}
-                        placeholder="Ex: -73.561668"
-                        className="input-field text-sm"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Section: Dates et Budget */}
-              <div>
-                <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-3 flex items-center gap-2">
-                  <Calendar size={16} />
-                  Dates et Budget
-                </h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Date de début</label>
-                    <input
-                      type="date"
-                      value={newProject.startDate}
-                      onChange={(e) => setNewProject({...newProject, startDate: e.target.value})}
-                      className="input-field"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Date de fin prévue</label>
-                    <input
-                      type="date"
-                      value={newProject.endDate}
-                      onChange={(e) => setNewProject({...newProject, endDate: e.target.value})}
-                      className="input-field"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Valeur estimée ($)</label>
-                    <input
-                      type="number"
-                      value={newProject.projectValue}
-                      onChange={(e) => setNewProject({...newProject, projectValue: e.target.value})}
-                      placeholder="Ex: 500000"
-                      className="input-field"
-                      min="0"
-                      step="1000"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Boutons d'action */}
-            <div className="flex gap-3 pt-6 mt-6 border-t">
-              <button
-                onClick={resetForm}
-                className="btn btn-secondary flex-1"
-              >
-                Annuler
-              </button>
-              <button
-                onClick={handleCreateProject}
-                disabled={creating}
-                className="btn btn-primary flex-1"
-              >
-                {creating ? 'Création...' : 'Créer et commencer le takeoff'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <CreateProjectModal
+        isOpen={showNewProject}
+        onClose={() => setShowNewProject(false)}
+        redirectToEstimation={true}
+      />
     </div>
   )
 }
 
 // Composant principal du Takeoff
 function TakeoffModule({ projectId }: { projectId: string }) {
-  const { documents, items, loading, uploadDocument, createMeasurement, createItem } = useTakeoff(projectId)
+  const { documents, items, loading, uploadDocument, createMeasurement, createItem, updateItem, deleteItem, duplicateItem } = useTakeoff(projectId)
   const [selectedDoc, setSelectedDoc] = useState<any>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
   const [activeCategory, setActiveCategory] = useState<string>('all')
+  const [editingItem, setEditingItem] = useState<string | null>(null)
+  const [editForm, setEditForm] = useState({ quantity: '', unit_price: '' })
   
   const [newItem, setNewItem] = useState({
     category: 'structure',
@@ -546,6 +178,53 @@ function TakeoffModule({ projectId }: { projectId: string }) {
       setNewItem({ category: newItem.category, name: '', quantity: '', unit: 'm', unitPrice: '' })
     } catch (err) {
       alert('Erreur lors de l\'ajout')
+    }
+  }
+
+  const startEditing = (item: any) => {
+    setEditingItem(item.id)
+    setEditForm({
+      quantity: item.quantity?.toString() || '',
+      unit_price: item.unit_price?.toString() || ''
+    })
+  }
+
+  const saveEditing = async (item: any) => {
+    try {
+      const quantity = parseFloat(editForm.quantity) || 0
+      const unitPrice = parseFloat(editForm.unit_price) || 0
+      
+      await updateItem(item.id, {
+        quantity,
+        unit_price: unitPrice,
+        total_price: quantity * unitPrice
+      })
+      
+      setEditingItem(null)
+    } catch (err) {
+      alert('Erreur lors de la mise à jour')
+    }
+  }
+
+  const cancelEditing = () => {
+    setEditingItem(null)
+    setEditForm({ quantity: '', unit_price: '' })
+  }
+
+  const handleDeleteItem = async (id: string, name: string) => {
+    if (!confirm(`Supprimer "${name}"?`)) return
+    try {
+      await deleteItem(id)
+    } catch (err) {
+      alert('Erreur lors de la suppression')
+    }
+  }
+
+  const handleDuplicateItem = async (item: any) => {
+    try {
+      await duplicateItem(item)
+    } catch (err) {
+      alert('Erreur lors de la duplication')
     }
   }
 
@@ -606,7 +285,6 @@ function TakeoffModule({ projectId }: { projectId: string }) {
     <div className="animate-fade-in">
       <PageTitle title="Estimation - Takeoff" subtitle="Relevé de quantités sur plans" />
 
-      {/* Barre de résumé */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <div className="bg-white rounded-lg shadow p-4 flex items-center gap-3">
           <div className="w-10 h-10 bg-teal-100 rounded-lg flex items-center justify-center">
@@ -650,8 +328,6 @@ function TakeoffModule({ projectId }: { projectId: string }) {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        
-        {/* Colonne 1: Documents + Templates */}
         <div className="lg:col-span-1 space-y-4">
           <div className="bg-white rounded-lg shadow p-4">
             <h3 className="font-bold text-gray-900 mb-4">Plans ({documents.length})</h3>
@@ -694,17 +370,11 @@ function TakeoffModule({ projectId }: { projectId: string }) {
           <div className="bg-white rounded-lg shadow p-4">
             <h3 className="font-bold text-gray-900 mb-4">Templates</h3>
             <div className="space-y-2">
-              <button
-                onClick={() => applyTemplate('maison')}
-                className="btn btn-secondary w-full text-left"
-              >
+              <button onClick={() => applyTemplate('maison')} className="btn btn-secondary w-full text-left">
                 <Save size={16} className="mr-2" />
                 Maison résidentielle
               </button>
-              <button
-                onClick={() => applyTemplate('commercial')}
-                className="btn btn-secondary w-full text-left"
-              >
+              <button onClick={() => applyTemplate('commercial')} className="btn btn-secondary w-full text-left">
                 <Save size={16} className="mr-2" />
                 Commercial
               </button>
@@ -712,7 +382,6 @@ function TakeoffModule({ projectId }: { projectId: string }) {
           </div>
         </div>
 
-        {/* Colonne 2-3: Viewer */}
         <div className="lg:col-span-2">
           <div className="bg-white rounded-lg shadow p-4">
             {selectedDoc ? (
@@ -736,7 +405,6 @@ function TakeoffModule({ projectId }: { projectId: string }) {
           </div>
         </div>
 
-        {/* Colonne 4: Formulaire + Items */}
         <div className="lg:col-span-1 space-y-4">
           <div className="bg-white rounded-lg shadow p-4">
             <h3 className="font-bold text-gray-900 mb-4">Ajouter un item</h3>
@@ -834,21 +502,94 @@ function TakeoffModule({ projectId }: { projectId: string }) {
               </select>
             </div>
 
-            <div className="space-y-2 max-h-[250px] overflow-y-auto">
+            <div className="space-y-2 max-h-[400px] overflow-y-auto">
               {filteredItems.map(item => (
-                <div key={item.id} className="p-3 bg-gray-50 rounded border-l-4" style={{ borderColor: CATEGORIES.find(c => c.name === item.category)?.color || '#6B7280' }}>
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-gray-900 text-sm truncate">{item.item_name}</p>
-                      <p className="text-xs text-gray-500">{item.category}</p>
+                <div 
+                  key={item.id} 
+                  className="p-3 bg-gray-50 rounded border-l-4 group" 
+                  style={{ borderColor: CATEGORIES.find(c => c.name === item.category)?.color || '#6B7280' }}
+                >
+                  {editingItem === item.id ? (
+                    <div className="space-y-2">
+                      <p className="font-medium text-gray-900 text-sm">{item.item_name}</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-xs text-gray-500">Quantité</label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={editForm.quantity}
+                            onChange={(e) => setEditForm({...editForm, quantity: e.target.value})}
+                            className="input-field text-sm py-1"
+                            autoFocus
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs text-gray-500">Prix unit.</label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={editForm.unit_price}
+                            onChange={(e) => setEditForm({...editForm, unit_price: e.target.value})}
+                            className="input-field text-sm py-1"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => saveEditing(item)}
+                          className="flex-1 py-1 bg-green-500 text-white rounded text-sm hover:bg-green-600"
+                        >
+                          <Check size={14} className="inline mr-1" /> OK
+                        </button>
+                        <button
+                          onClick={cancelEditing}
+                          className="flex-1 py-1 bg-gray-300 text-gray-700 rounded text-sm hover:bg-gray-400"
+                        >
+                          <X size={14} className="inline mr-1" /> Annuler
+                        </button>
+                      </div>
                     </div>
-                    <div className="text-right ml-2">
-                      <p className="font-bold text-teal-700 text-sm">{item.quantity} {item.unit}</p>
-                      {item.total_price && item.total_price > 0 && (
-                        <p className="text-xs text-green-600">{item.total_price.toLocaleString('fr-CA', { style: 'currency', currency: 'CAD' })}</p>
-                      )}
+                  ) : (
+                    <div>
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-gray-900 text-sm truncate">{item.item_name}</p>
+                          <p className="text-xs text-gray-500">{item.category}</p>
+                        </div>
+                        <div className="text-right ml-2">
+                          <p className="font-bold text-teal-700 text-sm">{item.quantity} {item.unit}</p>
+                          {item.total_price && item.total_price > 0 && (
+                            <p className="text-xs text-green-600">{item.total_price.toLocaleString('fr-CA', { style: 'currency', currency: 'CAD' })}</p>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <div className="flex gap-1 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={() => startEditing(item)}
+                          className="flex-1 py-1 px-2 bg-blue-100 text-blue-700 rounded text-xs hover:bg-blue-200 flex items-center justify-center gap-1"
+                          title="Modifier"
+                        >
+                          <Edit2 size={12} /> Modifier
+                        </button>
+                        <button
+                          onClick={() => handleDuplicateItem(item)}
+                          className="py-1 px-2 bg-gray-100 text-gray-700 rounded text-xs hover:bg-gray-200"
+                          title="Dupliquer"
+                        >
+                          <Copy size={12} />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteItem(item.id, item.item_name)}
+                          className="py-1 px-2 bg-red-100 text-red-700 rounded text-xs hover:bg-red-200"
+                          title="Supprimer"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               ))}
               {filteredItems.length === 0 && (
@@ -862,7 +603,6 @@ function TakeoffModule({ projectId }: { projectId: string }) {
   )
 }
 
-// Composant principal avec logique de routage
 export function ProjetsEstimation() {
   const { projectId } = useParams<{ projectId: string }>()
 
