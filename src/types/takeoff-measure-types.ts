@@ -103,7 +103,7 @@ export const TAKEOFF_CATEGORIES = [
 export const MEASURE_TOOLS: MeasureToolConfig[] = [
   { type: 'select', name: 'Sélection', icon: 'MousePointer', color: '#6B7280', defaultUnit: '', cursor: 'default' },
   { type: 'line', name: 'Ligne (longueur)', icon: 'Minus', color: '#3B82F6', defaultUnit: 'm', cursor: 'crosshair' },
-  { type: 'area', name: 'Surface (polygone)', icon: 'Pentagon', color: '#10B981', defaultUnit: 'm²', cursor: 'crosshair' },
+  { type: 'area', name: 'Surface (polygone)', icon: 'Hexagon', color: '#10B981', defaultUnit: 'm²', cursor: 'crosshair' },
   { type: 'rectangle', name: 'Rectangle', icon: 'Square', color: '#8B5CF6', defaultUnit: 'm²', cursor: 'crosshair' },
   { type: 'count', name: 'Comptage', icon: 'Plus', color: '#F59E0B', defaultUnit: 'unité', cursor: 'cell' },
 ]

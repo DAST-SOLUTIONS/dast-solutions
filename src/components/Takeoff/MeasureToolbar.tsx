@@ -2,7 +2,7 @@
  * DAST Solutions - MeasureToolbar
  * Barre d'outils pour les mesures sur plans
  */
-import { MousePointer, Minus, Square, Pentagon, Plus, Settings } from 'lucide-react'
+import { MousePointer, Minus, Square, Hexagon, Plus, Settings } from 'lucide-react'
 import type { MeasureToolType } from '@/types/takeoff-measure-types'
 import { TAKEOFF_CATEGORIES, COMMON_SCALES } from '@/types/takeoff-measure-types'
 
@@ -22,7 +22,7 @@ const TOOLS = [
   { type: 'select' as MeasureToolType, name: 'Sélection', icon: MousePointer, shortcut: 'V' },
   { type: 'line' as MeasureToolType, name: 'Ligne', icon: Minus, shortcut: 'L' },
   { type: 'rectangle' as MeasureToolType, name: 'Rectangle', icon: Square, shortcut: 'R' },
-  { type: 'area' as MeasureToolType, name: 'Polygone', icon: Pentagon, shortcut: 'P' },
+  { type: 'area' as MeasureToolType, name: 'Polygone', icon: Hexagon, shortcut: 'P' },
   { type: 'count' as MeasureToolType, name: 'Comptage', icon: Plus, shortcut: 'C' },
 ]
 

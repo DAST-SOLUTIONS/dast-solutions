@@ -34,7 +34,7 @@ export function TakeoffViewer({
   // État des outils
   const [activeTool, setActiveTool] = useState<MeasureToolType>('select')
   const [currentCategory, setCurrentCategory] = useState('murs_ext')
-  const [currentColor, setCurrentColor] = useState(TAKEOFF_CATEGORIES[3].color)
+  const [currentColor, setCurrentColor] = useState<string>(TAKEOFF_CATEGORIES[3].color)
   const [scale, setScale] = useState(0.02) // 1:50 par défaut
   
   // État des mesures
