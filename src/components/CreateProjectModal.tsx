@@ -170,8 +170,9 @@ export function CreateProjectModal({ isOpen, onClose, redirectToEstimation = fal
         navigate(`/project/${newProject.id}`)
       }
     } catch (err) {
-      setError('Erreur lors de la création du projet')
-      console.error(err)
+      const errorMessage = err instanceof Error ? err.message : 'Erreur inconnue'
+      setError(`Erreur lors de la création du projet: ${errorMessage}`)
+      console.error('Erreur création projet:', err)
     } finally {
       setLoading(false)
     }
