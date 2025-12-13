@@ -69,8 +69,8 @@ export function TakeoffViewer({
   
   // Outils
   const [activeTool, setActiveTool] = useState<MeasureToolType>('select')
-  const [currentCategory, setCurrentCategory] = useState(TAKEOFF_CATEGORIES[0].id)
-  const [currentColor, setCurrentColor] = useState(TAKEOFF_CATEGORIES[0].color)
+  const [currentCategory, setCurrentCategory] = useState<string>(TAKEOFF_CATEGORIES[0].id)
+  const [currentColor, setCurrentColor] = useState<string>(TAKEOFF_CATEGORIES[0].color)
   
   // Échelle (X et Y séparés)
   const [scaleX, setScaleX] = useState(0.02)
@@ -149,7 +149,7 @@ export function TakeoffViewer({
           canvas.height = viewport.height
           const ctx = canvas.getContext('2d')
           if (ctx) {
-            await page.render({ canvasContext: ctx, viewport }).promise
+            await page.render({ canvasContext: ctx, viewport, canvas }).promise
             thumbnail = canvas.toDataURL('image/jpeg', 0.5)
           }
         } else if (type === 'image') {
@@ -216,7 +216,8 @@ export function TakeoffViewer({
         
         await page.render({
           canvasContext: ctx,
-          viewport
+          viewport,
+          canvas
         }).promise
         
       } else if (selectedPlan.type === 'image') {
