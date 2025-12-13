@@ -87,9 +87,9 @@ export function TakeoffViewer({
   const [rotation, setRotation] = useState(0)
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 })
   
-  // UI
-  const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(false)
-  const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false)
+  // UI - Panneaux fermés par défaut pour mode full screen
+  const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(true)
+  const [rightPanelCollapsed, setRightPanelCollapsed] = useState(true)
   const [leftPanelTab, setLeftPanelTab] = useState<'plans' | 'types'>('plans')
   const [isLoading, setIsLoading] = useState(false)
   const [loadingProgress, setLoadingProgress] = useState(0)
@@ -132,25 +132,43 @@ export function TakeoffViewer({
         let thumbnail: string | undefined
 
         if (type === 'pdf') {
-          // Charger le PDF avec pdf.js
+          // Charger le PDF avec pdf.js - méthode simplifiée
           const pdfjsLib = await import('pdfjs-dist')
-          pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`
           
-          const arrayBuffer = await file.arrayBuffer()
-          const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
-          pageCount = pdf.numPages
+          // Configurer le worker - utiliser unpkg pour compatibilité
+          pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`
           
-          // Générer thumbnail de la première page
-          const page = await pdf.getPage(1)
-          const scale = 0.2
-          const viewport = page.getViewport({ scale })
-          const canvas = document.createElement('canvas')
-          canvas.width = viewport.width
-          canvas.height = viewport.height
-          const ctx = canvas.getContext('2d')
-          if (ctx) {
-            await page.render({ canvasContext: ctx, viewport, canvas }).promise
-            thumbnail = canvas.toDataURL('image/jpeg', 0.5)
+          try {
+            const arrayBuffer = await file.arrayBuffer()
+            const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer })
+            const pdf = await loadingTask.promise
+            pageCount = pdf.numPages
+            
+            // Générer thumbnail de la première page
+            try {
+              const page = await pdf.getPage(1)
+              const scale = 0.3
+              const viewport = page.getViewport({ scale })
+              const canvas = document.createElement('canvas')
+              canvas.width = viewport.width
+              canvas.height = viewport.height
+              const ctx = canvas.getContext('2d')
+              
+              if (ctx) {
+                const renderContext = {
+                  canvasContext: ctx,
+                  viewport: viewport
+                }
+                await page.render(renderContext).promise
+                thumbnail = canvas.toDataURL('image/jpeg', 0.6)
+              }
+            } catch (thumbErr) {
+              console.warn('Impossible de générer le thumbnail:', thumbErr)
+              // Continuer sans thumbnail
+            }
+          } catch (pdfErr) {
+            console.error('Erreur PDF:', pdfErr)
+            throw new Error(`Impossible de lire le PDF: ${file.name}`)
           }
         } else if (type === 'image') {
           thumbnail = URL.createObjectURL(file)
@@ -197,14 +215,16 @@ export function TakeoffViewer({
     if (!ctx) return
 
     setIsLoading(true)
+    setError(null)
 
     try {
       if (selectedPlan.type === 'pdf') {
         const pdfjsLib = await import('pdfjs-dist')
-        pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`
+        pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`
         
         const arrayBuffer = await selectedPlan.file.arrayBuffer()
-        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
+        const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer })
+        const pdf = await loadingTask.promise
         pdfDocRef.current = pdf
         
         const page = await pdf.getPage(currentPage)
@@ -214,11 +234,11 @@ export function TakeoffViewer({
         canvas.width = viewport.width
         canvas.height = viewport.height
         
-        await page.render({
+        const renderContext = {
           canvasContext: ctx,
-          viewport,
-          canvas
-        }).promise
+          viewport: viewport
+        }
+        await page.render(renderContext).promise
         
       } else if (selectedPlan.type === 'image') {
         const img = new Image()
@@ -230,8 +250,14 @@ export function TakeoffViewer({
           ctx.rotate((rotation * Math.PI) / 180)
           ctx.drawImage(img, -canvas.width / 2, -canvas.height / 2, canvas.width, canvas.height)
           ctx.restore()
+          setIsLoading(false)
+        }
+        img.onerror = () => {
+          setError('Erreur lors du chargement de l\'image')
+          setIsLoading(false)
         }
         img.src = URL.createObjectURL(selectedPlan.file)
+        return // Le setIsLoading(false) sera appelé dans onload/onerror
       } else {
         // DWG, IFC, RVT - placeholder
         canvas.width = 800
