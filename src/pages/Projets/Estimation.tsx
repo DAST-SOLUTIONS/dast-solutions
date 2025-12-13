@@ -354,6 +354,7 @@ function TakeoffTab({ projectId }: { projectId: string }) {
       {/* TakeoffViewer - Le nouveau composant avec OCR et mesures visuelles */}
       <div className="bg-white rounded-lg shadow overflow-hidden" style={{ minHeight: '600px' }}>
         <TakeoffViewer
+          projectId={projectId}
           initialMeasurements={measurements}
           onSaveMeasurements={handleMeasurementsChange}
         />
