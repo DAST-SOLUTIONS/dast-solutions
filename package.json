@@ -30,15 +30,11 @@
     "recharts": "^3.5.0",
     "tailwind-merge": "^1.14.0",
     "tesseract.js": "^5.1.0",
-    "three": "^0.160.0",
-    "web-ifc": "^0.0.66",
-    "web-ifc-three": "^0.0.131",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@types/react": "^18.2.15",
     "@types/react-dom": "^18.2.7",
-    "@types/three": "^0.160.0",
     "@typescript-eslint/eslint-plugin": "^6.0.0",
     "@typescript-eslint/parser": "^6.0.0",
     "@vitejs/plugin-react": "^4.0.3",
@@ -63,8 +59,6 @@
     "react",
     "typescript",
     "vite",
-    "tailwindcss",
-    "ifc",
-    "bim"
+    "tailwindcss"
   ]
 }
