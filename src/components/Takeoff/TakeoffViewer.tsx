@@ -157,7 +157,8 @@ export function TakeoffViewer({
               if (ctx) {
                 const renderContext = {
                   canvasContext: ctx,
-                  viewport: viewport
+                  viewport: viewport,
+                  canvas: canvas
                 }
                 await page.render(renderContext).promise
                 thumbnail = canvas.toDataURL('image/jpeg', 0.6)
@@ -236,7 +237,8 @@ export function TakeoffViewer({
         
         const renderContext = {
           canvasContext: ctx,
-          viewport: viewport
+          viewport: viewport,
+          canvas: canvas
         }
         await page.render(renderContext).promise
         

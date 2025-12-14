@@ -3,7 +3,6 @@ import react from '@vitejs/plugin-react'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-// ✅ Reconstruction de __dirname (nécessaire avec "type": "module" dans package.json)
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
@@ -23,6 +22,10 @@ export default defineConfig({
     port: 5173,
     host: true,
     open: true,
+    headers: {
+      'Cross-Origin-Opener-Policy': 'same-origin',
+      'Cross-Origin-Embedder-Policy': 'require-corp',
+    },
   },
   build: {
     outDir: 'dist',
@@ -32,6 +35,7 @@ export default defineConfig({
         manualChunks: {
           vendor: ['react', 'react-dom'],
           icons: ['lucide-react'],
+          three: ['three'],
         },
       },
     },
@@ -44,6 +48,9 @@ export default defineConfig({
       'jspdf',
       'jspdf-autotable',
       'xlsx',
+      'three',
     ],
+    exclude: ['web-ifc'],
   },
+  assetsInclude: ['**/*.wasm'],
 })
