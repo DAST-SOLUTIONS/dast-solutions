@@ -13,7 +13,7 @@ import { useRef, useState, useCallback } from 'react'
 import {
   Box, RotateCcw, ZoomIn, ZoomOut, Maximize2, Eye, EyeOff,
   Layers, Info, MousePointer, Ruler, Upload, Settings,
-  AlertCircle, Loader2, ChevronLeft, ChevronRight, Cube
+  AlertCircle, Loader2, ChevronLeft, ChevronRight, Package
 } from 'lucide-react'
 
 // Types pour les éléments IFC
@@ -376,7 +376,7 @@ export function IFCViewer({
               {/* Placeholder pour le viewer 3D */}
               <div className="text-center">
                 <div className="relative">
-                  <Cube size={120} className="mx-auto text-teal-500 opacity-30" />
+                  <Package size={120} className="mx-auto text-teal-500 opacity-30" />
                   <div className="absolute inset-0 flex items-center justify-center">
                     <div className="text-6xl">🏗️</div>
                   </div>
@@ -395,7 +395,7 @@ export function IFCViewer({
           ) : (
             <div className="h-full flex items-center justify-center">
               <div className="text-center">
-                <Cube size={80} className="mx-auto text-gray-600 mb-4" />
+                <Package size={80} className="mx-auto text-gray-600 mb-4" />
                 <div className="text-xl font-medium text-gray-300">Viewer IFC 3D</div>
                 <div className="text-gray-500 mt-2">Cliquez sur "Charger IFC" pour ouvrir un modèle</div>
                 <div className="text-xs text-gray-600 mt-4">
