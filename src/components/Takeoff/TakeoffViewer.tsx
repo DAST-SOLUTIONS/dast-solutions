@@ -1,17 +1,18 @@
 /**
- * DAST Solutions - TakeoffViewer v2
- * Interface style Bluebeam avec:
- * - Panneau de plans à gauche
- * - Calibration manuelle d'échelle (X et Y)
- * - Support gros fichiers (lazy loading)
- * - Support futur DWG/IFC/RVT
+ * DAST Solutions - TakeoffViewer v3
+ * Interface style Bluebeam avec MESURES INTERACTIVES:
+ * - Ligne: cliquer 2 points → calcul distance
+ * - Rectangle: cliquer 2 coins → périmètre + aire
+ * - Polygone: cliquer plusieurs points → aire
+ * - Comptage: cliquer pour ajouter des points
+ * - Échelle X/Y configurable
  */
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { 
   FileText, Ruler, ChevronLeft, ChevronRight,
   Upload, ZoomIn, ZoomOut, RotateCw, Maximize2, List,
   MousePointer, Minus, Square, Hexagon, Plus, Download, Trash2,
-  AlertCircle, Loader2, X
+  AlertCircle, Loader2, X, Check
 } from 'lucide-react'
 import { ScaleCalibration } from './ScaleCalibration'
 import type { Measurement, MeasureToolType } from '@/types/takeoff-measure-types'
@@ -29,6 +30,17 @@ interface Plan {
   pageCount: number
   thumbnail?: string
   size: number
+}
+
+interface Point {
+  x: number
+  y: number
+}
+
+interface DrawingState {
+  isDrawing: boolean
+  points: Point[]
+  currentPoint: Point | null
 }
 
 interface TakeoffViewerProps {
@@ -53,6 +65,40 @@ const TOOLS = [
 const MAX_FILE_SIZE_WARNING = 20 * 1024 * 1024 // 20MB
 
 // ============================================================================
+// FONCTIONS UTILITAIRES
+// ============================================================================
+
+// Calculer la distance entre 2 points avec échelle X/Y
+function calculateDistance(p1: Point, p2: Point, scaleX: number, scaleY: number): number {
+  const dx = (p2.x - p1.x) * scaleX
+  const dy = (p2.y - p1.y) * scaleY
+  return Math.sqrt(dx * dx + dy * dy)
+}
+
+// Calculer l'aire d'un rectangle
+function calculateRectangleArea(p1: Point, p2: Point, scaleX: number, scaleY: number): number {
+  const width = Math.abs(p2.x - p1.x) * scaleX
+  const height = Math.abs(p2.y - p1.y) * scaleY
+  return width * height
+}
+
+// Calculer l'aire d'un polygone (formule de Shoelace)
+function calculatePolygonArea(points: Point[], scaleX: number, scaleY: number): number {
+  if (points.length < 3) return 0
+  
+  let area = 0
+  for (let i = 0; i < points.length; i++) {
+    const j = (i + 1) % points.length
+    const xi = points[i].x * scaleX
+    const yi = points[i].y * scaleY
+    const xj = points[j].x * scaleX
+    const yj = points[j].y * scaleY
+    area += xi * yj - xj * yi
+  }
+  return Math.abs(area) / 2
+}
+
+// ============================================================================
 // COMPOSANT PRINCIPAL
 // ============================================================================
 
@@ -72,7 +118,7 @@ export function TakeoffViewer({
   const [currentCategory, setCurrentCategory] = useState<string>(TAKEOFF_CATEGORIES[0].id)
   const [currentColor, setCurrentColor] = useState<string>(TAKEOFF_CATEGORIES[0].color)
   
-  // Échelle (X et Y séparés)
+  // Échelle (X et Y séparés) - mètres par pixel
   const [scaleX, setScaleX] = useState(0.02)
   const [scaleY, setScaleY] = useState(0.02)
   const [scaleUnit, setScaleUnit] = useState<'metric' | 'imperial'>('metric')
@@ -82,10 +128,19 @@ export function TakeoffViewer({
   const [measurements, setMeasurements] = useState<Measurement[]>(initialMeasurements)
   const [selectedMeasurement, setSelectedMeasurement] = useState<string | null>(null)
   
+  // État de dessin
+  const [drawing, setDrawing] = useState<DrawingState>({
+    isDrawing: false,
+    points: [],
+    currentPoint: null
+  })
+  
   // Vue
   const [zoom, setZoom] = useState(100)
   const [rotation, setRotation] = useState(0)
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 })
+  const [isPanning, setIsPanning] = useState(false)
+  const [panStart, setPanStart] = useState({ x: 0, y: 0 })
   
   // UI - Panneaux fermés par défaut pour mode full screen
   const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(true)
@@ -97,11 +152,14 @@ export function TakeoffViewer({
   
   // Refs
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const overlayCanvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const pdfDocRef = useRef<any>(null)
 
-  // === GESTION DES FICHIERS ===
+  // ============================================================================
+  // GESTION DES FICHIERS
+  // ============================================================================
   
   const handleFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
@@ -115,14 +173,12 @@ export function TakeoffViewer({
       const file = files[i]
       const ext = file.name.split('.').pop()?.toLowerCase()
       
-      // Déterminer le type
       let type: Plan['type'] = 'pdf'
       if (ext === 'dwg') type = 'dwg'
       else if (ext === 'ifc') type = 'ifc'
       else if (ext === 'rvt') type = 'rvt'
       else if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext || '')) type = 'image'
 
-      // Avertissement pour gros fichiers
       if (file.size > MAX_FILE_SIZE_WARNING) {
         console.warn(`Fichier volumineux: ${file.name} (${(file.size / 1024 / 1024).toFixed(1)}MB)`)
       }
@@ -132,10 +188,7 @@ export function TakeoffViewer({
         let thumbnail: string | undefined
 
         if (type === 'pdf') {
-          // Charger le PDF avec pdf.js - méthode simplifiée
           const pdfjsLib = await import('pdfjs-dist')
-          
-          // Configurer le worker - utiliser unpkg pour compatibilité
           pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`
           
           try {
@@ -144,7 +197,6 @@ export function TakeoffViewer({
             const pdf = await loadingTask.promise
             pageCount = pdf.numPages
             
-            // Générer thumbnail de la première page
             try {
               const page = await pdf.getPage(1)
               const scale = 0.3
@@ -155,17 +207,11 @@ export function TakeoffViewer({
               const ctx = canvas.getContext('2d')
               
               if (ctx) {
-                const renderContext = {
-                  canvasContext: ctx,
-                  viewport: viewport,
-                  canvas: canvas
-                }
-                await page.render(renderContext).promise
+                await page.render({ canvasContext: ctx, viewport, canvas }).promise
                 thumbnail = canvas.toDataURL('image/jpeg', 0.6)
               }
             } catch (thumbErr) {
               console.warn('Impossible de générer le thumbnail:', thumbErr)
-              // Continuer sans thumbnail
             }
           } catch (pdfErr) {
             console.error('Erreur PDF:', pdfErr)
@@ -199,14 +245,11 @@ export function TakeoffViewer({
     }
 
     setIsLoading(false)
-    setLoadingProgress(100)
-    
-    if (fileInputRef.current) {
-      fileInputRef.current.value = ''
-    }
   }, [selectedPlan])
 
-  // === RENDU DU PLAN ===
+  // ============================================================================
+  // RENDU DU PLAN
+  // ============================================================================
   
   const renderPlan = useCallback(async () => {
     if (!selectedPlan || !canvasRef.current) return
@@ -235,12 +278,13 @@ export function TakeoffViewer({
         canvas.width = viewport.width
         canvas.height = viewport.height
         
-        const renderContext = {
-          canvasContext: ctx,
-          viewport: viewport,
-          canvas: canvas
+        await page.render({ canvasContext: ctx, viewport, canvas }).promise
+        
+        // Synchroniser overlay après rendu PDF
+        if (overlayCanvasRef.current) {
+          overlayCanvasRef.current.width = canvas.width
+          overlayCanvasRef.current.height = canvas.height
         }
-        await page.render(renderContext).promise
         
       } else if (selectedPlan.type === 'image') {
         const img = new Image()
@@ -252,6 +296,13 @@ export function TakeoffViewer({
           ctx.rotate((rotation * Math.PI) / 180)
           ctx.drawImage(img, -canvas.width / 2, -canvas.height / 2, canvas.width, canvas.height)
           ctx.restore()
+          
+          // Synchroniser overlay
+          if (overlayCanvasRef.current) {
+            overlayCanvasRef.current.width = canvas.width
+            overlayCanvasRef.current.height = canvas.height
+          }
+          
           setIsLoading(false)
         }
         img.onerror = () => {
@@ -259,9 +310,8 @@ export function TakeoffViewer({
           setIsLoading(false)
         }
         img.src = URL.createObjectURL(selectedPlan.file)
-        return // Le setIsLoading(false) sera appelé dans onload/onerror
+        return
       } else {
-        // DWG, IFC, RVT - placeholder
         canvas.width = 800
         canvas.height = 600
         ctx.fillStyle = '#f3f4f6'
@@ -270,6 +320,11 @@ export function TakeoffViewer({
         ctx.font = '24px sans-serif'
         ctx.textAlign = 'center'
         ctx.fillText(`Format ${selectedPlan.type.toUpperCase()} - Support à venir`, canvas.width / 2, canvas.height / 2)
+        
+        if (overlayCanvasRef.current) {
+          overlayCanvasRef.current.width = canvas.width
+          overlayCanvasRef.current.height = canvas.height
+        }
       }
     } catch (err) {
       console.error('Erreur rendu:', err)
@@ -283,7 +338,384 @@ export function TakeoffViewer({
     renderPlan()
   }, [renderPlan])
 
-  // === GESTION CALIBRATION ===
+  // ============================================================================
+  // DESSIN DES MESURES SUR L'OVERLAY
+  // ============================================================================
+  
+  // Fonction helper pour dessiner un label avec fond
+  const drawLabel = useCallback((ctx: CanvasRenderingContext2D, text: string, x: number, y: number, color: string) => {
+    ctx.font = 'bold 14px sans-serif'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    
+    const metrics = ctx.measureText(text)
+    const padding = 4
+    const bgWidth = metrics.width + padding * 2
+    const bgHeight = 20
+    
+    // Fond
+    ctx.fillStyle = 'rgba(255,255,255,0.9)'
+    ctx.fillRect(x - bgWidth/2, y - bgHeight/2, bgWidth, bgHeight)
+    ctx.strokeStyle = color
+    ctx.lineWidth = 1
+    ctx.setLineDash([])
+    ctx.strokeRect(x - bgWidth/2, y - bgHeight/2, bgWidth, bgHeight)
+    
+    // Texte
+    ctx.fillStyle = color
+    ctx.fillText(text, x, y)
+  }, [])
+  
+  const drawOverlay = useCallback(() => {
+    const canvas = overlayCanvasRef.current
+    if (!canvas) return
+    
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    
+    // Clear
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    
+    // Dessiner les mesures existantes
+    measurements.forEach(m => {
+      if (!m.points || m.points.length === 0) return
+      
+      ctx.strokeStyle = m.color
+      ctx.fillStyle = m.color + '40'
+      ctx.lineWidth = m.id === selectedMeasurement ? 3 : 2
+      ctx.setLineDash([])
+      
+      if (m.type === 'line' && m.points.length >= 2) {
+        ctx.beginPath()
+        ctx.moveTo(m.points[0].x, m.points[0].y)
+        ctx.lineTo(m.points[1].x, m.points[1].y)
+        ctx.stroke()
+        
+        // Points aux extrémités
+        ctx.fillStyle = m.color
+        ctx.beginPath()
+        ctx.arc(m.points[0].x, m.points[0].y, 5, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(m.points[1].x, m.points[1].y, 5, 0, Math.PI * 2)
+        ctx.fill()
+        
+        // Label au milieu
+        const midX = (m.points[0].x + m.points[1].x) / 2
+        const midY = (m.points[0].y + m.points[1].y) / 2
+        drawLabel(ctx, `${m.value.toFixed(2)} ${m.unit}`, midX, midY - 15, m.color)
+        
+      } else if (m.type === 'rectangle' && m.points.length >= 2) {
+        const x = Math.min(m.points[0].x, m.points[1].x)
+        const y = Math.min(m.points[0].y, m.points[1].y)
+        const w = Math.abs(m.points[1].x - m.points[0].x)
+        const h = Math.abs(m.points[1].y - m.points[0].y)
+        
+        ctx.fillStyle = m.color + '30'
+        ctx.fillRect(x, y, w, h)
+        ctx.strokeRect(x, y, w, h)
+        
+        // Label au centre
+        drawLabel(ctx, `${m.value.toFixed(2)} ${m.unit}`, x + w/2, y + h/2, m.color)
+        
+      } else if (m.type === 'area' && m.points.length >= 3) {
+        ctx.beginPath()
+        ctx.moveTo(m.points[0].x, m.points[0].y)
+        m.points.forEach((p, i) => {
+          if (i > 0) ctx.lineTo(p.x, p.y)
+        })
+        ctx.closePath()
+        ctx.fillStyle = m.color + '30'
+        ctx.fill()
+        ctx.stroke()
+        
+        // Points
+        ctx.fillStyle = m.color
+        m.points.forEach(p => {
+          ctx.beginPath()
+          ctx.arc(p.x, p.y, 4, 0, Math.PI * 2)
+          ctx.fill()
+        })
+        
+        // Label au centroid
+        const cx = m.points.reduce((s, p) => s + p.x, 0) / m.points.length
+        const cy = m.points.reduce((s, p) => s + p.y, 0) / m.points.length
+        drawLabel(ctx, `${m.value.toFixed(2)} ${m.unit}`, cx, cy, m.color)
+        
+      } else if (m.type === 'count') {
+        // Points de comptage
+        ctx.fillStyle = m.color
+        m.points.forEach((p, i) => {
+          ctx.beginPath()
+          ctx.arc(p.x, p.y, 12, 0, Math.PI * 2)
+          ctx.fill()
+          
+          // Numéro
+          ctx.fillStyle = '#fff'
+          ctx.font = 'bold 12px sans-serif'
+          ctx.textAlign = 'center'
+          ctx.textBaseline = 'middle'
+          ctx.fillText(String(i + 1), p.x, p.y)
+          ctx.fillStyle = m.color
+        })
+      }
+    })
+    
+    // Dessiner le dessin en cours
+    if (drawing.isDrawing && drawing.points.length > 0) {
+      ctx.strokeStyle = currentColor
+      ctx.fillStyle = currentColor + '30'
+      ctx.lineWidth = 2
+      ctx.setLineDash([5, 5])
+      
+      if (activeTool === 'line' && drawing.currentPoint) {
+        ctx.beginPath()
+        ctx.moveTo(drawing.points[0].x, drawing.points[0].y)
+        ctx.lineTo(drawing.currentPoint.x, drawing.currentPoint.y)
+        ctx.stroke()
+        
+        // Afficher la distance en temps réel
+        const dist = calculateDistance(drawing.points[0], drawing.currentPoint, scaleX, scaleY)
+        const midX = (drawing.points[0].x + drawing.currentPoint.x) / 2
+        const midY = (drawing.points[0].y + drawing.currentPoint.y) / 2
+        const unit = scaleUnit === 'metric' ? 'm' : 'ft'
+        drawLabel(ctx, `${dist.toFixed(2)} ${unit}`, midX, midY - 15, currentColor)
+        
+      } else if (activeTool === 'rectangle' && drawing.currentPoint) {
+        const x = Math.min(drawing.points[0].x, drawing.currentPoint.x)
+        const y = Math.min(drawing.points[0].y, drawing.currentPoint.y)
+        const w = Math.abs(drawing.currentPoint.x - drawing.points[0].x)
+        const h = Math.abs(drawing.currentPoint.y - drawing.points[0].y)
+        
+        ctx.fillRect(x, y, w, h)
+        ctx.strokeRect(x, y, w, h)
+        
+        // Afficher les dimensions
+        const width = Math.abs(drawing.currentPoint.x - drawing.points[0].x) * scaleX
+        const height = Math.abs(drawing.currentPoint.y - drawing.points[0].y) * scaleY
+        const area = width * height
+        const unit = scaleUnit === 'metric' ? 'm' : 'ft'
+        const areaUnit = scaleUnit === 'metric' ? 'm²' : 'ft²'
+        drawLabel(ctx, `${width.toFixed(2)} x ${height.toFixed(2)} ${unit}`, x + w/2, y - 15, currentColor)
+        drawLabel(ctx, `Aire: ${area.toFixed(2)} ${areaUnit}`, x + w/2, y + h/2, currentColor)
+        
+      } else if (activeTool === 'area') {
+        ctx.beginPath()
+        ctx.moveTo(drawing.points[0].x, drawing.points[0].y)
+        drawing.points.forEach((p, i) => {
+          if (i > 0) ctx.lineTo(p.x, p.y)
+        })
+        if (drawing.currentPoint) {
+          ctx.lineTo(drawing.currentPoint.x, drawing.currentPoint.y)
+        }
+        if (drawing.points.length >= 2) {
+          ctx.closePath()
+          ctx.fill()
+        }
+        ctx.stroke()
+        
+        // Points
+        ctx.fillStyle = currentColor
+        ctx.setLineDash([])
+        drawing.points.forEach(p => {
+          ctx.beginPath()
+          ctx.arc(p.x, p.y, 5, 0, Math.PI * 2)
+          ctx.fill()
+        })
+        
+        // Aire en temps réel
+        if (drawing.points.length >= 2 && drawing.currentPoint) {
+          const allPoints = [...drawing.points, drawing.currentPoint]
+          const area = calculatePolygonArea(allPoints, scaleX, scaleY)
+          const cx = allPoints.reduce((s, p) => s + p.x, 0) / allPoints.length
+          const cy = allPoints.reduce((s, p) => s + p.y, 0) / allPoints.length
+          const areaUnit = scaleUnit === 'metric' ? 'm²' : 'ft²'
+          drawLabel(ctx, `${area.toFixed(2)} ${areaUnit}`, cx, cy, currentColor)
+        }
+      }
+      
+      ctx.setLineDash([])
+    }
+  }, [measurements, drawing, activeTool, currentColor, scaleX, scaleY, scaleUnit, selectedMeasurement, drawLabel])
+
+  // Redessiner l'overlay quand nécessaire
+  useEffect(() => {
+    drawOverlay()
+  }, [drawOverlay])
+
+  // ============================================================================
+  // GESTION DES ÉVÉNEMENTS SOURIS
+  // ============================================================================
+  
+  const getCanvasPoint = useCallback((e: React.MouseEvent): Point | null => {
+    const canvas = overlayCanvasRef.current
+    if (!canvas) return null
+    
+    const rect = canvas.getBoundingClientRect()
+    const scaleFactorX = canvas.width / rect.width
+    const scaleFactorY = canvas.height / rect.height
+    
+    return {
+      x: (e.clientX - rect.left) * scaleFactorX,
+      y: (e.clientY - rect.top) * scaleFactorY
+    }
+  }, [])
+
+  // Annuler le dessin en cours
+  const cancelDrawing = useCallback(() => {
+    setDrawing({ isDrawing: false, points: [], currentPoint: null })
+  }, [])
+
+  // Terminer le polygone
+  const finishPolygon = useCallback(() => {
+    if (activeTool === 'area' && drawing.isDrawing && drawing.points.length >= 3) {
+      const area = calculatePolygonArea(drawing.points, scaleX, scaleY)
+      const newMeasurement: Measurement = {
+        id: `m-${Date.now()}`,
+        type: 'area',
+        label: `Polygone ${measurements.length + 1}`,
+        value: area,
+        unit: scaleUnit === 'metric' ? 'm²' : 'ft²',
+        category: TAKEOFF_CATEGORIES.find(c => c.id === currentCategory)?.name || 'Autre',
+        color: currentColor,
+        points: [...drawing.points],
+        planId: selectedPlan?.id,
+        page: currentPage
+      }
+      setMeasurements(prev => [...prev, newMeasurement])
+      setDrawing({ isDrawing: false, points: [], currentPoint: null })
+    }
+  }, [activeTool, drawing, scaleX, scaleY, scaleUnit, currentCategory, currentColor, selectedPlan, currentPage, measurements])
+
+  const handleCanvasClick = useCallback((e: React.MouseEvent) => {
+    if (activeTool === 'select') return
+    
+    const point = getCanvasPoint(e)
+    if (!point) return
+    
+    if (activeTool === 'line') {
+      if (!drawing.isDrawing) {
+        // Premier point
+        setDrawing({ isDrawing: true, points: [point], currentPoint: point })
+      } else {
+        // Deuxième point - créer la mesure
+        const dist = calculateDistance(drawing.points[0], point, scaleX, scaleY)
+        const newMeasurement: Measurement = {
+          id: `m-${Date.now()}`,
+          type: 'line',
+          label: `Ligne ${measurements.length + 1}`,
+          value: dist,
+          unit: scaleUnit === 'metric' ? 'm' : 'ft',
+          category: TAKEOFF_CATEGORIES.find(c => c.id === currentCategory)?.name || 'Autre',
+          color: currentColor,
+          points: [drawing.points[0], point],
+          planId: selectedPlan?.id,
+          page: currentPage
+        }
+        setMeasurements(prev => [...prev, newMeasurement])
+        setDrawing({ isDrawing: false, points: [], currentPoint: null })
+      }
+      
+    } else if (activeTool === 'rectangle') {
+      if (!drawing.isDrawing) {
+        setDrawing({ isDrawing: true, points: [point], currentPoint: point })
+      } else {
+        // Créer le rectangle
+        const area = calculateRectangleArea(drawing.points[0], point, scaleX, scaleY)
+        const newMeasurement: Measurement = {
+          id: `m-${Date.now()}`,
+          type: 'rectangle',
+          label: `Rectangle ${measurements.length + 1}`,
+          value: area,
+          unit: scaleUnit === 'metric' ? 'm²' : 'ft²',
+          category: TAKEOFF_CATEGORIES.find(c => c.id === currentCategory)?.name || 'Autre',
+          color: currentColor,
+          points: [drawing.points[0], point],
+          planId: selectedPlan?.id,
+          page: currentPage
+        }
+        setMeasurements(prev => [...prev, newMeasurement])
+        setDrawing({ isDrawing: false, points: [], currentPoint: null })
+      }
+      
+    } else if (activeTool === 'area') {
+      // Ajouter un point au polygone
+      setDrawing(prev => ({
+        isDrawing: true,
+        points: [...prev.points, point],
+        currentPoint: point
+      }))
+      
+    } else if (activeTool === 'count') {
+      // Ajouter un point de comptage
+      const catName = TAKEOFF_CATEGORIES.find(c => c.id === currentCategory)?.name || 'Autre'
+      const existingCount = measurements.find(
+        m => m.type === 'count' && m.category === catName && m.color === currentColor
+      )
+      
+      if (existingCount && existingCount.points) {
+        // Ajouter au comptage existant
+        setMeasurements(prev => prev.map(m => 
+          m.id === existingCount.id
+            ? { ...m, points: [...(m.points || []), point], value: (m.points?.length || 0) + 1 }
+            : m
+        ))
+      } else {
+        // Créer un nouveau comptage
+        const newMeasurement: Measurement = {
+          id: `m-${Date.now()}`,
+          type: 'count',
+          label: `Comptage ${catName}`,
+          value: 1,
+          unit: 'unité(s)',
+          category: catName,
+          color: currentColor,
+          points: [point],
+          planId: selectedPlan?.id,
+          page: currentPage
+        }
+        setMeasurements(prev => [...prev, newMeasurement])
+      }
+    }
+  }, [activeTool, drawing, scaleX, scaleY, scaleUnit, currentCategory, currentColor, selectedPlan, currentPage, measurements, getCanvasPoint])
+
+  const handleCanvasDoubleClick = useCallback(() => {
+    finishPolygon()
+  }, [finishPolygon])
+
+  const handleCanvasMouseMove = useCallback((e: React.MouseEvent) => {
+    if (isPanning) {
+      const dx = e.clientX - panStart.x
+      const dy = e.clientY - panStart.y
+      setPanOffset(prev => ({ x: prev.x + dx, y: prev.y + dy }))
+      setPanStart({ x: e.clientX, y: e.clientY })
+      return
+    }
+    
+    if (activeTool !== 'select' && drawing.isDrawing) {
+      const point = getCanvasPoint(e)
+      if (point) {
+        setDrawing(prev => ({ ...prev, currentPoint: point }))
+      }
+    }
+  }, [activeTool, drawing.isDrawing, isPanning, panStart, getCanvasPoint])
+
+  const handleCanvasMouseDown = useCallback((e: React.MouseEvent) => {
+    if (e.button === 1 || (e.button === 0 && e.shiftKey)) {
+      // Middle click ou shift+click pour pan
+      setIsPanning(true)
+      setPanStart({ x: e.clientX, y: e.clientY })
+      e.preventDefault()
+    }
+  }, [])
+
+  const handleCanvasMouseUp = useCallback(() => {
+    setIsPanning(false)
+  }, [])
+
+  // ============================================================================
+  // GESTION CALIBRATION
+  // ============================================================================
   
   const handleCalibrate = useCallback((newScaleX: number, newScaleY: number, unit: 'metric' | 'imperial') => {
     setScaleX(newScaleX)
@@ -291,35 +723,43 @@ export function TakeoffViewer({
     setScaleUnit(unit)
   }, [])
 
-  // === RACCOURCIS CLAVIER ===
+  // ============================================================================
+  // RACCOURCIS CLAVIER
+  // ============================================================================
   
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
       
       switch (e.key.toLowerCase()) {
-        case 'v': setActiveTool('select'); break
-        case 'l': setActiveTool('line'); break
-        case 'r': setActiveTool('rectangle'); break
-        case 'p': setActiveTool('area'); break
-        case 'c': setActiveTool('count'); break
+        case 'v': setActiveTool('select'); cancelDrawing(); break
+        case 'l': setActiveTool('line'); cancelDrawing(); break
+        case 'r': setActiveTool('rectangle'); cancelDrawing(); break
+        case 'p': setActiveTool('area'); cancelDrawing(); break
+        case 'c': setActiveTool('count'); cancelDrawing(); break
         case '+': case '=': setZoom(z => Math.min(z + 25, 400)); break
         case '-': setZoom(z => Math.max(z - 25, 25)); break
         case '0': setZoom(100); break
+        case 'escape': cancelDrawing(); break
         case 'delete': case 'backspace':
           if (selectedMeasurement) {
             setMeasurements(prev => prev.filter(m => m.id !== selectedMeasurement))
             setSelectedMeasurement(null)
           }
           break
+        case 'enter':
+          finishPolygon()
+          break
       }
     }
     
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [selectedMeasurement])
+  }, [selectedMeasurement, cancelDrawing, finishPolygon])
 
-  // === STATS ===
+  // ============================================================================
+  // STATS
+  // ============================================================================
   
   const measurementStats = useMemo(() => {
     const byCategory: Record<string, { count: number; total: number; unit: string }> = {}
@@ -336,7 +776,9 @@ export function TakeoffViewer({
     return byCategory
   }, [measurements])
 
-  // === RENDU ===
+  // ============================================================================
+  // RENDU
+  // ============================================================================
   
   return (
     <div className="flex h-full bg-gray-100" style={{ minHeight: '700px' }}>
@@ -376,128 +818,110 @@ export function TakeoffViewer({
         </div>
 
         {!leftPanelCollapsed && (
-          <>
+          <div className="flex-1 overflow-y-auto">
             {leftPanelTab === 'plans' && (
-              <div className="flex-1 overflow-y-auto">
-                <div className="p-2 border-b">
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".pdf,.dwg,.ifc,.rvt,.jpg,.jpeg,.png"
-                    multiple
-                    onChange={handleFileUpload}
-                    className="hidden"
-                  />
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={isLoading}
-                    className="w-full px-3 py-2 bg-teal-600 text-white rounded hover:bg-teal-700 disabled:opacity-50 flex items-center justify-center gap-2 text-sm"
-                  >
-                    <Upload size={16} />
-                    Ajouter des plans
-                  </button>
-                </div>
+              <div className="p-3">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.dwg,.ifc,.rvt"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                />
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 flex items-center justify-center gap-2"
+                >
+                  <Upload size={18} />
+                  Ajouter des plans
+                </button>
 
-                <div className="px-3 py-2 text-sm text-gray-500 border-b">
-                  {plans.length} plan{plans.length > 1 ? 's' : ''}
-                </div>
+                <div className="mt-4 text-sm text-gray-500">{plans.length} plan(s)</div>
 
-                <div className="divide-y">
+                <div className="mt-2 space-y-2">
                   {plans.map(plan => (
-                    <button
+                    <div
                       key={plan.id}
-                      onClick={() => {
-                        setSelectedPlan(plan)
-                        setCurrentPage(1)
-                      }}
-                      className={`w-full p-2 flex gap-3 hover:bg-gray-50 text-left ${
-                        selectedPlan?.id === plan.id ? 'bg-teal-50 border-l-4 border-teal-600' : ''
+                      onClick={() => setSelectedPlan(plan)}
+                      className={`p-2 rounded-lg border cursor-pointer transition ${
+                        plan.id === selectedPlan?.id ? 'border-teal-500 bg-teal-50' : 'border-gray-200 hover:border-gray-300'
                       }`}
                     >
-                      <div className="w-16 h-16 bg-gray-100 rounded flex-shrink-0 overflow-hidden">
-                        {plan.thumbnail ? (
-                          <img src={plan.thumbnail} alt={plan.name} className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-gray-400">
-                            <FileText size={24} />
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium text-sm truncate">{plan.name}</div>
-                        <div className="text-xs text-gray-500">
-                          {plan.type.toUpperCase()} • {plan.pageCount} page{plan.pageCount > 1 ? 's' : ''}
+                      {plan.thumbnail ? (
+                        <img src={plan.thumbnail} alt="" className="w-full h-20 object-cover rounded mb-2" />
+                      ) : (
+                        <div className="w-full h-20 bg-gray-100 rounded mb-2 flex items-center justify-center">
+                          <FileText size={24} className="text-gray-400" />
                         </div>
-                        <div className="text-xs text-gray-400">
-                          {(plan.size / 1024 / 1024).toFixed(1)} MB
-                        </div>
+                      )}
+                      <div className="text-sm font-medium truncate">{plan.name}</div>
+                      <div className="text-xs text-gray-500">
+                        {plan.pageCount} page(s) • {(plan.size / 1024 / 1024).toFixed(1)} MB
                       </div>
-                    </button>
+                    </div>
                   ))}
-                </div>
 
-                {plans.length === 0 && (
-                  <div className="p-8 text-center text-gray-500">
-                    <FileText size={48} className="mx-auto mb-3 opacity-50" />
-                    <div className="text-sm">Aucun plan</div>
-                  </div>
-                )}
+                  {plans.length === 0 && (
+                    <div className="text-center text-gray-400 py-8">
+                      <FileText size={32} className="mx-auto mb-2 opacity-50" />
+                      <div className="text-sm">Aucun plan</div>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
             {leftPanelTab === 'types' && (
-              <div className="flex-1 overflow-y-auto p-2">
-                <div className="text-sm text-gray-500 mb-2 px-2">
-                  {Object.keys(measurementStats).length} type{Object.keys(measurementStats).length > 1 ? 's' : ''} de relevé
-                </div>
-                
-                {Object.entries(measurementStats).map(([category, stats]) => (
-                  <div key={category} className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded">
-                    <div 
-                      className="w-3 h-3 rounded-full"
-                      style={{ backgroundColor: TAKEOFF_CATEGORIES.find(c => c.id === category)?.color || '#666' }}
-                    />
-                    <div className="flex-1">
-                      <div className="text-sm font-medium">{category}</div>
-                      <div className="text-xs text-gray-500">
-                        {stats.count} mesure{stats.count > 1 ? 's' : ''} • {stats.total.toFixed(2)} {stats.unit}
-                      </div>
+              <div className="p-3 space-y-2">
+                {Object.entries(measurementStats).map(([cat, stats]) => {
+                  const s = stats as { count: number; total: number; unit: string }
+                  return (
+                    <div key={cat} className="p-3 bg-gray-50 rounded-lg">
+                      <div className="font-medium">{cat}</div>
+                      <div className="text-sm text-gray-500">{s.count} mesure(s)</div>
+                      <div className="text-lg font-bold text-teal-600">{s.total.toFixed(2)} {s.unit}</div>
                     </div>
+                  )
+                })}
+                {Object.keys(measurementStats).length === 0 && (
+                  <div className="text-center text-gray-400 py-8">
+                    <List size={32} className="mx-auto mb-2 opacity-50" />
+                    <div className="text-sm">Aucune mesure</div>
                   </div>
-                ))}
+                )}
               </div>
             )}
-          </>
+          </div>
         )}
       </div>
 
       {/* ====== ZONE CENTRALE ====== */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Barre outils supérieure */}
-        <div className="bg-gray-800 text-white px-4 py-2 flex items-center gap-4">
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Barre d'outils navigation */}
+        <div className="bg-gray-800 text-white px-4 py-2 flex items-center gap-3">
           {selectedPlan && selectedPlan.pageCount > 1 && (
-            <div className="flex items-center gap-2">
+            <>
               <button
                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
+                disabled={currentPage <= 1}
                 className="p-1.5 hover:bg-gray-700 rounded disabled:opacity-50"
               >
                 <ChevronLeft size={18} />
               </button>
-              <span className="text-sm min-w-[80px] text-center">
+              <span className="text-sm">
                 {currentPage} / {selectedPlan.pageCount}
               </span>
               <button
                 onClick={() => setCurrentPage(p => Math.min(selectedPlan.pageCount, p + 1))}
-                disabled={currentPage === selectedPlan.pageCount}
+                disabled={currentPage >= selectedPlan.pageCount}
                 className="p-1.5 hover:bg-gray-700 rounded disabled:opacity-50"
               >
                 <ChevronRight size={18} />
               </button>
-            </div>
+              <div className="h-6 w-px bg-gray-600" />
+            </>
           )}
-
-          <div className="h-6 w-px bg-gray-600" />
 
           <div className="flex items-center gap-2">
             <button onClick={() => setZoom(z => Math.max(25, z - 25))} className="p-1.5 hover:bg-gray-700 rounded">
@@ -532,11 +956,6 @@ export function TakeoffViewer({
           {selectedPlan && (
             <div className="text-sm text-gray-400">
               {selectedPlan.name}
-              {selectedPlan.size > MAX_FILE_SIZE_WARNING && (
-                <span className="ml-2 text-amber-400">
-                  <AlertCircle size={14} className="inline" /> Volumineux
-                </span>
-              )}
             </div>
           )}
         </div>
@@ -546,7 +965,7 @@ export function TakeoffViewer({
           {TOOLS.map(tool => (
             <button
               key={tool.type}
-              onClick={() => setActiveTool(tool.type)}
+              onClick={() => { setActiveTool(tool.type); cancelDrawing(); }}
               title={`${tool.label} (${tool.shortcut})`}
               className={`p-2 rounded transition ${
                 activeTool === tool.type ? 'bg-teal-600 text-white' : 'text-gray-300 hover:bg-gray-600'
@@ -581,13 +1000,35 @@ export function TakeoffViewer({
               className="w-8 h-8 cursor-pointer bg-transparent"
             />
           </div>
+
+          {drawing.isDrawing && (
+            <>
+              <div className="h-6 w-px bg-gray-500 mx-2" />
+              <button
+                onClick={cancelDrawing}
+                className="flex items-center gap-1 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded text-sm"
+              >
+                <X size={16} />
+                Annuler
+              </button>
+              {activeTool === 'area' && drawing.points.length >= 3 && (
+                <button
+                  onClick={finishPolygon}
+                  className="flex items-center gap-1 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded text-sm"
+                >
+                  <Check size={16} />
+                  Terminer ({drawing.points.length} pts)
+                </button>
+              )}
+            </>
+          )}
         </div>
 
         {/* Canvas */}
         <div 
           ref={containerRef}
           className="flex-1 overflow-auto bg-gray-500 relative"
-          style={{ cursor: activeTool === 'select' ? 'default' : 'crosshair' }}
+          style={{ cursor: activeTool === 'select' ? (isPanning ? 'grabbing' : 'grab') : 'crosshair' }}
         >
           {isLoading && (
             <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-10">
@@ -612,11 +1053,25 @@ export function TakeoffViewer({
           )}
 
           {selectedPlan ? (
-            <canvas
-              ref={canvasRef}
-              className="mx-auto my-4 shadow-2xl"
+            <div 
+              className="relative inline-block mx-auto my-4"
               style={{ transform: `translate(${panOffset.x}px, ${panOffset.y}px)` }}
-            />
+            >
+              <canvas
+                ref={canvasRef}
+                className="shadow-2xl"
+              />
+              <canvas
+                ref={overlayCanvasRef}
+                className="absolute top-0 left-0 pointer-events-auto"
+                onClick={handleCanvasClick}
+                onDoubleClick={handleCanvasDoubleClick}
+                onMouseMove={handleCanvasMouseMove}
+                onMouseDown={handleCanvasMouseDown}
+                onMouseUp={handleCanvasMouseUp}
+                onMouseLeave={handleCanvasMouseUp}
+              />
+            </div>
           ) : (
             <div className="h-full flex items-center justify-center">
               <div className="text-center text-gray-300">
@@ -635,14 +1090,23 @@ export function TakeoffViewer({
 
         {/* Barre d'état */}
         <div className="bg-gray-800 text-gray-400 px-4 py-1 flex items-center gap-4 text-xs">
-          <span>Outil: {TOOLS.find(t => t.type === activeTool)?.label}</span>
+          <span className="flex items-center gap-1">
+            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: currentColor }} />
+            {TOOLS.find(t => t.type === activeTool)?.label}
+          </span>
+          {drawing.isDrawing && (
+            <span className="text-amber-400">
+              {activeTool === 'area' 
+                ? `${drawing.points.length} points (double-clic ou Entrée pour terminer)` 
+                : 'Cliquez pour placer le point'}
+            </span>
+          )}
           <span>•</span>
-          <span>Échelle X: {scaleX.toFixed(4)}</span>
-          <span>Échelle Y: {scaleY.toFixed(4)}</span>
+          <span>Échelle: 1:{Math.round(1/scaleX)}</span>
           <span>•</span>
           <span>{measurements.length} mesure{measurements.length > 1 ? 's' : ''}</span>
           <div className="flex-1" />
-          <span>Raccourcis: V L R P C • +/- Zoom</span>
+          <span>V L R P C: Outils • +/- Zoom • Shift+Clic: Pan • Échap: Annuler</span>
         </div>
       </div>
 
@@ -684,9 +1148,20 @@ export function TakeoffViewer({
                     m.id === selectedMeasurement ? 'border-teal-500 bg-teal-50' : 'border-gray-200 hover:border-gray-300'
                   }`}
                 >
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: m.color }} />
-                    <span className="text-sm font-medium">{m.label || `Mesure ${m.type}`}</span>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: m.color }} />
+                      <span className="text-sm font-medium">{m.label || `Mesure ${m.type}`}</span>
+                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setMeasurements(prev => prev.filter(x => x.id !== m.id))
+                      }}
+                      className="p-1 hover:bg-red-100 rounded text-red-500"
+                    >
+                      <Trash2 size={14} />
+                    </button>
                   </div>
                   <div className="mt-1 text-lg font-bold">{m.value.toFixed(2)} {m.unit}</div>
                   <div className="text-xs text-gray-500 mt-1">{m.category} • {m.type}</div>
@@ -697,6 +1172,9 @@ export function TakeoffViewer({
                 <div className="text-center text-gray-400 py-8">
                   <List size={32} className="mx-auto mb-2 opacity-50" />
                   <div className="text-sm">Aucune mesure</div>
+                  <div className="text-xs mt-2">
+                    Sélectionnez un outil et cliquez sur le plan
+                  </div>
                 </div>
               )}
             </div>

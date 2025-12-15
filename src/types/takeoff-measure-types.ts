@@ -16,16 +16,18 @@ export interface Point {
 export interface Measurement {
   id: string
   type: MeasureToolType
-  points: Point[]
+  points?: Point[]         // Points du tracé
   value: number           // Valeur calculée (longueur, surface, ou comptage)
   unit: string            // m, m², unité
-  scale: number           // Échelle appliquée (ex: 1:50 = 0.02)
-  label: string           // Nom de l'élément
+  scale?: number          // Échelle appliquée (ex: 1:50 = 0.02)
+  label?: string          // Nom de l'élément
   category: string        // Catégorie (Fondations, Murs, etc.)
   color: string           // Couleur d'affichage
-  pageNumber: number      // Page du PDF
+  pageNumber?: number     // Page du PDF (ancien)
+  page?: number           // Page du PDF (nouveau)
+  planId?: string         // ID du plan associé
   notes?: string
-  createdAt: string
+  createdAt?: string
 }
 
 // Document/Plan uploadé
