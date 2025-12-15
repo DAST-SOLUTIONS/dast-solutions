@@ -11,9 +11,9 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { 
   FileText, Ruler, ChevronLeft, ChevronRight,
-  Upload, ZoomIn, ZoomOut, RotateCw, Maximize2, List,
+  Upload, ZoomIn, ZoomOut, RotateCw, Maximize2, Minimize2, List,
   MousePointer, Minus, Square, Hexagon, Plus, Download, Trash2,
-  AlertCircle, Loader2, X, Check, Edit3, DollarSign
+  AlertCircle, Loader2, X, Check, Edit3, DollarSign, Target, Move
 } from 'lucide-react'
 import { ScaleCalibration } from './ScaleCalibration'
 import { MeasurementEditor } from './MeasurementEditor'
@@ -152,6 +152,18 @@ export function TakeoffViewer({
   const [isLoading, setIsLoading] = useState(false)
   const [loadingProgress, setLoadingProgress] = useState(0)
   const [error, setError] = useState<string | null>(null)
+  
+  // Mode plein écran
+  const [isFullscreen, setIsFullscreen] = useState(false)
+  const mainContainerRef = useRef<HTMLDivElement>(null)
+  
+  // Calibration interactive (2 points sur le plan)
+  const [isCalibrating, setIsCalibrating] = useState(false)
+  const [calibrationStep, setCalibrationStep] = useState<1 | 2 | 3>(1)
+  const [calibrationPoint1, setCalibrationPoint1] = useState<Point | null>(null)
+  const [calibrationPoint2, setCalibrationPoint2] = useState<Point | null>(null)
+  const [calibrationRealDistance, setCalibrationRealDistance] = useState('')
+  const [calibrationUnit, setCalibrationUnit] = useState<'m' | 'cm' | 'mm' | 'ft' | 'in'>('m')
   
   // Refs
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -539,7 +551,92 @@ export function TakeoffViewer({
       
       ctx.setLineDash([])
     }
-  }, [measurements, drawing, activeTool, currentColor, scaleX, scaleY, scaleUnit, selectedMeasurement, drawLabel])
+
+    // Dessiner les points de calibration
+    if (isCalibrating) {
+      ctx.setLineDash([])
+      
+      // Point 1
+      if (calibrationPoint1) {
+        ctx.beginPath()
+        ctx.arc(calibrationPoint1.x, calibrationPoint1.y, 10, 0, Math.PI * 2)
+        ctx.fillStyle = '#F59E0B'
+        ctx.fill()
+        ctx.strokeStyle = '#FFFFFF'
+        ctx.lineWidth = 3
+        ctx.stroke()
+        
+        // Croix au centre
+        ctx.beginPath()
+        ctx.strokeStyle = '#FFFFFF'
+        ctx.lineWidth = 2
+        ctx.moveTo(calibrationPoint1.x - 15, calibrationPoint1.y)
+        ctx.lineTo(calibrationPoint1.x + 15, calibrationPoint1.y)
+        ctx.moveTo(calibrationPoint1.x, calibrationPoint1.y - 15)
+        ctx.lineTo(calibrationPoint1.x, calibrationPoint1.y + 15)
+        ctx.stroke()
+        
+        // Label "P1"
+        ctx.fillStyle = '#F59E0B'
+        ctx.font = 'bold 14px sans-serif'
+        ctx.fillText('P1', calibrationPoint1.x + 15, calibrationPoint1.y - 15)
+      }
+      
+      // Point 2
+      if (calibrationPoint2) {
+        ctx.beginPath()
+        ctx.arc(calibrationPoint2.x, calibrationPoint2.y, 10, 0, Math.PI * 2)
+        ctx.fillStyle = '#10B981'
+        ctx.fill()
+        ctx.strokeStyle = '#FFFFFF'
+        ctx.lineWidth = 3
+        ctx.stroke()
+        
+        // Croix au centre
+        ctx.beginPath()
+        ctx.strokeStyle = '#FFFFFF'
+        ctx.lineWidth = 2
+        ctx.moveTo(calibrationPoint2.x - 15, calibrationPoint2.y)
+        ctx.lineTo(calibrationPoint2.x + 15, calibrationPoint2.y)
+        ctx.moveTo(calibrationPoint2.x, calibrationPoint2.y - 15)
+        ctx.lineTo(calibrationPoint2.x, calibrationPoint2.y + 15)
+        ctx.stroke()
+        
+        // Label "P2"
+        ctx.fillStyle = '#10B981'
+        ctx.font = 'bold 14px sans-serif'
+        ctx.fillText('P2', calibrationPoint2.x + 15, calibrationPoint2.y - 15)
+        
+        // Ligne entre les deux points
+        if (calibrationPoint1) {
+          ctx.beginPath()
+          ctx.setLineDash([8, 4])
+          ctx.strokeStyle = '#F59E0B'
+          ctx.lineWidth = 3
+          ctx.moveTo(calibrationPoint1.x, calibrationPoint1.y)
+          ctx.lineTo(calibrationPoint2.x, calibrationPoint2.y)
+          ctx.stroke()
+          ctx.setLineDash([])
+          
+          // Distance en pixels au milieu
+          const midX = (calibrationPoint1.x + calibrationPoint2.x) / 2
+          const midY = (calibrationPoint1.y + calibrationPoint2.y) / 2
+          const pixelDist = Math.sqrt(
+            Math.pow(calibrationPoint2.x - calibrationPoint1.x, 2) +
+            Math.pow(calibrationPoint2.y - calibrationPoint1.y, 2)
+          )
+          
+          ctx.fillStyle = '#1F2937'
+          ctx.fillRect(midX - 50, midY - 25, 100, 25)
+          ctx.fillStyle = '#FFFFFF'
+          ctx.font = 'bold 12px sans-serif'
+          ctx.textAlign = 'center'
+          ctx.textBaseline = 'middle'
+          ctx.fillText(`${pixelDist.toFixed(0)} px`, midX, midY - 12)
+        }
+      }
+    }
+  }, [measurements, drawing, activeTool, currentColor, scaleX, scaleY, scaleUnit, selectedMeasurement, drawLabel, isCalibrating, calibrationPoint1, calibrationPoint2])
 
   // Redessiner l'overlay quand nécessaire
   useEffect(() => {
@@ -569,6 +666,99 @@ export function TakeoffViewer({
     setDrawing({ isDrawing: false, points: [], currentPoint: null })
   }, [])
 
+  // ============================================================================
+  // MODE PLEIN ÉCRAN
+  // ============================================================================
+  
+  const toggleFullscreen = useCallback(() => {
+    if (!document.fullscreenElement) {
+      mainContainerRef.current?.requestFullscreen()
+      setIsFullscreen(true)
+    } else {
+      document.exitFullscreen()
+      setIsFullscreen(false)
+    }
+  }, [])
+
+  // Écouter les changements de fullscreen
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement)
+    }
+    document.addEventListener('fullscreenchange', handleFullscreenChange)
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange)
+  }, [])
+
+  // Raccourci F11 pour fullscreen
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'F11') {
+        e.preventDefault()
+        toggleFullscreen()
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [toggleFullscreen])
+
+  // ============================================================================
+  // CALIBRATION INTERACTIVE (2 points sur le plan)
+  // ============================================================================
+  
+  const startInteractiveCalibration = useCallback(() => {
+    setIsCalibrating(true)
+    setCalibrationStep(1)
+    setCalibrationPoint1(null)
+    setCalibrationPoint2(null)
+    setCalibrationRealDistance('')
+    setActiveTool('select')
+  }, [])
+
+  const cancelCalibration = useCallback(() => {
+    setIsCalibrating(false)
+    setCalibrationStep(1)
+    setCalibrationPoint1(null)
+    setCalibrationPoint2(null)
+    setCalibrationRealDistance('')
+  }, [])
+
+  // Calculer distance en pixels entre les 2 points de calibration
+  const calibrationPixelDistance = useMemo(() => {
+    if (!calibrationPoint1 || !calibrationPoint2) return 0
+    return Math.sqrt(
+      Math.pow(calibrationPoint2.x - calibrationPoint1.x, 2) +
+      Math.pow(calibrationPoint2.y - calibrationPoint1.y, 2)
+    )
+  }, [calibrationPoint1, calibrationPoint2])
+
+  // Convertir distance en mètres
+  const convertToMeters = (value: number, unit: string): number => {
+    switch (unit) {
+      case 'cm': return value / 100
+      case 'mm': return value / 1000
+      case 'ft': return value * 0.3048
+      case 'in': return value * 0.0254
+      default: return value
+    }
+  }
+
+  // Calculer l'échelle depuis la calibration
+  const calculatedCalibrationScale = useMemo(() => {
+    const realValue = parseFloat(calibrationRealDistance)
+    if (!realValue || realValue <= 0 || calibrationPixelDistance <= 0) return null
+    const realMeters = convertToMeters(realValue, calibrationUnit)
+    return realMeters / calibrationPixelDistance
+  }, [calibrationRealDistance, calibrationUnit, calibrationPixelDistance])
+
+  // Appliquer l'échelle calibrée
+  const applyCalibration = useCallback(() => {
+    if (!calculatedCalibrationScale) return
+    setScaleX(calculatedCalibrationScale)
+    setScaleY(calculatedCalibrationScale)
+    setScaleUnit(calibrationUnit === 'ft' || calibrationUnit === 'in' ? 'imperial' : 'metric')
+    cancelCalibration()
+  }, [calculatedCalibrationScale, calibrationUnit, cancelCalibration])
+
   // Terminer le polygone
   const finishPolygon = useCallback(() => {
     if (activeTool === 'area' && drawing.isDrawing && drawing.points.length >= 3) {
@@ -591,10 +781,24 @@ export function TakeoffViewer({
   }, [activeTool, drawing, scaleX, scaleY, scaleUnit, currentCategory, currentColor, selectedPlan, currentPage, measurements])
 
   const handleCanvasClick = useCallback((e: React.MouseEvent) => {
-    if (activeTool === 'select') return
-    
     const point = getCanvasPoint(e)
     if (!point) return
+
+    // Mode calibration interactive
+    if (isCalibrating) {
+      if (calibrationStep === 1) {
+        setCalibrationPoint1(point)
+        setCalibrationStep(2)
+        return
+      } else if (calibrationStep === 2) {
+        setCalibrationPoint2(point)
+        setCalibrationStep(3)
+        return
+      }
+      return
+    }
+    
+    if (activeTool === 'select') return
     
     if (activeTool === 'line') {
       if (!drawing.isDrawing) {
@@ -784,7 +988,121 @@ export function TakeoffViewer({
   // ============================================================================
   
   return (
-    <div className="flex h-full bg-gray-100" style={{ minHeight: '700px' }}>
+    <div 
+      ref={mainContainerRef}
+      className={`flex h-full bg-gray-100 ${isFullscreen ? 'fixed inset-0 z-50' : ''}`} 
+      style={{ minHeight: isFullscreen ? '100vh' : '700px' }}
+    >
+      {/* ====== PANNEAU DE CALIBRATION INTERACTIVE ====== */}
+      {isCalibrating && (
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl shadow-2xl p-4 min-w-[450px]">
+          <div className="flex items-start gap-3">
+            <div className="p-2 bg-white/20 rounded-lg">
+              <Target size={24} />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-bold text-lg">📏 Calibration d'échelle - 2 points</h3>
+              
+              {/* Étapes */}
+              <div className="mt-3 space-y-2">
+                {/* Étape 1 */}
+                <div className={`flex items-center gap-2 ${calibrationStep >= 1 ? 'text-white' : 'text-white/50'}`}>
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-sm font-bold ${
+                    calibrationStep === 1 ? 'bg-white text-amber-600 animate-pulse' : 
+                    calibrationStep > 1 ? 'bg-green-400 text-white' : 'bg-white/30'
+                  }`}>
+                    {calibrationStep > 1 ? '✓' : '1'}
+                  </div>
+                  <span className={calibrationStep === 1 ? 'font-semibold' : ''}>
+                    {calibrationStep === 1 ? '👆 Cliquez sur le PREMIER point' : 'Premier point défini'}
+                  </span>
+                  {calibrationPoint1 && <span className="text-xs opacity-75">({Math.round(calibrationPoint1.x)}, {Math.round(calibrationPoint1.y)})</span>}
+                </div>
+
+                {/* Étape 2 */}
+                <div className={`flex items-center gap-2 ${calibrationStep >= 2 ? 'text-white' : 'text-white/50'}`}>
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-sm font-bold ${
+                    calibrationStep === 2 ? 'bg-white text-amber-600 animate-pulse' : 
+                    calibrationStep > 2 ? 'bg-green-400 text-white' : 'bg-white/30'
+                  }`}>
+                    {calibrationStep > 2 ? '✓' : '2'}
+                  </div>
+                  <span className={calibrationStep === 2 ? 'font-semibold' : ''}>
+                    {calibrationStep === 2 ? '👆 Cliquez sur le SECOND point' : calibrationStep > 2 ? 'Second point défini' : 'Cliquer le second point'}
+                  </span>
+                  {calibrationPoint2 && <span className="text-xs opacity-75">({Math.round(calibrationPoint2.x)}, {Math.round(calibrationPoint2.y)})</span>}
+                </div>
+
+                {/* Étape 3 - Saisie distance */}
+                {calibrationStep === 3 && (
+                  <div className="mt-4 p-3 bg-white/10 rounded-lg">
+                    <div className="text-sm mb-2">
+                      📏 Distance mesurée: <strong>{calibrationPixelDistance.toFixed(1)} pixels</strong>
+                    </div>
+                    
+                    {/* Distance réelle */}
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={calibrationRealDistance}
+                        onChange={(e) => setCalibrationRealDistance(e.target.value)}
+                        placeholder="Distance réelle..."
+                        autoFocus
+                        className="flex-1 px-3 py-2 rounded-lg text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-amber-300"
+                      />
+                      <select
+                        value={calibrationUnit}
+                        onChange={(e) => setCalibrationUnit(e.target.value as any)}
+                        className="px-3 py-2 rounded-lg text-gray-800 bg-white"
+                      >
+                        <option value="m">m</option>
+                        <option value="cm">cm</option>
+                        <option value="mm">mm</option>
+                        <option value="ft">pi (ft)</option>
+                        <option value="in">po (in)</option>
+                      </select>
+                    </div>
+
+                    {/* Résultat calculé */}
+                    {calculatedCalibrationScale && (
+                      <div className="mt-3 p-2 bg-green-500/30 rounded-lg text-sm">
+                        <strong>Échelle calculée:</strong> 1:{Math.round(1 / calculatedCalibrationScale)}
+                        <span className="text-xs ml-2 opacity-75">
+                          ({calculatedCalibrationScale.toFixed(6)} m/px)
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Boutons */}
+              <div className="flex gap-2 mt-4">
+                <button
+                  onClick={cancelCalibration}
+                  className="flex-1 px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg font-medium transition flex items-center justify-center gap-2"
+                >
+                  <X size={16} />
+                  Annuler
+                </button>
+                
+                {calibrationStep === 3 && (
+                  <button
+                    onClick={applyCalibration}
+                    disabled={!calculatedCalibrationScale}
+                    className="flex-1 px-4 py-2 bg-white text-amber-600 hover:bg-amber-50 rounded-lg font-bold transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    <Check size={18} />
+                    Appliquer
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ====== PANNEAU GAUCHE ====== */}
       <div 
         className={`bg-white border-r border-gray-200 flex flex-col transition-all duration-300 ${
@@ -936,22 +1254,48 @@ export function TakeoffViewer({
             </button>
           </div>
 
-          <button onClick={() => setRotation(r => (r + 90) % 360)} className="p-1.5 hover:bg-gray-700 rounded">
+          <button onClick={() => setRotation(r => (r + 90) % 360)} className="p-1.5 hover:bg-gray-700 rounded" title="Rotation">
             <RotateCw size={18} />
           </button>
 
-          <button onClick={() => setZoom(100)} className="p-1.5 hover:bg-gray-700 rounded">
-            <Maximize2 size={18} />
+          <button onClick={() => setZoom(100)} className="p-1.5 hover:bg-gray-700 rounded" title="Réinitialiser zoom">
+            <Move size={18} />
+          </button>
+
+          {/* Bouton plein écran */}
+          <button 
+            onClick={toggleFullscreen} 
+            className={`p-1.5 hover:bg-gray-700 rounded ${isFullscreen ? 'bg-teal-600' : ''}`}
+            title={isFullscreen ? 'Quitter plein écran (F11)' : 'Plein écran (F11)'}
+          >
+            {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
           </button>
 
           <div className="h-6 w-px bg-gray-600" />
 
+          {/* Calibration interactive */}
+          <button
+            onClick={startInteractiveCalibration}
+            disabled={!selectedPlan || isCalibrating}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded text-sm transition ${
+              isCalibrating 
+                ? 'bg-orange-500 text-white animate-pulse' 
+                : 'bg-green-600 hover:bg-green-700 text-white disabled:opacity-50'
+            }`}
+            title="Calibrer en cliquant 2 points sur le plan"
+          >
+            <Target size={16} />
+            {isCalibrating ? 'Calibration...' : '2 Points'}
+          </button>
+
+          {/* Échelle prédéfinie */}
           <button
             onClick={() => setShowScaleCalibration(true)}
             className="flex items-center gap-2 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 rounded text-sm"
+            title="Échelles prédéfinies"
           >
             <Ruler size={16} />
-            Échelle: {scaleUnit === 'metric' ? `1:${Math.round(1/scaleX)}` : `1"=${Math.round(1/scaleX)}'`}
+            {scaleUnit === 'metric' ? `1:${Math.round(1/scaleX)}` : `1"=${Math.round(1/scaleX)}'`}
           </button>
 
           <div className="flex-1" />
@@ -1031,7 +1375,7 @@ export function TakeoffViewer({
         <div 
           ref={containerRef}
           className="flex-1 overflow-auto bg-gray-500 relative"
-          style={{ cursor: activeTool === 'select' ? (isPanning ? 'grabbing' : 'grab') : 'crosshair' }}
+          style={{ cursor: isCalibrating ? 'crosshair' : activeTool === 'select' ? (isPanning ? 'grabbing' : 'grab') : 'crosshair' }}
         >
           {isLoading && (
             <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-10">
