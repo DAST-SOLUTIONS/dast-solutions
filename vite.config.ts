@@ -22,6 +22,11 @@ export default defineConfig({
     port: 5173,
     host: true,
     open: true,
+    headers: {
+      // Headers requis pour web-ifc SharedArrayBuffer
+      'Cross-Origin-Opener-Policy': 'same-origin',
+      'Cross-Origin-Embedder-Policy': 'require-corp',
+    },
   },
   build: {
     outDir: 'dist',
@@ -31,6 +36,7 @@ export default defineConfig({
         manualChunks: {
           vendor: ['react', 'react-dom'],
           icons: ['lucide-react'],
+          three: ['three'],
         },
       },
     },
@@ -43,6 +49,9 @@ export default defineConfig({
       'jspdf',
       'jspdf-autotable',
       'xlsx',
+      'three',
     ],
+    exclude: ['web-ifc'], // web-ifc utilise WASM
   },
+  assetsInclude: ['**/*.wasm'],
 })

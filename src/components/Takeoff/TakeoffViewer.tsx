@@ -1,22 +1,24 @@
 /**
- * DAST Solutions - TakeoffViewer v3
+ * DAST Solutions - TakeoffViewer v4
  * Interface style Bluebeam avec MESURES INTERACTIVES:
  * - Ligne: cliquer 2 points → calcul distance
  * - Rectangle: cliquer 2 coins → périmètre + aire
  * - Polygone: cliquer plusieurs points → aire
  * - Comptage: cliquer pour ajouter des points
  * - Échelle X/Y configurable
+ * - Édition des mesures avec dimensions, métiers CCQ, coûts
  */
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { 
   FileText, Ruler, ChevronLeft, ChevronRight,
   Upload, ZoomIn, ZoomOut, RotateCw, Maximize2, List,
   MousePointer, Minus, Square, Hexagon, Plus, Download, Trash2,
-  AlertCircle, Loader2, X, Check
+  AlertCircle, Loader2, X, Check, Edit3, DollarSign
 } from 'lucide-react'
 import { ScaleCalibration } from './ScaleCalibration'
+import { MeasurementEditor } from './MeasurementEditor'
 import type { Measurement, MeasureToolType } from '@/types/takeoff-measure-types'
-import { TAKEOFF_CATEGORIES } from '@/types/takeoff-measure-types'
+import { TAKEOFF_CATEGORIES, calculateDerivedValues, calculateMeasurementCosts } from '@/types/takeoff-measure-types'
 
 // ============================================================================
 // TYPES
@@ -127,6 +129,7 @@ export function TakeoffViewer({
   // Mesures
   const [measurements, setMeasurements] = useState<Measurement[]>(initialMeasurements)
   const [selectedMeasurement, setSelectedMeasurement] = useState<string | null>(null)
+  const [editingMeasurement, setEditingMeasurement] = useState<Measurement | null>(null)
   
   // État de dessin
   const [drawing, setDrawing] = useState<DrawingState>({
@@ -1105,22 +1108,32 @@ export function TakeoffViewer({
           <span>Échelle: 1:{Math.round(1/scaleX)}</span>
           <span>•</span>
           <span>{measurements.length} mesure{measurements.length > 1 ? 's' : ''}</span>
+          {(() => {
+            const totalCost = measurements.reduce((sum, m) => sum + (m.costs?.totalCost || 0), 0)
+            return totalCost > 0 ? (
+              <>
+                <span>•</span>
+                <span className="text-green-400">${totalCost.toFixed(2)}</span>
+              </>
+            ) : null
+          })()}
           <div className="flex-1" />
           <span>V L R P C: Outils • +/- Zoom • Shift+Clic: Pan • Échap: Annuler</span>
         </div>
       </div>
 
       {/* ====== PANNEAU DROIT ====== */}
-      <div className={`bg-white border-l border-gray-200 flex flex-col transition-all duration-300 ${rightPanelCollapsed ? 'w-12' : 'w-80'}`}>
+      <div className={`bg-white border-l border-gray-200 flex flex-col transition-all duration-300 ${rightPanelCollapsed ? 'w-12' : 'w-96'}`}>
         <div className="flex items-center justify-between p-2 border-b bg-gray-50">
           <button onClick={() => setRightPanelCollapsed(!rightPanelCollapsed)} className="p-1.5 hover:bg-gray-200 rounded">
             {rightPanelCollapsed ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
           </button>
-          {!rightPanelCollapsed && <span className="text-sm font-medium text-gray-700">Mesures</span>}
+          {!rightPanelCollapsed && <span className="text-sm font-medium text-gray-700">Mesures & Coûts</span>}
         </div>
 
         {!rightPanelCollapsed && (
           <div className="flex-1 overflow-y-auto p-3">
+            {/* Actions */}
             <div className="flex gap-2 mb-4">
               <button
                 onClick={() => onExportToEstimation?.(measurements)}
@@ -1139,34 +1152,111 @@ export function TakeoffViewer({
               </button>
             </div>
 
-            <div className="space-y-2">
-              {measurements.map(m => (
-                <div
-                  key={m.id}
-                  onClick={() => setSelectedMeasurement(m.id === selectedMeasurement ? null : m.id)}
-                  className={`p-3 rounded-lg border cursor-pointer transition ${
-                    m.id === selectedMeasurement ? 'border-teal-500 bg-teal-50' : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: m.color }} />
-                      <span className="text-sm font-medium">{m.label || `Mesure ${m.type}`}</span>
-                    </div>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setMeasurements(prev => prev.filter(x => x.id !== m.id))
-                      }}
-                      className="p-1 hover:bg-red-100 rounded text-red-500"
-                    >
-                      <Trash2 size={14} />
-                    </button>
+            {/* Totaux */}
+            {measurements.length > 0 && (() => {
+              const totalLabor = measurements.reduce((sum, m) => sum + (m.costs?.laborCost || 0), 0)
+              const totalMaterial = measurements.reduce((sum, m) => sum + (m.costs?.materialCost || 0), 0)
+              const totalCost = totalLabor + totalMaterial
+              
+              return totalCost > 0 ? (
+                <div className="mb-4 p-3 bg-gradient-to-r from-teal-500 to-teal-600 rounded-lg text-white">
+                  <div className="flex items-center gap-2 mb-2">
+                    <DollarSign size={18} />
+                    <span className="font-medium">Total du relevé</span>
                   </div>
-                  <div className="mt-1 text-lg font-bold">{m.value.toFixed(2)} {m.unit}</div>
-                  <div className="text-xs text-gray-500 mt-1">{m.category} • {m.type}</div>
+                  <div className="space-y-1 text-sm">
+                    {totalLabor > 0 && (
+                      <div className="flex justify-between opacity-90">
+                        <span>Main-d'œuvre:</span>
+                        <span>${totalLabor.toFixed(2)}</span>
+                      </div>
+                    )}
+                    {totalMaterial > 0 && (
+                      <div className="flex justify-between opacity-90">
+                        <span>Matériaux:</span>
+                        <span>${totalMaterial.toFixed(2)}</span>
+                      </div>
+                    )}
+                    <div className="border-t border-white/30 pt-1 flex justify-between font-bold">
+                      <span>TOTAL:</span>
+                      <span>${totalCost.toFixed(2)}</span>
+                    </div>
+                  </div>
                 </div>
-              ))}
+              ) : null
+            })()}
+
+            {/* Liste des mesures */}
+            <div className="space-y-2">
+              {measurements.map(m => {
+                const hasCosts = (m.costs?.totalCost || 0) > 0
+                const hasCalc = m.calculated?.area || m.calculated?.volume
+                
+                return (
+                  <div
+                    key={m.id}
+                    className={`p-3 rounded-lg border transition ${
+                      m.id === selectedMeasurement ? 'border-teal-500 bg-teal-50' : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div 
+                        className="flex items-center gap-2 flex-1 cursor-pointer"
+                        onClick={() => setSelectedMeasurement(m.id === selectedMeasurement ? null : m.id)}
+                      >
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: m.color }} />
+                        <span className="text-sm font-medium truncate">
+                          {m.label || `${m.type} - ${m.category}`}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setEditingMeasurement(m)
+                          }}
+                          className="p-1 hover:bg-blue-100 rounded text-blue-600"
+                          title="Modifier"
+                        >
+                          <Edit3 size={14} />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setMeasurements(prev => prev.filter(x => x.id !== m.id))
+                          }}
+                          className="p-1 hover:bg-red-100 rounded text-red-500"
+                          title="Supprimer"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                    
+                    {/* Valeur principale */}
+                    <div className="mt-1 text-lg font-bold">{m.value.toFixed(2)} {m.unit}</div>
+                    
+                    {/* Valeurs calculées */}
+                    {hasCalc && (
+                      <div className="mt-1 text-xs text-blue-600">
+                        {m.calculated?.area && `Surface: ${m.calculated.area.toFixed(2)} m² `}
+                        {m.calculated?.volume && `Volume: ${m.calculated.volume.toFixed(3)} m³`}
+                      </div>
+                    )}
+                    
+                    {/* Coûts */}
+                    {hasCosts && (
+                      <div className="mt-1 flex items-center gap-2 text-sm text-green-600 font-medium">
+                        <DollarSign size={12} />
+                        {m.costs?.totalCost?.toFixed(2)}
+                      </div>
+                    )}
+                    
+                    {/* Catégorie et type */}
+                    <div className="text-xs text-gray-500 mt-1">{m.category} • {m.type}</div>
+                  </div>
+                )
+              })}
 
               {measurements.length === 0 && (
                 <div className="text-center text-gray-400 py-8">
@@ -1191,6 +1281,26 @@ export function TakeoffViewer({
         currentScaleY={scaleY}
         currentUnit={scaleUnit}
       />
+
+      {/* Modal édition de mesure */}
+      {editingMeasurement && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <MeasurementEditor
+            measurement={editingMeasurement}
+            onSave={(updated) => {
+              setMeasurements(prev => prev.map(m => 
+                m.id === updated.id ? updated : m
+              ))
+              setEditingMeasurement(null)
+            }}
+            onDelete={() => {
+              setMeasurements(prev => prev.filter(m => m.id !== editingMeasurement.id))
+              setEditingMeasurement(null)
+            }}
+            onClose={() => setEditingMeasurement(null)}
+          />
+        </div>
+      )}
     </div>
   )
 }
