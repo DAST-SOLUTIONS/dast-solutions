@@ -15,7 +15,7 @@ import {
   Box, RotateCcw, ZoomIn, ZoomOut, Maximize2, Eye, EyeOff,
   Layers, Info, MousePointer, Ruler, Upload, Settings,
   AlertCircle, Loader2, ChevronLeft, ChevronRight, Package,
-  Home, Sun, Moon, Grid3X3
+  Home, Sun, Moon, LayoutGrid
 } from 'lucide-react'
 import * as THREE from 'three'
 
@@ -492,7 +492,7 @@ export function IFCViewer({ onExtractQuantities }: IFCViewerProps) {
           </button>
 
           <button onClick={() => setShowGrid(!showGrid)} className="p-2 hover:bg-gray-700 rounded" title="Grille">
-            <Grid3X3 size={18} className={showGrid ? 'text-teal-400' : ''} />
+            <LayoutGrid size={18} className={showGrid ? 'text-teal-400' : ''} />
           </button>
 
           <button onClick={() => setDarkMode(!darkMode)} className="p-2 hover:bg-gray-700 rounded" title="Thème">
