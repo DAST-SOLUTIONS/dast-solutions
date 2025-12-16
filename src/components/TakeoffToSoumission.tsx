@@ -6,7 +6,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import {
-  X, Check, Plus, Ruler, Square, Move3D, Hash,
+  X, Check, Plus, Ruler, Square, Move3d, Hash,
   ChevronRight, FileText, Loader2, Search
 } from 'lucide-react'
 
@@ -40,7 +40,7 @@ interface TakeoffToSoumissionProps {
 const TYPE_ICONS = {
   line: Ruler,
   rectangle: Square,
-  polygon: Move3D,
+  polygon: Move3d,
   count: Hash,
   area: Square
 }
