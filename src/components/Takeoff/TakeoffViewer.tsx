@@ -187,6 +187,11 @@ export function TakeoffViewer({
   const [showPDFExporter, setShowPDFExporter] = useState(false)
   const [planImageBase64, setPlanImageBase64] = useState<string | null>(null)
   
+  // Performance: refs pour requestAnimationFrame
+  const rafIdRef = useRef<number | null>(null)
+  const lastDrawTimeRef = useRef<number>(0)
+  const DRAW_THROTTLE_MS = 16 // ~60fps
+  
   // Refs
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const overlayCanvasRef = useRef<HTMLCanvasElement>(null)
@@ -660,9 +665,34 @@ export function TakeoffViewer({
     }
   }, [measurements, drawing, activeTool, currentColor, scaleX, scaleY, scaleUnit, selectedMeasurement, drawLabel, isCalibrating, calibrationPoint1, calibrationPoint2])
 
-  // Redessiner l'overlay quand nécessaire
+  // Redessiner l'overlay quand nécessaire (optimisé avec RAF)
   useEffect(() => {
-    drawOverlay()
+    // Annuler le frame précédent
+    if (rafIdRef.current) {
+      cancelAnimationFrame(rafIdRef.current)
+    }
+    
+    // Throttle: éviter de dessiner trop souvent
+    const now = performance.now()
+    const elapsed = now - lastDrawTimeRef.current
+    
+    if (elapsed < DRAW_THROTTLE_MS) {
+      // Planifier le prochain dessin
+      rafIdRef.current = requestAnimationFrame(() => {
+        lastDrawTimeRef.current = performance.now()
+        drawOverlay()
+      })
+    } else {
+      // Dessiner immédiatement
+      lastDrawTimeRef.current = now
+      drawOverlay()
+    }
+    
+    return () => {
+      if (rafIdRef.current) {
+        cancelAnimationFrame(rafIdRef.current)
+      }
+    }
   }, [drawOverlay])
 
   // ============================================================================
@@ -912,7 +942,27 @@ export function TakeoffViewer({
     finishPolygon()
   }, [finishPolygon])
 
+  // Ref pour le throttle du mouse move
+  const lastMouseMoveRef = useRef<number>(0)
+  const mouseMoveRafRef = useRef<number | null>(null)
+  
   const handleCanvasMouseMove = useCallback((e: React.MouseEvent) => {
+    // Throttle: max 60fps
+    const now = performance.now()
+    if (now - lastMouseMoveRef.current < 16) {
+      // Planifier une mise à jour différée
+      if (mouseMoveRafRef.current) cancelAnimationFrame(mouseMoveRafRef.current)
+      mouseMoveRafRef.current = requestAnimationFrame(() => {
+        lastMouseMoveRef.current = performance.now()
+        handleCanvasMouseMoveInternal(e)
+      })
+      return
+    }
+    lastMouseMoveRef.current = now
+    handleCanvasMouseMoveInternal(e)
+  }, [])
+  
+  const handleCanvasMouseMoveInternal = useCallback((e: React.MouseEvent) => {
     if (isPanning) {
       const dx = e.clientX - panStart.x
       const dy = e.clientY - panStart.y
@@ -992,6 +1042,9 @@ export function TakeoffViewer({
   
   const measurementStats = useMemo(() => {
     const byCategory: Record<string, { count: number; total: number; unit: string }> = {}
+    let totalLaborCost = 0
+    let totalMaterialCost = 0
+    let totalCost = 0
     
     measurements.forEach(m => {
       const cat = m.category || 'Autre'
@@ -1000,9 +1053,14 @@ export function TakeoffViewer({
       }
       byCategory[cat].count++
       byCategory[cat].total += m.value
+      
+      // Totaux de coûts
+      totalLaborCost += m.costs?.laborCost || 0
+      totalMaterialCost += m.costs?.materialCost || 0
+      totalCost += m.costs?.totalCost || 0
     })
     
-    return byCategory
+    return { byCategory, totalLaborCost, totalMaterialCost, totalCost }
   }, [measurements])
 
   // ============================================================================
@@ -1502,15 +1560,12 @@ export function TakeoffViewer({
           <span>Échelle: 1:{Math.round(1/scaleX)}</span>
           <span>•</span>
           <span>{measurements.length} mesure{measurements.length > 1 ? 's' : ''}</span>
-          {(() => {
-            const totalCost = measurements.reduce((sum, m) => sum + (m.costs?.totalCost || 0), 0)
-            return totalCost > 0 ? (
-              <>
-                <span>•</span>
-                <span className="text-green-400">${totalCost.toFixed(2)}</span>
-              </>
-            ) : null
-          })()}
+          {measurementStats.totalCost > 0 && (
+            <>
+              <span>•</span>
+              <span className="text-green-400">${measurementStats.totalCost.toFixed(2)}</span>
+            </>
+          )}
           <div className="flex-1" />
           <span>V L R P C: Outils • +/- Zoom • Shift+Clic: Pan • Échap: Annuler</span>
         </div>
@@ -1578,38 +1633,32 @@ export function TakeoffViewer({
             </div>
 
             {/* Totaux */}
-            {measurements.length > 0 && (() => {
-              const totalLabor = measurements.reduce((sum, m) => sum + (m.costs?.laborCost || 0), 0)
-              const totalMaterial = measurements.reduce((sum, m) => sum + (m.costs?.materialCost || 0), 0)
-              const totalCost = totalLabor + totalMaterial
-              
-              return totalCost > 0 ? (
-                <div className="mb-4 p-3 bg-gradient-to-r from-teal-500 to-teal-600 rounded-lg text-white">
-                  <div className="flex items-center gap-2 mb-2">
-                    <DollarSign size={18} />
-                    <span className="font-medium">Total du relevé</span>
-                  </div>
-                  <div className="space-y-1 text-sm">
-                    {totalLabor > 0 && (
-                      <div className="flex justify-between opacity-90">
-                        <span>Main-d'œuvre:</span>
-                        <span>${totalLabor.toFixed(2)}</span>
-                      </div>
-                    )}
-                    {totalMaterial > 0 && (
-                      <div className="flex justify-between opacity-90">
-                        <span>Matériaux:</span>
-                        <span>${totalMaterial.toFixed(2)}</span>
-                      </div>
-                    )}
-                    <div className="border-t border-white/30 pt-1 flex justify-between font-bold">
-                      <span>TOTAL:</span>
-                      <span>${totalCost.toFixed(2)}</span>
+            {measurements.length > 0 && measurementStats.totalCost > 0 && (
+              <div className="mb-4 p-3 bg-gradient-to-r from-teal-500 to-teal-600 rounded-lg text-white">
+                <div className="flex items-center gap-2 mb-2">
+                  <DollarSign size={18} />
+                  <span className="font-medium">Total du relevé</span>
+                </div>
+                <div className="space-y-1 text-sm">
+                  {measurementStats.totalLaborCost > 0 && (
+                    <div className="flex justify-between opacity-90">
+                      <span>Main-d'œuvre:</span>
+                      <span>${measurementStats.totalLaborCost.toFixed(2)}</span>
                     </div>
+                  )}
+                  {measurementStats.totalMaterialCost > 0 && (
+                    <div className="flex justify-between opacity-90">
+                      <span>Matériaux:</span>
+                      <span>${measurementStats.totalMaterialCost.toFixed(2)}</span>
+                    </div>
+                  )}
+                  <div className="border-t border-white/30 pt-1 flex justify-between font-bold">
+                    <span>TOTAL:</span>
+                    <span>${measurementStats.totalCost.toFixed(2)}</span>
                   </div>
                 </div>
-              ) : null
-            })()}
+              </div>
+            )}
 
             {/* Liste des mesures */}
             <div className="space-y-2">
