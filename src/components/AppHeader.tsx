@@ -1,6 +1,14 @@
 import { NavLink, useNavigate } from "react-router-dom"
 import { useAuth } from "@/hooks/useAuth"
-import { Home, LogOut, Settings as SettingsIcon, Moon, Sun, Bell, X, BarChart3 } from "lucide-react"
+import { 
+  Home, LogOut, Settings as SettingsIcon, Moon, Sun, Bell, X, BarChart3,
+  FolderOpen, Users, Megaphone, BookOpen, Wrench, ChevronDown,
+  Palette, Calculator, ClipboardList, FileText, Receipt,
+  Building2, Contact,
+  Link, TrendingUp, Flame, ShoppingCart,
+  BookMarked, Scale, FileCheck, Handshake,
+  Smartphone, MessageSquare, MapPin, ClipboardCheck
+} from "lucide-react"
 import { useState, useEffect, useRef } from "react"
 import { supabase } from "@/lib/supabase"
 
@@ -169,90 +177,143 @@ export default function AppHeader() {
     navigate("/login")
   }
 
-  const link = "px-3 py-2 rounded-lg text-white/90 hover:text-white hover:bg-white/10 transition text-sm"
-  const submenuLink = "block w-full text-left px-4 py-2 hover:bg-gray-100 text-gray-800 text-sm"
+  const menuBtn = "flex items-center gap-1 px-3 py-2 rounded-lg text-white/90 hover:text-white hover:bg-white/10 transition text-sm font-medium"
+  const submenuLink = "flex items-center gap-2 w-full text-left px-3 py-2 hover:bg-gray-100 text-gray-700 text-sm rounded-md"
 
   return (
     <header className="bg-gradient-to-r from-teal-600 to-orange-400 text-white sticky top-0 z-50 shadow-lg">
-      <div className="max-w-7xl mx-auto px-4 py-3">
-        <div className="flex items-center gap-6 mb-2">
+      {/* PLEINE LARGEUR - pas de max-w */}
+      <div className="w-full px-4 py-2">
+        <div className="flex items-center gap-4">
           {/* Logo */}
-          <button onClick={() => navigate("/dashboard")} className="text-left leading-tight hover:opacity-80 transition">
+          <button onClick={() => navigate("/dashboard")} className="text-left leading-tight hover:opacity-80 transition flex-shrink-0">
             <div className="text-xl font-extrabold">DASTCC</div>
             <div className="text-xs opacity-80 -mt-0.5">Central Cloud</div>
           </button>
 
           {/* Navigation */}
-          <nav className="flex items-center gap-1 flex-wrap">
-            <NavLink to="/dashboard" className={link}>
-              <Home className="inline -mt-1 mr-2" size={16} /> Dashboard
+          <nav className="flex items-center gap-1 flex-1">
+            <NavLink to="/dashboard" className={menuBtn}>
+              <Home size={16} /> Dashboard
             </NavLink>
 
             {/* PROJETS */}
             <div className="relative group">
-              <button className={link}>📁 Projets ▼</button>
-              <div className="hidden group-hover:block absolute left-0 mt-0 w-56 rounded-lg bg-white text-gray-800 shadow-xl p-2">
-                <button onClick={() => navigate("/dashboard")} className={submenuLink}>📋 Tous les projets</button>
-                <div className="border-t my-2"></div>
-                <button onClick={() => navigate("/projets/conception")} className={submenuLink}>🎨 Conception</button>
-                <button onClick={() => navigate("/projets/estimation")} className={submenuLink}>💰 Estimation</button>
-                <button onClick={() => navigate("/projets/gestion")} className={submenuLink}>📊 Gestion</button>
-                <button onClick={() => navigate("/projets/appels-offres")} className={submenuLink}>📢 Appels d'offres</button>
-                <div className="border-t my-2"></div>
-                <button onClick={() => navigate("/factures")} className={submenuLink}>💵 Factures</button>
+              <button className={menuBtn}>
+                <FolderOpen size={16} /> Projets <ChevronDown size={14} className="opacity-70" />
+              </button>
+              <div className="hidden group-hover:block absolute left-0 mt-0 w-52 rounded-lg bg-white text-gray-800 shadow-xl p-2 z-50">
+                <button onClick={() => navigate("/dashboard")} className={submenuLink}>
+                  <ClipboardList size={16} className="text-teal-600" /> Tous les projets
+                </button>
+                <div className="border-t my-1.5"></div>
+                <button onClick={() => navigate("/projets/conception")} className={submenuLink}>
+                  <Palette size={16} className="text-purple-500" /> Conception
+                </button>
+                <button onClick={() => navigate("/projets/estimation")} className={submenuLink}>
+                  <Calculator size={16} className="text-blue-500" /> Estimation
+                </button>
+                <button onClick={() => navigate("/projets/gestion")} className={submenuLink}>
+                  <ClipboardCheck size={16} className="text-green-500" /> Gestion
+                </button>
+                <button onClick={() => navigate("/projets/appels-offres")} className={submenuLink}>
+                  <Megaphone size={16} className="text-orange-500" /> Appels d'offres
+                </button>
+                <div className="border-t my-1.5"></div>
+                <button onClick={() => navigate("/factures")} className={submenuLink}>
+                  <Receipt size={16} className="text-emerald-600" /> Factures
+                </button>
               </div>
             </div>
 
             {/* ENTREPRENEURS */}
             <div className="relative group">
-              <button className={link}>👷 Entrepreneurs ▼</button>
-              <div className="hidden group-hover:block absolute left-0 mt-0 w-56 rounded-lg bg-white text-gray-800 shadow-xl p-2">
-                <button onClick={() => navigate("/entrepreneurs/rbq")} className={submenuLink}>🏛️ Bottin RBQ</button>
-                <button onClick={() => navigate("/entrepreneurs/personnel")} className={submenuLink}>📇 Bottin personnels</button>
+              <button className={menuBtn}>
+                <Users size={16} /> Entrepreneurs <ChevronDown size={14} className="opacity-70" />
+              </button>
+              <div className="hidden group-hover:block absolute left-0 mt-0 w-52 rounded-lg bg-white text-gray-800 shadow-xl p-2 z-50">
+                <button onClick={() => navigate("/entrepreneurs/rbq")} className={submenuLink}>
+                  <Building2 size={16} className="text-blue-600" /> Bottin RBQ
+                </button>
+                <button onClick={() => navigate("/entrepreneurs/personnel")} className={submenuLink}>
+                  <Contact size={16} className="text-teal-600" /> Bottin personnels
+                </button>
               </div>
             </div>
 
             {/* APPELS D'OFFRE */}
             <div className="relative group">
-              <button className={link}>📢 Appels d'offre ▼</button>
-              <div className="hidden group-hover:block absolute left-0 mt-0 w-56 rounded-lg bg-white text-gray-800 shadow-xl p-2">
-                <button onClick={() => navigate("/appels-offre/seao")} className={submenuLink}>🔗 SEAO</button>
-                <button onClick={() => navigate("/appels-offre/merx")} className={submenuLink}>📈 MERX</button>
-                <button onClick={() => navigate("/appels-offre/buy-gc")} className={submenuLink}>🏗️ Buy GC</button>
-                <button onClick={() => navigate("/appels-offre/bonfire")} className={submenuLink}>🔥 Bonfire</button>
+              <button className={menuBtn}>
+                <Megaphone size={16} /> Appels d'offre <ChevronDown size={14} className="opacity-70" />
+              </button>
+              <div className="hidden group-hover:block absolute left-0 mt-0 w-52 rounded-lg bg-white text-gray-800 shadow-xl p-2 z-50">
+                <button onClick={() => navigate("/appels-offre/seao")} className={submenuLink}>
+                  <Link size={16} className="text-blue-600" /> SEAO
+                </button>
+                <button onClick={() => navigate("/appels-offre/merx")} className={submenuLink}>
+                  <TrendingUp size={16} className="text-green-600" /> MERX
+                </button>
+                <button onClick={() => navigate("/appels-offre/buy-gc")} className={submenuLink}>
+                  <ShoppingCart size={16} className="text-purple-600" /> Buy GC
+                </button>
+                <button onClick={() => navigate("/appels-offre/bonfire")} className={submenuLink}>
+                  <Flame size={16} className="text-orange-500" /> Bonfire
+                </button>
               </div>
             </div>
 
             {/* RESSOURCES */}
             <div className="relative group">
-              <button className={link}>📚 Ressources ▼</button>
-              <div className="hidden group-hover:block absolute left-0 mt-0 w-56 rounded-lg bg-white text-gray-800 shadow-xl p-2">
-                <button onClick={() => navigate("/ressources/code-navigator")} className={submenuLink}>📖 Code Navigator</button>
-                <button onClick={() => navigate("/ressources/ccq-navigator")} className={submenuLink}>⚖️ CCQ Navigator</button>
-                <button onClick={() => navigate("/ressources/documents-acc-ccdc")} className={submenuLink}>📄 Contrats ACC/CCDC</button>
-                <button onClick={() => navigate("/ressources/associations")} className={submenuLink}>🤝 Associations</button>
+              <button className={menuBtn}>
+                <BookOpen size={16} /> Ressources <ChevronDown size={14} className="opacity-70" />
+              </button>
+              <div className="hidden group-hover:block absolute left-0 mt-0 w-52 rounded-lg bg-white text-gray-800 shadow-xl p-2 z-50">
+                <button onClick={() => navigate("/ressources/code-navigator")} className={submenuLink}>
+                  <BookMarked size={16} className="text-indigo-600" /> Code Navigator
+                </button>
+                <button onClick={() => navigate("/ressources/ccq-navigator")} className={submenuLink}>
+                  <Scale size={16} className="text-amber-600" /> CCQ Navigator
+                </button>
+                <button onClick={() => navigate("/ressources/documents-acc-ccdc")} className={submenuLink}>
+                  <FileCheck size={16} className="text-teal-600" /> Contrats ACC/CCDC
+                </button>
+                <button onClick={() => navigate("/ressources/associations")} className={submenuLink}>
+                  <Handshake size={16} className="text-rose-500" /> Associations
+                </button>
               </div>
             </div>
 
             {/* OUTILS AVANCÉS */}
             <div className="relative group">
-              <button className={link}>⚙️ Outils avancés ▼</button>
-              <div className="hidden group-hover:block absolute left-0 mt-0 w-56 rounded-lg bg-white text-gray-800 shadow-xl p-2">
-                <button onClick={() => navigate("/outils-avances/application-mobile")} className={submenuLink}>📱 App terrain mobile</button>
-                <button onClick={() => navigate("/outils-avances/messagerie")} className={submenuLink}>💬 Messagerie d'équipe</button>
-                <button onClick={() => navigate("/outils-avances/geolocalisation")} className={submenuLink}>🗺️ Géolocalisation</button>
-                <div className="border-t my-2"></div>
-                <button onClick={() => navigate("/terrain")} className={submenuLink}>📋 Rapports terrain</button>
-                <button onClick={() => navigate("/analytics")} className={submenuLink}>📊 Analytics</button>
+              <button className={menuBtn}>
+                <Wrench size={16} /> Outils avancés <ChevronDown size={14} className="opacity-70" />
+              </button>
+              <div className="hidden group-hover:block absolute left-0 mt-0 w-56 rounded-lg bg-white text-gray-800 shadow-xl p-2 z-50">
+                <button onClick={() => navigate("/outils-avances/application-mobile")} className={submenuLink}>
+                  <Smartphone size={16} className="text-blue-500" /> App terrain mobile
+                </button>
+                <button onClick={() => navigate("/outils-avances/messagerie")} className={submenuLink}>
+                  <MessageSquare size={16} className="text-green-500" /> Messagerie d'équipe
+                </button>
+                <button onClick={() => navigate("/outils-avances/geolocalisation")} className={submenuLink}>
+                  <MapPin size={16} className="text-red-500" /> Géolocalisation
+                </button>
+                <div className="border-t my-1.5"></div>
+                <button onClick={() => navigate("/terrain")} className={submenuLink}>
+                  <ClipboardCheck size={16} className="text-amber-600" /> Rapports terrain
+                </button>
+                <button onClick={() => navigate("/analytics")} className={submenuLink}>
+                  <BarChart3 size={16} className="text-purple-600" /> Analytics
+                </button>
               </div>
             </div>
           </nav>
 
           {/* RIGHT SIDE */}
-          <div className="ml-auto flex items-center gap-3">
+          <div className="flex items-center gap-2 flex-shrink-0">
             {/* Analytics quick link */}
             <button onClick={() => navigate("/analytics")} className="p-2 rounded-lg hover:bg-white/10 transition" title="Analytics">
-              <BarChart3 size={20} />
+              <BarChart3 size={18} />
             </button>
 
             {/* Notifications */}
@@ -266,24 +327,25 @@ export default function AppHeader() {
             {/* User Menu */}
             {userProfile && (
               <div className="relative">
-                <button onClick={() => setShowUserMenu(!showUserMenu)} className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-white/10 transition">
-                  <div className="w-8 h-8 rounded-full bg-white/20 grid place-items-center font-bold text-xs">
+                <button onClick={() => setShowUserMenu(!showUserMenu)} className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-white/10 transition">
+                  <div className="w-8 h-8 rounded-full bg-white/20 grid place-items-center font-bold text-sm">
                     {userProfile.fullName?.charAt(0).toUpperCase() || 'U'}
                   </div>
-                  <div className="text-left hidden sm:block">
+                  <div className="text-left hidden lg:block">
                     <div className="text-xs font-semibold leading-none">{userProfile.fullName}</div>
-                    <div className="text-xs opacity-90">{userProfile.email}</div>
+                    <div className="text-xs opacity-80">{userProfile.email}</div>
                   </div>
+                  <ChevronDown size={14} className="opacity-70 hidden lg:block" />
                 </button>
 
                 {showUserMenu && (
                   <div className="absolute right-0 mt-2 w-48 rounded-lg bg-white text-gray-800 shadow-xl p-1 z-50">
                     <button onClick={() => { navigate("/settings"); setShowUserMenu(false) }} className={submenuLink}>
-                      <SettingsIcon size={16} className="inline mr-2" /> Paramètres
+                      <SettingsIcon size={16} /> Paramètres
                     </button>
-                    <div className="border-t my-2"></div>
+                    <div className="border-t my-1"></div>
                     <button onClick={() => { handleSignOut(); setShowUserMenu(false) }} className={`${submenuLink} text-red-600 hover:bg-red-50`}>
-                      <LogOut size={16} className="inline mr-2" /> Déconnexion
+                      <LogOut size={16} /> Déconnexion
                     </button>
                   </div>
                 )}
