@@ -86,3 +86,5 @@ export function Pricing() {
     </div>
   )
 }
+
+export default Pricing

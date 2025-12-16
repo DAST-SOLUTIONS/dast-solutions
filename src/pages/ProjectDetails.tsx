@@ -110,3 +110,5 @@ export function ProjectDetails() {
     </div>
   )
 }
+
+export default ProjectDetails

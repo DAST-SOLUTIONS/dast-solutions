@@ -306,3 +306,5 @@ export function CCQNavigator() {
     </div>
   )
 }
+
+export default CCQNavigator

@@ -1,771 +1,188 @@
-import { useState } from 'react'
+/**
+ * DAST Solutions - Gestion Personnel CCQ
+ * Gestion employés, taux horaires CCQ, compétences
+ */
+import { useState, useEffect, useMemo } from 'react'
 import { PageTitle } from '@/components/PageTitle'
-import { useEntrepreneurs } from '@/hooks/useEntrepreneurs'
-import { 
-  Plus, Search, Building, User, Phone, Mail, MapPin, 
-  Edit2, Trash2, X, Check, Star, Shield, FileText,
-  Filter, Download, Upload, ExternalLink
-} from 'lucide-react'
-import type { 
-  Entrepreneur, 
-  CreateEntrepreneurParams, 
-  SpecialiteCode,
-  EntrepreneurStatus 
-} from '@/types/entrepreneur-types'
-import { 
-  SPECIALITES, 
-  ENTREPRENEUR_STATUS_LABELS,
-  formatRBQLicense,
-  isValidRBQLicense,
-  getSpecialiteName 
-} from '@/types/entrepreneur-types'
+import { Search, Plus, Users, Phone, Mail, Calendar, DollarSign, Award, Clock, FileText, Edit, Trash2, X, Filter, Download, CheckCircle, AlertTriangle, Briefcase, Star, ChevronDown, Eye, Shield, HardHat } from 'lucide-react'
+import { format, differenceInYears } from 'date-fns'
+import { fr } from 'date-fns/locale'
 
-// ============================================================================
-// COMPOSANTS UTILITAIRES
-// ============================================================================
-
-const StatusBadge = ({ status }: { status: EntrepreneurStatus }) => {
-  const colors: Record<EntrepreneurStatus, string> = {
-    actif: 'bg-green-100 text-green-700',
-    inactif: 'bg-gray-100 text-gray-700',
-    bloque: 'bg-red-100 text-red-700'
-  }
-  
-  return (
-    <span className={`px-2 py-1 rounded-full text-xs font-medium ${colors[status]}`}>
-      {ENTREPRENEUR_STATUS_LABELS[status]}
-    </span>
-  )
+interface Employe {
+  id: string; nom: string; prenom: string; nas?: string; dateNaissance: string; telephone: string; email: string
+  adresse: { rue: string; ville: string; province: string; codePostal: string }
+  metierCCQ: { code: string; nom: string; tauxHoraire: number; tauxVacances: number }
+  competences: string[]; certifications: { nom: string; dateExpiration: string; status: 'valide' | 'expire' | 'bientot' }[]
+  dateEmbauche: string; status: 'actif' | 'inactif' | 'conge'; heuresTravaillees: number; projetsAssignes: string[]
 }
 
-const RBQBadge = ({ license, status }: { license?: string; status?: string }) => {
-  if (!license) return null
-  
-  const statusColors: Record<string, string> = {
-    valide: 'bg-green-100 text-green-700 border-green-300',
-    invalide: 'bg-red-100 text-red-700 border-red-300',
-    suspendu: 'bg-orange-100 text-orange-700 border-orange-300',
-    inconnu: 'bg-gray-100 text-gray-600 border-gray-300'
-  }
-  
-  return (
-    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded border text-xs font-mono ${statusColors[status || 'inconnu']}`}>
-      <Shield size={12} />
-      {formatRBQLicense(license)}
-    </span>
-  )
+const METIERS_CCQ = [
+  { code: '01', nom: 'Briqueteur-maçon', tauxHoraire: 45.50, tauxVacances: 13 },
+  { code: '02', nom: 'Calorifugeur', tauxHoraire: 44.80, tauxVacances: 13 },
+  { code: '03', nom: 'Carreleur', tauxHoraire: 43.20, tauxVacances: 13 },
+  { code: '04', nom: 'Charpentier-menuisier', tauxHoraire: 44.00, tauxVacances: 13 },
+  { code: '05', nom: 'Chaudronnier', tauxHoraire: 46.50, tauxVacances: 13 },
+  { code: '06', nom: 'Cimentier-applicateur', tauxHoraire: 42.80, tauxVacances: 13 },
+  { code: '07', nom: 'Couvreur', tauxHoraire: 43.50, tauxVacances: 13 },
+  { code: '08', nom: 'Électricien', tauxHoraire: 47.20, tauxVacances: 13 },
+  { code: '09', nom: 'Ferblantier', tauxHoraire: 45.00, tauxVacances: 13 },
+  { code: '10', nom: 'Ferrailleur', tauxHoraire: 44.50, tauxVacances: 13 },
+  { code: '11', nom: 'Frigoriste', tauxHoraire: 48.00, tauxVacances: 13 },
+  { code: '12', nom: 'Grutier', tauxHoraire: 49.50, tauxVacances: 13 },
+  { code: '13', nom: 'Mécanicien d\'ascenseur', tauxHoraire: 50.20, tauxVacances: 13 },
+  { code: '14', nom: 'Mécanicien de machines lourdes', tauxHoraire: 47.80, tauxVacances: 13 },
+  { code: '15', nom: 'Monteur-mécanicien (vitrier)', tauxHoraire: 44.20, tauxVacances: 13 },
+  { code: '16', nom: 'Opérateur d\'équipement lourd', tauxHoraire: 46.00, tauxVacances: 13 },
+  { code: '17', nom: 'Opérateur de pelles', tauxHoraire: 47.00, tauxVacances: 13 },
+  { code: '18', nom: 'Peintre', tauxHoraire: 42.50, tauxVacances: 13 },
+  { code: '19', nom: 'Plâtrier', tauxHoraire: 43.80, tauxVacances: 13 },
+  { code: '20', nom: 'Poseur de systèmes intérieurs', tauxHoraire: 43.00, tauxVacances: 13 },
+  { code: '21', nom: 'Soudeur', tauxHoraire: 46.80, tauxVacances: 13 },
+  { code: '22', nom: 'Tuyauteur', tauxHoraire: 48.50, tauxVacances: 13 },
+  { code: '23', nom: 'Manœuvre', tauxHoraire: 35.50, tauxVacances: 13 },
+  { code: '24', nom: 'Arpenteur', tauxHoraire: 44.00, tauxVacances: 13 },
+]
+
+const CERTIFICATIONS = ['Santé et sécurité générale (ASP)', 'Travail en hauteur', 'SIMDUT 2015', 'Espace clos', 'Premiers soins', 'Chariot élévateur', 'Nacelle élévatrice', 'Signaleur', 'Cadenassage']
+
+const DEMO_EMPLOYES: Employe[] = [
+  { id: '1', nom: 'Tremblay', prenom: 'Jean-Pierre', dateNaissance: '1985-03-15', telephone: '514-555-0101', email: 'jp.tremblay@gmail.com', adresse: { rue: '123 Rue Principale', ville: 'Montréal', province: 'QC', codePostal: 'H1A 1A1' }, metierCCQ: METIERS_CCQ[3], competences: ['Lecture de plans', 'Coffrage', 'Finition'], certifications: [{ nom: 'ASP Construction', dateExpiration: '2025-06-15', status: 'valide' }, { nom: 'Travail en hauteur', dateExpiration: '2025-03-20', status: 'bientot' }], dateEmbauche: '2020-05-10', status: 'actif', heuresTravaillees: 1850, projetsAssignes: ['Centre sportif', 'École primaire'] },
+  { id: '2', nom: 'Gagnon', prenom: 'Marie', dateNaissance: '1990-08-22', telephone: '514-555-0202', email: 'm.gagnon@outlook.com', adresse: { rue: '456 Boul. Saint-Laurent', ville: 'Laval', province: 'QC', codePostal: 'H7A 2B2' }, metierCCQ: METIERS_CCQ[7], competences: ['Câblage', 'Domotique', 'Panneaux électriques'], certifications: [{ nom: 'ASP Construction', dateExpiration: '2025-09-10', status: 'valide' }, { nom: 'SIMDUT 2015', dateExpiration: '2024-12-01', status: 'expire' }], dateEmbauche: '2019-03-01', status: 'actif', heuresTravaillees: 2200, projetsAssignes: ['Hôpital Maisonneuve'] },
+  { id: '3', nom: 'Roy', prenom: 'Michel', dateNaissance: '1978-11-05', telephone: '450-555-0303', email: 'm.roy@videotron.ca', adresse: { rue: '789 Ave du Parc', ville: 'Longueuil', province: 'QC', codePostal: 'J4A 3C3' }, metierCCQ: METIERS_CCQ[0], competences: ['Maçonnerie traditionnelle', 'Restauration patrimoine', 'Pierre naturelle'], certifications: [{ nom: 'ASP Construction', dateExpiration: '2025-04-20', status: 'valide' }], dateEmbauche: '2015-08-15', status: 'actif', heuresTravaillees: 3500, projetsAssignes: ['Restauration église', 'Condos Vieux-Montréal'] },
+  { id: '4', nom: 'Lavoie', prenom: 'Sophie', dateNaissance: '1995-02-18', telephone: '514-555-0404', email: 's.lavoie@gmail.com', adresse: { rue: '321 Rue Notre-Dame', ville: 'Montréal', province: 'QC', codePostal: 'H2Y 1C1' }, metierCCQ: METIERS_CCQ[17], competences: ['Peinture intérieure', 'Faux-finis', 'Application époxy'], certifications: [{ nom: 'ASP Construction', dateExpiration: '2025-07-30', status: 'valide' }, { nom: 'SIMDUT 2015', dateExpiration: '2025-05-15', status: 'valide' }], dateEmbauche: '2022-01-10', status: 'actif', heuresTravaillees: 950, projetsAssignes: ['Centre sportif'] },
+  { id: '5', nom: 'Bouchard', prenom: 'Pierre', dateNaissance: '1982-07-30', telephone: '450-555-0505', email: 'p.bouchard@bell.ca', adresse: { rue: '555 Ch. du Lac', ville: 'Terrebonne', province: 'QC', codePostal: 'J6W 4D4' }, metierCCQ: METIERS_CCQ[16], competences: ['Excavation', 'Nivellement', 'Compactage'], certifications: [{ nom: 'ASP Construction', dateExpiration: '2025-02-28', status: 'bientot' }, { nom: 'Opérateur pelle', dateExpiration: '2026-01-15', status: 'valide' }], dateEmbauche: '2018-04-20', status: 'conge', heuresTravaillees: 2800, projetsAssignes: [] },
+]
+
+function CertBadge({ cert }: { cert: { nom: string; dateExpiration: string; status: 'valide' | 'expire' | 'bientot' } }) {
+  const config = { valide: { bg: 'bg-green-100', text: 'text-green-700', icon: CheckCircle }, expire: { bg: 'bg-red-100', text: 'text-red-700', icon: AlertTriangle }, bientot: { bg: 'bg-amber-100', text: 'text-amber-700', icon: Clock } }[cert.status]
+  return <span className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs ${config.bg} ${config.text}`}><config.icon size={12} />{cert.nom}</span>
 }
 
-const RatingStars = ({ rating }: { rating?: number }) => {
-  if (!rating) return <span className="text-gray-400 text-sm">Non évalué</span>
-  
+function StatusBadge({ status }: { status: 'actif' | 'inactif' | 'conge' }) {
+  const config = { actif: { bg: 'bg-green-100', text: 'text-green-700', label: 'Actif' }, inactif: { bg: 'bg-gray-100', text: 'text-gray-700', label: 'Inactif' }, conge: { bg: 'bg-blue-100', text: 'text-blue-700', label: 'En congé' } }[status]
+  return <span className={`px-2 py-1 rounded-full text-xs font-medium ${config.bg} ${config.text}`}>{config.label}</span>
+}
+
+function EmployeCard({ employe, onView }: { employe: Employe; onView: (e: Employe) => void }) {
+  const age = differenceInYears(new Date(), new Date(employe.dateNaissance))
+  const anciennete = differenceInYears(new Date(), new Date(employe.dateEmbauche))
+  const certExpirees = employe.certifications.filter(c => c.status === 'expire' || c.status === 'bientot').length
   return (
-    <div className="flex items-center gap-0.5">
-      {[1, 2, 3, 4, 5].map(star => (
-        <Star 
-          key={star} 
-          size={14} 
-          className={star <= rating ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'} 
-        />
-      ))}
+    <div className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-lg transition">
+      <div className="flex justify-between items-start mb-3">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-white font-bold text-lg">{employe.prenom[0]}{employe.nom[0]}</div>
+          <div><h3 className="font-semibold text-gray-900">{employe.prenom} {employe.nom}</h3><p className="text-sm text-gray-500">{employe.metierCCQ.nom}</p></div>
+        </div>
+        <StatusBadge status={employe.status} />
+      </div>
+      <div className="bg-teal-50 rounded-lg p-3 mb-4">
+        <div className="flex justify-between items-center"><span className="text-sm text-teal-700">Taux horaire CCQ</span><span className="font-bold text-teal-800">{employe.metierCCQ.tauxHoraire.toFixed(2)}$/h</span></div>
+      </div>
+      <div className="grid grid-cols-3 gap-2 mb-4 text-center text-sm">
+        <div className="bg-gray-50 rounded p-2"><div className="font-semibold">{age} ans</div><div className="text-xs text-gray-500">Âge</div></div>
+        <div className="bg-gray-50 rounded p-2"><div className="font-semibold">{anciennete} ans</div><div className="text-xs text-gray-500">Ancienneté</div></div>
+        <div className="bg-gray-50 rounded p-2"><div className="font-semibold">{employe.heuresTravaillees}h</div><div className="text-xs text-gray-500">Heures</div></div>
+      </div>
+      {certExpirees > 0 && <div className="bg-amber-50 border border-amber-200 rounded-lg p-2 mb-4 flex items-center gap-2 text-sm text-amber-700"><AlertTriangle size={16} />{certExpirees} certification(s) à renouveler</div>}
+      <div className="flex flex-wrap gap-1 mb-4">{employe.competences.slice(0, 2).map(c => <span key={c} className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded">{c}</span>)}</div>
+      <button onClick={() => onView(employe)} className="w-full px-3 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 flex items-center justify-center gap-2"><Eye size={16} />Voir profil</button>
     </div>
   )
 }
 
-// ============================================================================
-// MODAL CRÉATION/ÉDITION
-// ============================================================================
-
-function EntrepreneurModal({
-  isOpen,
-  onClose,
-  onSave,
-  entrepreneur
-}: {
-  isOpen: boolean
-  onClose: () => void
-  onSave: (data: CreateEntrepreneurParams) => Promise<void>
-  entrepreneur?: Entrepreneur | null
-}) {
-  const [loading, setLoading] = useState(false)
-  const [form, setForm] = useState<CreateEntrepreneurParams>({
-    company_name: entrepreneur?.company_name || '',
-    contact_name: entrepreneur?.contact_name || '',
-    email: entrepreneur?.email || '',
-    phone: entrepreneur?.phone || '',
-    cell: entrepreneur?.cell || '',
-    address: entrepreneur?.address || '',
-    city: entrepreneur?.city || '',
-    province: entrepreneur?.province || 'QC',
-    postal_code: entrepreneur?.postal_code || '',
-    rbq_license: entrepreneur?.rbq_license || '',
-    specialites: entrepreneur?.specialites || [],
-    notes: entrepreneur?.notes || ''
-  })
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
-    if (!form.company_name.trim()) {
-      alert('Le nom de l\'entreprise est requis')
-      return
-    }
-
-    // Valider le format RBQ si fourni
-    if (form.rbq_license && !isValidRBQLicense(form.rbq_license)) {
-      alert('Le format du numéro RBQ est invalide (10 chiffres requis)')
-      return
-    }
-
-    setLoading(true)
-    try {
-      await onSave(form)
-      onClose()
-    } catch (err) {
-      alert('Erreur lors de la sauvegarde')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const toggleSpecialite = (code: SpecialiteCode) => {
-    setForm(prev => ({
-      ...prev,
-      specialites: prev.specialites?.includes(code)
-        ? prev.specialites.filter(s => s !== code)
-        : [...(prev.specialites || []), code]
-    }))
-  }
-
-  if (!isOpen) return null
-
+function EmployeModal({ employe, isOpen, onClose }: { employe: Employe | null; isOpen: boolean; onClose: () => void }) {
+  if (!isOpen || !employe) return null
+  const anciennete = differenceInYears(new Date(), new Date(employe.dateEmbauche))
+  const coutHoraire = employe.metierCCQ.tauxHoraire * (1 + employe.metierCCQ.tauxVacances / 100)
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
-        <div className="bg-gradient-to-r from-teal-600 to-teal-700 text-white px-6 py-4 flex justify-between items-center">
-          <h2 className="text-xl font-bold">
-            {entrepreneur ? 'Modifier l\'entrepreneur' : 'Nouvel entrepreneur'}
-          </h2>
-          <button onClick={onClose} className="text-white hover:text-teal-200">
-            <X size={24} />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6">
-          <div className="space-y-6">
-            {/* Informations de base */}
-            <div>
-              <h3 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
-                <Building size={18} /> Informations de l'entreprise
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Nom de l'entreprise *
-                  </label>
-                  <input
-                    type="text"
-                    value={form.company_name}
-                    onChange={(e) => setForm({...form, company_name: e.target.value})}
-                    placeholder="Ex: Plomberie ABC Inc."
-                    className="input-field"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Personne contact
-                  </label>
-                  <input
-                    type="text"
-                    value={form.contact_name}
-                    onChange={(e) => setForm({...form, contact_name: e.target.value})}
-                    placeholder="Ex: Jean Tremblay"
-                    className="input-field"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Licence RBQ
-                  </label>
-                  <input
-                    type="text"
-                    value={form.rbq_license}
-                    onChange={(e) => setForm({...form, rbq_license: e.target.value})}
-                    placeholder="XXXX-XXXX-XX"
-                    maxLength={12}
-                    className="input-field font-mono"
-                  />
-                </div>
-              </div>
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden">
+        <div className="bg-gradient-to-r from-teal-500 to-teal-600 text-white p-6">
+          <div className="flex justify-between items-start">
+            <div className="flex items-center gap-4">
+              <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center text-2xl font-bold">{employe.prenom[0]}{employe.nom[0]}</div>
+              <div><h2 className="text-xl font-bold">{employe.prenom} {employe.nom}</h2><p className="text-teal-100">{employe.metierCCQ.nom} (Code {employe.metierCCQ.code})</p><StatusBadge status={employe.status} /></div>
             </div>
-
-            {/* Coordonnées */}
-            <div>
-              <h3 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
-                <Phone size={18} /> Coordonnées
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Courriel
-                  </label>
-                  <input
-                    type="email"
-                    value={form.email}
-                    onChange={(e) => setForm({...form, email: e.target.value})}
-                    placeholder="contact@entreprise.com"
-                    className="input-field"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Téléphone
-                  </label>
-                  <input
-                    type="tel"
-                    value={form.phone}
-                    onChange={(e) => setForm({...form, phone: e.target.value})}
-                    placeholder="514-555-1234"
-                    className="input-field"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Cellulaire
-                  </label>
-                  <input
-                    type="tel"
-                    value={form.cell}
-                    onChange={(e) => setForm({...form, cell: e.target.value})}
-                    placeholder="514-555-5678"
-                    className="input-field"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Adresse */}
-            <div>
-              <h3 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
-                <MapPin size={18} /> Adresse
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Adresse
-                  </label>
-                  <input
-                    type="text"
-                    value={form.address}
-                    onChange={(e) => setForm({...form, address: e.target.value})}
-                    placeholder="123 Rue Principale"
-                    className="input-field"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Ville
-                  </label>
-                  <input
-                    type="text"
-                    value={form.city}
-                    onChange={(e) => setForm({...form, city: e.target.value})}
-                    placeholder="Montréal"
-                    className="input-field"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Province
-                    </label>
-                    <select
-                      value={form.province}
-                      onChange={(e) => setForm({...form, province: e.target.value})}
-                      className="input-field"
-                    >
-                      <option value="QC">Québec</option>
-                      <option value="ON">Ontario</option>
-                      <option value="NB">Nouveau-Brunswick</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Code postal
-                    </label>
-                    <input
-                      type="text"
-                      value={form.postal_code}
-                      onChange={(e) => setForm({...form, postal_code: e.target.value.toUpperCase()})}
-                      placeholder="H2X 1Y4"
-                      maxLength={7}
-                      className="input-field"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Spécialités */}
-            <div>
-              <h3 className="font-bold text-gray-900 mb-3">Spécialités</h3>
-              <div className="flex flex-wrap gap-2">
-                {SPECIALITES.map(spec => (
-                  <button
-                    key={spec.code}
-                    type="button"
-                    onClick={() => toggleSpecialite(spec.code)}
-                    className={`px-3 py-1.5 rounded-full text-sm transition ${
-                      form.specialites?.includes(spec.code)
-                        ? 'bg-teal-600 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                  >
-                    {spec.name}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Notes */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Notes internes
-              </label>
-              <textarea
-                value={form.notes}
-                onChange={(e) => setForm({...form, notes: e.target.value})}
-                placeholder="Notes personnelles sur cet entrepreneur..."
-                rows={3}
-                className="input-field"
-              />
-            </div>
+            <button onClick={onClose} className="p-2 hover:bg-white/20 rounded"><X size={24} /></button>
           </div>
-        </form>
-
-        <div className="bg-gray-50 px-6 py-4 flex justify-end gap-3">
-          <button onClick={onClose} className="btn btn-secondary">
-            Annuler
-          </button>
-          <button onClick={handleSubmit} disabled={loading} className="btn btn-primary">
-            {loading ? 'Enregistrement...' : (entrepreneur ? 'Mettre à jour' : 'Créer')}
-          </button>
+        </div>
+        <div className="p-6 overflow-y-auto max-h-[60vh]">
+          <div className="grid grid-cols-4 gap-4 mb-6">
+            <div className="bg-teal-50 rounded-lg p-4 text-center"><DollarSign className="mx-auto text-teal-600 mb-1" size={24} /><div className="text-xl font-bold text-teal-800">{employe.metierCCQ.tauxHoraire.toFixed(2)}$</div><div className="text-xs text-teal-600">Taux horaire</div></div>
+            <div className="bg-blue-50 rounded-lg p-4 text-center"><DollarSign className="mx-auto text-blue-600 mb-1" size={24} /><div className="text-xl font-bold text-blue-800">{coutHoraire.toFixed(2)}$</div><div className="text-xs text-blue-600">Coût total/h</div></div>
+            <div className="bg-purple-50 rounded-lg p-4 text-center"><Clock className="mx-auto text-purple-600 mb-1" size={24} /><div className="text-xl font-bold text-purple-800">{employe.heuresTravaillees}</div><div className="text-xs text-purple-600">Heures travaillées</div></div>
+            <div className="bg-amber-50 rounded-lg p-4 text-center"><Award className="mx-auto text-amber-600 mb-1" size={24} /><div className="text-xl font-bold text-amber-800">{anciennete} ans</div><div className="text-xs text-amber-600">Ancienneté</div></div>
+          </div>
+          <div className="grid md:grid-cols-2 gap-6 mb-6">
+            <div className="bg-gray-50 rounded-lg p-4"><h4 className="font-medium mb-3 flex items-center gap-2"><Phone size={16} />Contact</h4><div className="space-y-2 text-sm"><p>{employe.telephone}</p><p>{employe.email}</p></div></div>
+            <div className="bg-gray-50 rounded-lg p-4"><h4 className="font-medium mb-3 flex items-center gap-2"><HardHat size={16} />Adresse</h4><div className="text-sm"><p>{employe.adresse.rue}</p><p>{employe.adresse.ville}, {employe.adresse.province} {employe.adresse.codePostal}</p></div></div>
+          </div>
+          <div className="mb-6"><h4 className="font-medium mb-3">Compétences</h4><div className="flex flex-wrap gap-2">{employe.competences.map(c => <span key={c} className="bg-teal-50 text-teal-700 px-3 py-1 rounded-full text-sm">{c}</span>)}</div></div>
+          <div className="mb-6"><h4 className="font-medium mb-3">Certifications</h4><div className="space-y-2">{employe.certifications.map((c, i) => <div key={i} className="flex items-center justify-between bg-gray-50 rounded-lg p-3"><CertBadge cert={c} /><span className="text-sm text-gray-500">Exp: {format(new Date(c.dateExpiration), 'dd MMM yyyy', { locale: fr })}</span></div>)}</div></div>
+          {employe.projetsAssignes.length > 0 && <div><h4 className="font-medium mb-3">Projets assignés</h4><div className="flex flex-wrap gap-2">{employe.projetsAssignes.map(p => <span key={p} className="bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-sm">{p}</span>)}</div></div>}
+        </div>
+        <div className="bg-gray-50 px-6 py-4 flex justify-end gap-3 border-t">
+          <button onClick={onClose} className="px-4 py-2 border rounded-lg hover:bg-gray-100">Fermer</button>
+          <button className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700">Modifier</button>
         </div>
       </div>
     </div>
   )
 }
 
-// ============================================================================
-// MODAL DÉTAILS
-// ============================================================================
+export default function PersonnelCCQ() {
+  const [employes, setEmployes] = useState(DEMO_EMPLOYES)
+  const [filtered, setFiltered] = useState(DEMO_EMPLOYES)
+  const [search, setSearch] = useState('')
+  const [metierFilter, setMetierFilter] = useState('')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'actif' | 'inactif' | 'conge'>('all')
+  const [selected, setSelected] = useState<Employe | null>(null)
 
-function EntrepreneurDetailModal({
-  entrepreneur,
-  onClose,
-  onEdit,
-  onDelete
-}: {
-  entrepreneur: Entrepreneur | null
-  onClose: () => void
-  onEdit: () => void
-  onDelete: () => void
-}) {
-  if (!entrepreneur) return null
+  useEffect(() => {
+    let f = [...employes]
+    if (search) f = f.filter(e => `${e.prenom} ${e.nom}`.toLowerCase().includes(search.toLowerCase()))
+    if (metierFilter) f = f.filter(e => e.metierCCQ.code === metierFilter)
+    if (statusFilter !== 'all') f = f.filter(e => e.status === statusFilter)
+    setFiltered(f)
+  }, [employes, search, metierFilter, statusFilter])
 
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
-        <div className="bg-white border-b px-6 py-4 flex justify-between items-center">
-          <div>
-            <h2 className="text-xl font-bold text-gray-900">{entrepreneur.company_name}</h2>
-            <StatusBadge status={entrepreneur.status} />
-          </div>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
-            <X size={24} />
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Info de base */}
-            <div className="space-y-4">
-              <div>
-                <h3 className="font-bold text-gray-700 mb-2 flex items-center gap-2">
-                  <User size={16} /> Contact
-                </h3>
-                <p className="text-gray-900">{entrepreneur.contact_name || '-'}</p>
-              </div>
-
-              {entrepreneur.rbq_license && (
-                <div>
-                  <h3 className="font-bold text-gray-700 mb-2 flex items-center gap-2">
-                    <Shield size={16} /> Licence RBQ
-                  </h3>
-                  <RBQBadge license={entrepreneur.rbq_license} status={entrepreneur.rbq_status} />
-                  {entrepreneur.rbq_last_verified && (
-                    <p className="text-xs text-gray-500 mt-1">
-                      Vérifié le {new Date(entrepreneur.rbq_last_verified).toLocaleDateString('fr-CA')}
-                    </p>
-                  )}
-                </div>
-              )}
-
-              <div>
-                <h3 className="font-bold text-gray-700 mb-2">Évaluation</h3>
-                <RatingStars rating={entrepreneur.rating} />
-              </div>
-            </div>
-
-            {/* Coordonnées */}
-            <div className="space-y-4">
-              <div>
-                <h3 className="font-bold text-gray-700 mb-2 flex items-center gap-2">
-                  <Phone size={16} /> Coordonnées
-                </h3>
-                <div className="space-y-1 text-sm">
-                  {entrepreneur.phone && (
-                    <p className="flex items-center gap-2">
-                      <Phone size={14} className="text-gray-400" />
-                      <a href={`tel:${entrepreneur.phone}`} className="text-teal-600 hover:underline">
-                        {entrepreneur.phone}
-                      </a>
-                    </p>
-                  )}
-                  {entrepreneur.cell && (
-                    <p className="flex items-center gap-2">
-                      <Phone size={14} className="text-gray-400" />
-                      <a href={`tel:${entrepreneur.cell}`} className="text-teal-600 hover:underline">
-                        {entrepreneur.cell} (cell)
-                      </a>
-                    </p>
-                  )}
-                  {entrepreneur.email && (
-                    <p className="flex items-center gap-2">
-                      <Mail size={14} className="text-gray-400" />
-                      <a href={`mailto:${entrepreneur.email}`} className="text-teal-600 hover:underline">
-                        {entrepreneur.email}
-                      </a>
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              {entrepreneur.address && (
-                <div>
-                  <h3 className="font-bold text-gray-700 mb-2 flex items-center gap-2">
-                    <MapPin size={16} /> Adresse
-                  </h3>
-                  <p className="text-sm text-gray-600">
-                    {entrepreneur.address}<br />
-                    {entrepreneur.city}, {entrepreneur.province} {entrepreneur.postal_code}
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Spécialités */}
-          {entrepreneur.specialites && entrepreneur.specialites.length > 0 && (
-            <div className="mt-6">
-              <h3 className="font-bold text-gray-700 mb-2">Spécialités</h3>
-              <div className="flex flex-wrap gap-2">
-                {entrepreneur.specialites.map(code => (
-                  <span key={code} className="px-3 py-1 bg-teal-100 text-teal-700 rounded-full text-sm">
-                    {getSpecialiteName(code)}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Notes */}
-          {entrepreneur.notes && (
-            <div className="mt-6">
-              <h3 className="font-bold text-gray-700 mb-2">Notes</h3>
-              <p className="text-sm text-gray-600 whitespace-pre-wrap bg-gray-50 p-3 rounded">
-                {entrepreneur.notes}
-              </p>
-            </div>
-          )}
-
-          {/* Statistiques */}
-          <div className="mt-6 grid grid-cols-3 gap-4">
-            <div className="text-center p-3 bg-gray-50 rounded-lg">
-              <p className="text-2xl font-bold text-teal-600">{entrepreneur.total_invitations || 0}</p>
-              <p className="text-xs text-gray-500">Invitations</p>
-            </div>
-            <div className="text-center p-3 bg-gray-50 rounded-lg">
-              <p className="text-2xl font-bold text-blue-600">{entrepreneur.total_soumissions || 0}</p>
-              <p className="text-xs text-gray-500">Soumissions</p>
-            </div>
-            <div className="text-center p-3 bg-gray-50 rounded-lg">
-              <p className="text-2xl font-bold text-green-600">{entrepreneur.total_contrats || 0}</p>
-              <p className="text-xs text-gray-500">Contrats</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-gray-50 px-6 py-4 flex justify-between">
-          <button
-            onClick={onDelete}
-            className="btn bg-red-100 text-red-700 hover:bg-red-200"
-          >
-            <Trash2 size={16} className="mr-2" /> Supprimer
-          </button>
-          <div className="flex gap-3">
-            <button onClick={onClose} className="btn btn-secondary">
-              Fermer
-            </button>
-            <button onClick={onEdit} className="btn btn-primary">
-              <Edit2 size={16} className="mr-2" /> Modifier
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ============================================================================
-// PAGE PRINCIPALE
-// ============================================================================
-
-export function EntrepreneursPersonnel() {
-  const { 
-    entrepreneurs, 
-    loading, 
-    createEntrepreneur, 
-    updateEntrepreneur, 
-    deleteEntrepreneur,
-    getStats 
-  } = useEntrepreneurs()
-
-  const [showCreate, setShowCreate] = useState(false)
-  const [editingEntrepreneur, setEditingEntrepreneur] = useState<Entrepreneur | null>(null)
-  const [viewingEntrepreneur, setViewingEntrepreneur] = useState<Entrepreneur | null>(null)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [filterSpecialite, setFilterSpecialite] = useState<string>('')
-
-  const stats = getStats()
-
-  // Filtrer les entrepreneurs
-  const filteredEntrepreneurs = entrepreneurs.filter(e => {
-    const matchSearch = !searchQuery || 
-      e.company_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      e.contact_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      e.rbq_license?.includes(searchQuery)
-
-    const matchSpecialite = !filterSpecialite || 
-      e.specialites?.includes(filterSpecialite as SpecialiteCode)
-
-    return matchSearch && matchSpecialite
-  })
-
-  const handleCreate = async (data: CreateEntrepreneurParams) => {
-    await createEntrepreneur(data)
-  }
-
-  const handleUpdate = async (data: CreateEntrepreneurParams) => {
-    if (editingEntrepreneur) {
-      await updateEntrepreneur(editingEntrepreneur.id, data)
-    }
-    setEditingEntrepreneur(null)
-  }
-
-  const handleDelete = async (id: string) => {
-    if (confirm('Supprimer cet entrepreneur du bottin?')) {
-      await deleteEntrepreneur(id)
-      setViewingEntrepreneur(null)
-    }
-  }
+  const stats = useMemo(() => ({
+    total: employes.length,
+    actifs: employes.filter(e => e.status === 'actif').length,
+    certExpire: employes.filter(e => e.certifications.some(c => c.status === 'expire')).length,
+    heuresTotal: employes.reduce((s, e) => s + e.heuresTravaillees, 0),
+    tauxMoyen: employes.reduce((s, e) => s + e.metierCCQ.tauxHoraire, 0) / employes.length
+  }), [employes])
 
   return (
-    <div className="animate-fade-in">
-      <PageTitle 
-        title="Bottin personnel" 
-        subtitle="Vos contacts d'entrepreneurs et sous-traitants" 
-      />
-
-      {/* Statistiques */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-        <div className="bg-white rounded-lg shadow p-4 text-center">
-          <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
-          <p className="text-sm text-gray-500">Total</p>
-        </div>
-        <div className="bg-white rounded-lg shadow p-4 text-center">
-          <p className="text-2xl font-bold text-green-600">{stats.actifs}</p>
-          <p className="text-sm text-gray-500">Actifs</p>
-        </div>
-        <div className="bg-white rounded-lg shadow p-4 text-center">
-          <p className="text-2xl font-bold text-gray-500">{stats.inactifs}</p>
-          <p className="text-sm text-gray-500">Inactifs</p>
-        </div>
-        <div className="bg-white rounded-lg shadow p-4 text-center">
-          <p className="text-2xl font-bold text-red-600">{stats.bloques}</p>
-          <p className="text-sm text-gray-500">Bloqués</p>
-        </div>
-        <div className="bg-white rounded-lg shadow p-4 text-center">
-          <p className="text-2xl font-bold text-teal-600">{stats.avecRBQ}</p>
-          <p className="text-sm text-gray-500">Avec RBQ</p>
+    <div className="p-6 max-w-7xl mx-auto">
+      <div className="flex justify-between items-center mb-8">
+        <div><PageTitle title="Personnel CCQ" /><p className="text-gray-500 mt-1">Gestion des employés et taux horaires CCQ</p></div>
+        <div className="flex gap-3">
+          <button className="flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-gray-50"><Download size={18} />Exporter</button>
+          <button className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700"><Plus size={18} />Nouvel employé</button>
         </div>
       </div>
-
-      {/* Barre de recherche et filtres */}
-      <div className="bg-white rounded-lg shadow p-4 mb-6">
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="flex-1 relative">
-            <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Rechercher par nom, contact ou licence RBQ..."
-              className="input-field pl-10"
-            />
-          </div>
-          <div className="flex gap-2">
-            <select
-              value={filterSpecialite}
-              onChange={(e) => setFilterSpecialite(e.target.value)}
-              className="input-field"
-            >
-              <option value="">Toutes les spécialités</option>
-              {SPECIALITES.map(spec => (
-                <option key={spec.code} value={spec.code}>{spec.name}</option>
-              ))}
-            </select>
-            <button onClick={() => setShowCreate(true)} className="btn btn-primary whitespace-nowrap">
-              <Plus size={16} className="mr-2" /> Ajouter
-            </button>
-          </div>
+      <div className="grid grid-cols-5 gap-4 mb-6">
+        <div className="bg-white rounded-xl border p-4"><div className="flex items-center gap-3"><div className="p-2 bg-blue-100 rounded-lg"><Users size={20} className="text-blue-600" /></div><div><div className="text-2xl font-bold">{stats.total}</div><div className="text-sm text-gray-500">Employés</div></div></div></div>
+        <div className="bg-white rounded-xl border p-4"><div className="flex items-center gap-3"><div className="p-2 bg-green-100 rounded-lg"><CheckCircle size={20} className="text-green-600" /></div><div><div className="text-2xl font-bold">{stats.actifs}</div><div className="text-sm text-gray-500">Actifs</div></div></div></div>
+        <div className="bg-white rounded-xl border p-4"><div className="flex items-center gap-3"><div className="p-2 bg-amber-100 rounded-lg"><AlertTriangle size={20} className="text-amber-600" /></div><div><div className="text-2xl font-bold">{stats.certExpire}</div><div className="text-sm text-gray-500">Cert. expirées</div></div></div></div>
+        <div className="bg-white rounded-xl border p-4"><div className="flex items-center gap-3"><div className="p-2 bg-purple-100 rounded-lg"><Clock size={20} className="text-purple-600" /></div><div><div className="text-2xl font-bold">{(stats.heuresTotal/1000).toFixed(1)}k</div><div className="text-sm text-gray-500">Heures totales</div></div></div></div>
+        <div className="bg-white rounded-xl border p-4"><div className="flex items-center gap-3"><div className="p-2 bg-teal-100 rounded-lg"><DollarSign size={20} className="text-teal-600" /></div><div><div className="text-2xl font-bold">{stats.tauxMoyen.toFixed(2)}$</div><div className="text-sm text-gray-500">Taux moyen</div></div></div></div>
+      </div>
+      <div className="bg-white rounded-xl border p-4 mb-6">
+        <div className="flex flex-col lg:flex-row gap-4">
+          <div className="flex-1 relative"><Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" /><input type="text" placeholder="Rechercher un employé..." value={search} onChange={e => setSearch(e.target.value)} className="w-full pl-10 pr-4 py-2 border rounded-lg" /></div>
+          <select value={metierFilter} onChange={e => setMetierFilter(e.target.value)} className="px-4 py-2 border rounded-lg"><option value="">Tous les métiers</option>{METIERS_CCQ.map(m => <option key={m.code} value={m.code}>{m.nom}</option>)}</select>
+          <select value={statusFilter} onChange={e => setStatusFilter(e.target.value as any)} className="px-4 py-2 border rounded-lg"><option value="all">Tous statuts</option><option value="actif">Actif</option><option value="inactif">Inactif</option><option value="conge">En congé</option></select>
         </div>
       </div>
-
-      {/* Liste des entrepreneurs */}
-      {loading ? (
-        <div className="flex justify-center items-center h-64">
-          <div className="spinner" />
-        </div>
-      ) : filteredEntrepreneurs.length === 0 ? (
-        <div className="bg-white rounded-lg shadow p-12 text-center">
-          <Building size={64} className="mx-auto mb-4 text-gray-300" />
-          <h3 className="text-xl font-bold text-gray-900 mb-2">
-            {searchQuery || filterSpecialite ? 'Aucun résultat' : 'Bottin vide'}
-          </h3>
-          <p className="text-gray-600 mb-6">
-            {searchQuery || filterSpecialite 
-              ? 'Essayez d\'autres critères de recherche'
-              : 'Ajoutez votre premier entrepreneur ou importez depuis le bottin RBQ'
-            }
-          </p>
-          {!searchQuery && !filterSpecialite && (
-            <button onClick={() => setShowCreate(true)} className="btn btn-primary">
-              <Plus size={16} className="mr-2" /> Ajouter un entrepreneur
-            </button>
-          )}
-        </div>
-      ) : (
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Entreprise</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Contact</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Spécialités</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">RBQ</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {filteredEntrepreneurs.map(entrepreneur => (
-                <tr 
-                  key={entrepreneur.id} 
-                  className="hover:bg-gray-50 cursor-pointer"
-                  onClick={() => setViewingEntrepreneur(entrepreneur)}
-                >
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-teal-100 rounded-full flex items-center justify-center">
-                        <Building size={18} className="text-teal-600" />
-                      </div>
-                      <div>
-                        <p className="font-medium text-gray-900">{entrepreneur.company_name}</p>
-                        {entrepreneur.city && (
-                          <p className="text-sm text-gray-500">{entrepreneur.city}</p>
-                        )}
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <p className="text-gray-900">{entrepreneur.contact_name || '-'}</p>
-                    {entrepreneur.email && (
-                      <p className="text-sm text-gray-500">{entrepreneur.email}</p>
-                    )}
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex flex-wrap gap-1">
-                      {entrepreneur.specialites?.slice(0, 2).map(code => (
-                        <span key={code} className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-xs">
-                          {getSpecialiteName(code)}
-                        </span>
-                      ))}
-                      {entrepreneur.specialites && entrepreneur.specialites.length > 2 && (
-                        <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-xs">
-                          +{entrepreneur.specialites.length - 2}
-                        </span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <RBQBadge license={entrepreneur.rbq_license} status={entrepreneur.rbq_status} />
-                  </td>
-                  <td className="px-6 py-4">
-                    <StatusBadge status={entrepreneur.status} />
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setEditingEntrepreneur(entrepreneur)
-                      }}
-                      className="text-teal-600 hover:text-teal-800 p-1"
-                    >
-                      <Edit2 size={16} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {/* Modals */}
-      <EntrepreneurModal
-        isOpen={showCreate}
-        onClose={() => setShowCreate(false)}
-        onSave={handleCreate}
-      />
-
-      <EntrepreneurModal
-        isOpen={!!editingEntrepreneur}
-        onClose={() => setEditingEntrepreneur(null)}
-        onSave={handleUpdate}
-        entrepreneur={editingEntrepreneur}
-      />
-
-      <EntrepreneurDetailModal
-        entrepreneur={viewingEntrepreneur}
-        onClose={() => setViewingEntrepreneur(null)}
-        onEdit={() => {
-          setEditingEntrepreneur(viewingEntrepreneur)
-          setViewingEntrepreneur(null)
-        }}
-        onDelete={() => viewingEntrepreneur && handleDelete(viewingEntrepreneur.id)}
-      />
+      <p className="text-gray-600 mb-4"><span className="font-semibold">{filtered.length}</span> employé(s)</p>
+      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {filtered.map(e => <EmployeCard key={e.id} employe={e} onView={setSelected} />)}
+      </div>
+      <EmployeModal employe={selected} isOpen={!!selected} onClose={() => setSelected(null)} />
     </div>
   )
 }

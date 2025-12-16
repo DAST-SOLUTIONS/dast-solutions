@@ -975,3 +975,5 @@ export function AppelOffresPage() {
     </div>
   )
 }
+
+export default AppelOffresPage

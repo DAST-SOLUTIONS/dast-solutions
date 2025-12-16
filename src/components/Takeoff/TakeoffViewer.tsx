@@ -1275,7 +1275,7 @@ export function TakeoffViewer({
 
             {leftPanelTab === 'types' && (
               <div className="p-3 space-y-2">
-                {Object.entries(measurementStats).map(([cat, stats]) => {
+                {Object.entries(measurementStats.byCategory).map(([cat, stats]) => {
                   const s = stats as { count: number; total: number; unit: string }
                   return (
                     <div key={cat} className="p-3 bg-gray-50 rounded-lg">
@@ -1285,7 +1285,7 @@ export function TakeoffViewer({
                     </div>
                   )
                 })}
-                {Object.keys(measurementStats).length === 0 && (
+                {Object.keys(measurementStats.byCategory).length === 0 && (
                   <div className="text-center text-gray-400 py-8">
                     <List size={32} className="mx-auto mb-2 opacity-50" />
                     <div className="text-sm">Aucune mesure</div>

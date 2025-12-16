@@ -963,3 +963,4 @@ export function ProjetsEstimation() {
 
   return <EstimationModule projectId={projectId} />
 }
+export default ProjetsEstimation

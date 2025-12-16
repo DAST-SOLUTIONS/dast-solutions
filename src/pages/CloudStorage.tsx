@@ -1,497 +1,233 @@
-import { useState } from 'react'
-import { useParams } from 'react-router-dom'
-import { useDocumentVersioning } from '@/hooks/useDocumentVersioning'
-import { Upload, FileText, File, Boxes, Download, Eye, Trash2, Clock, Edit3, ChevronDown, ChevronUp } from 'lucide-react'
+/**
+ * DAST Solutions - Cloud Storage
+ * Gestion documents projet avec versions, preview et partage
+ */
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { PageTitle } from '@/components/PageTitle'
-import { useToast } from '@/components/ToastProvider'
+import { Search, Upload, FolderPlus, File, FileText, Image, FileArchive, Film, Music, Folder, MoreVertical, Download, Trash2, Share2, Eye, Clock, Star, StarOff, Grid, List, ChevronRight, X, Plus, Edit, Copy, Move, Info, Lock, Users, Link, CheckCircle, AlertCircle, HardDrive, Cloud } from 'lucide-react'
+import { format } from 'date-fns'
+import { fr } from 'date-fns/locale'
 
-export default function CloudStorage() {
-  const { projectId } = useParams<{ projectId: string }>()
-  const { 
-    documents, 
-    loading, 
-    uploading, 
-    uploadDocument, 
-    getDocumentUrl, 
-    deleteVersion,
-    updateDrawingMetadata 
-  } = useDocumentVersioning(projectId || null)
-  
-  const { toast } = useToast()
-  const [expandedDocs, setExpandedDocs] = useState<Set<string>>(new Set())
-  const [selectedDoc, setSelectedDoc] = useState<any>(null)
-  const [viewerMode, setViewerMode] = useState<'viewer' | 'metadata' | null>(null)
-  const [editingMetadata, setEditingMetadata] = useState<any>(null)
-  const [uploadModalOpen, setUploadModalOpen] = useState(false)
-  const [uploadCategory, setUploadCategory] = useState<'plan' | 'model' | 'document' | 'spreadsheet'>('plan')
-  const [uploadFile, setUploadFile] = useState<File | null>(null)
-  const [changeNotes, setChangeNotes] = useState('')
+interface FileItem {
+  id: string; name: string; type: 'file' | 'folder'; mimeType?: string; size?: number
+  parentId: string | null; projectId?: string; createdAt: string; updatedAt: string
+  createdBy: string; versions?: { id: string; version: number; size: number; createdAt: string }[]
+  isStarred: boolean; isShared: boolean; sharedWith?: string[]; tags?: string[]
+}
 
-  const toggleExpand = (docId: string) => {
-    const newExpanded = new Set(expandedDocs)
-    if (newExpanded.has(docId)) {
-      newExpanded.delete(docId)
-    } else {
-      newExpanded.add(docId)
-    }
-    setExpandedDocs(newExpanded)
+const FILE_ICONS: Record<string, { icon: React.ElementType; color: string }> = {
+  'folder': { icon: Folder, color: 'text-amber-500' },
+  'application/pdf': { icon: FileText, color: 'text-red-500' },
+  'image/': { icon: Image, color: 'text-green-500' },
+  'video/': { icon: Film, color: 'text-purple-500' },
+  'audio/': { icon: Music, color: 'text-pink-500' },
+  'application/zip': { icon: FileArchive, color: 'text-amber-600' },
+  'default': { icon: File, color: 'text-blue-500' }
+}
+
+const DEMO_FILES: FileItem[] = [
+  { id: 'f1', name: 'Projets 2024', type: 'folder', parentId: null, createdAt: '2024-01-15', updatedAt: '2024-12-10', createdBy: 'Danny', isStarred: true, isShared: false },
+  { id: 'f2', name: 'Modèles', type: 'folder', parentId: null, createdAt: '2024-03-01', updatedAt: '2024-11-20', createdBy: 'Danny', isStarred: false, isShared: true, sharedWith: ['equipe@dast.ca'] },
+  { id: 'f3', name: 'Archives', type: 'folder', parentId: null, createdAt: '2023-06-10', updatedAt: '2024-08-15', createdBy: 'Danny', isStarred: false, isShared: false },
+  { id: 'd1', name: 'Devis Centre Sportif.pdf', type: 'file', mimeType: 'application/pdf', size: 15728640, parentId: 'f1', projectId: 'p1', createdAt: '2024-12-01', updatedAt: '2024-12-10', createdBy: 'Danny', versions: [{ id: 'v1', version: 1, size: 14500000, createdAt: '2024-12-01' }, { id: 'v2', version: 2, size: 15728640, createdAt: '2024-12-10' }], isStarred: true, isShared: true, tags: ['devis', 'sportif'] },
+  { id: 'd2', name: 'Plans architecturaux.dwg', type: 'file', mimeType: 'application/dwg', size: 45875200, parentId: 'f1', projectId: 'p1', createdAt: '2024-11-28', updatedAt: '2024-12-05', createdBy: 'Danny', isStarred: false, isShared: false, tags: ['plans', 'dwg'] },
+  { id: 'd3', name: 'Photo chantier 001.jpg', type: 'file', mimeType: 'image/jpeg', size: 3145728, parentId: 'f1', createdAt: '2024-12-08', updatedAt: '2024-12-08', createdBy: 'Danny', isStarred: false, isShared: false },
+  { id: 'd4', name: 'Contrat type.docx', type: 'file', mimeType: 'application/docx', size: 524288, parentId: 'f2', createdAt: '2024-03-15', updatedAt: '2024-09-20', createdBy: 'Danny', versions: [{ id: 'v1', version: 1, size: 480000, createdAt: '2024-03-15' }, { id: 'v2', version: 2, size: 510000, createdAt: '2024-06-10' }, { id: 'v3', version: 3, size: 524288, createdAt: '2024-09-20' }], isStarred: true, isShared: true, tags: ['contrat', 'modele'] },
+  { id: 'd5', name: 'Bordereau estimation.xlsx', type: 'file', mimeType: 'application/xlsx', size: 1048576, parentId: 'f2', createdAt: '2024-04-01', updatedAt: '2024-11-15', createdBy: 'Danny', isStarred: false, isShared: true, tags: ['bordereau', 'estimation'] },
+]
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return bytes + ' B'
+  if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB'
+  if (bytes < 1073741824) return (bytes / 1048576).toFixed(1) + ' MB'
+  return (bytes / 1073741824).toFixed(1) + ' GB'
+}
+
+function getFileIcon(item: FileItem) {
+  if (item.type === 'folder') return FILE_ICONS['folder']
+  const mime = item.mimeType || ''
+  for (const [key, value] of Object.entries(FILE_ICONS)) {
+    if (mime.startsWith(key) || mime === key) return value
   }
+  return FILE_ICONS['default']
+}
 
-  const getIcon = (type: string) => {
-    switch(type) {
-      case 'pdf': return <FileText className="text-red-600" />
-      case 'dwg':
-      case 'dxf': return <File className="text-indigo-600" />
-      case 'rvt':
-      case 'ifc': return <Boxes className="text-emerald-600" />
-      case 'docx': return <FileText className="text-blue-600" />
-      case 'xlsx': return <FileText className="text-green-600" />
-      default: return <File className="text-gray-600" />
-    }
-  }
+function FileCard({ item, onOpen, onStar, onShare, onDelete, viewMode }: { item: FileItem; onOpen: (i: FileItem) => void; onStar: (id: string) => void; onShare: (i: FileItem) => void; onDelete: (id: string) => void; viewMode: 'grid' | 'list' }) {
+  const { icon: Icon, color } = getFileIcon(item)
+  const [showMenu, setShowMenu] = useState(false)
 
-  const getStatusBadge = (status: string) => {
-    const styles = {
-      completed: 'bg-green-100 text-green-700',
-      processing: 'bg-yellow-100 text-yellow-700',
-      failed: 'bg-red-100 text-red-700',
-      pending: 'bg-gray-100 text-gray-700'
-    }
+  if (viewMode === 'list') {
     return (
-      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${styles[status as keyof typeof styles]}`}>
-        {status === 'completed' ? '✓ OCR' : 
-         status === 'processing' ? '⟳ OCR...' : 
-         status === 'failed' ? '✗ OCR' : '⋯ En attente'}
-      </span>
-    )
-  }
-
-  const formatBytes = (bytes: number) => {
-    return (bytes / 1024 / 1024).toFixed(1) + ' MB'
-  }
-
-  const openViewer = (doc: any, version: any) => {
-    setSelectedDoc({ ...doc, selectedVersion: version })
-    setViewerMode('viewer')
-  }
-
-  const openMetadataEditor = (doc: any, version: any) => {
-    setEditingMetadata({
-      versionId: version.id,
-      drawingNumber: version.drawing_number || '',
-      drawingTitle: version.drawing_title || ''
-    })
-    setSelectedDoc({ ...doc, selectedVersion: version })
-    setViewerMode('metadata')
-  }
-
-  const saveMetadata = async () => {
-    try {
-      await updateDrawingMetadata(
-        editingMetadata.versionId,
-        editingMetadata.drawingNumber,
-        editingMetadata.drawingTitle
-      )
-      toast('Métadonnées mises à jour', 'success')
-      setViewerMode(null)
-      setEditingMetadata(null)
-    } catch (error) {
-      toast('Erreur lors de la mise à jour', 'error')
-    }
-  }
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      setUploadFile(file)
-    }
-  }
-
-  const handleUpload = async () => {
-    if (!uploadFile) {
-      toast('Veuillez sélectionner un fichier', 'error')
-      return
-    }
-
-    try {
-      await uploadDocument(uploadFile, uploadCategory, changeNotes)
-      toast('Document uploadé avec succès', 'success')
-      setUploadModalOpen(false)
-      setUploadFile(null)
-      setChangeNotes('')
-    } catch (error) {
-      toast('Erreur lors de l\'upload', 'error')
-    }
-  }
-
-  const handleDelete = async (versionId: string, storagePath: string) => {
-    if (confirm('Êtes-vous sûr de vouloir supprimer cette version ?')) {
-      try {
-        await deleteVersion(versionId, storagePath)
-        toast('Version supprimée', 'success')
-      } catch (error) {
-        toast('Erreur lors de la suppression', 'error')
-      }
-    }
-  }
-
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <div className="spinner"></div>
+      <div className="flex items-center gap-4 p-3 hover:bg-gray-50 rounded-lg group cursor-pointer" onClick={() => onOpen(item)}>
+        <Icon size={24} className={color} />
+        <div className="flex-1 min-w-0">
+          <div className="font-medium text-gray-900 truncate">{item.name}</div>
+          <div className="text-xs text-gray-500">{item.type === 'file' && item.size ? formatFileSize(item.size) : '--'}</div>
+        </div>
+        <div className="text-sm text-gray-500 hidden md:block">{format(new Date(item.updatedAt), 'dd MMM yyyy', { locale: fr })}</div>
+        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100">
+          {item.isShared && <Users size={16} className="text-blue-500" />}
+          <button onClick={e => { e.stopPropagation(); onStar(item.id) }} className={item.isStarred ? 'text-amber-500' : 'text-gray-300 hover:text-amber-400'}><Star size={16} fill={item.isStarred ? 'currentColor' : 'none'} /></button>
+          <div className="relative">
+            <button onClick={e => { e.stopPropagation(); setShowMenu(!showMenu) }} className="p-1 hover:bg-gray-200 rounded"><MoreVertical size={16} /></button>
+            {showMenu && (
+              <div className="absolute right-0 top-8 bg-white border rounded-lg shadow-lg py-1 z-10 w-40">
+                <button onClick={e => { e.stopPropagation(); onShare(item); setShowMenu(false) }} className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"><Share2 size={14} />Partager</button>
+                <button onClick={e => { e.stopPropagation(); setShowMenu(false) }} className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"><Download size={14} />Télécharger</button>
+                <button onClick={e => { e.stopPropagation(); onDelete(item.id); setShowMenu(false) }} className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 text-red-600 flex items-center gap-2"><Trash2 size={14} />Supprimer</button>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="animate-fade-in">
-      <PageTitle title="☁️ Cloud Storage" subtitle="Gestion centralisée des documents avec versioning" />
-      
-      {/* HEADER */}
-      <div className="flex justify-between items-center mb-6">
-        <button 
-          onClick={() => setUploadModalOpen(true)}
-          className="btn btn-primary flex items-center gap-2"
-          disabled={uploading}
-        >
-          <Upload size={20} />
-          {uploading ? 'Upload en cours...' : 'Uploader un document'}
-        </button>
-      </div>
-
-      {/* FILTERS */}
-      <div className="bg-white rounded-lg shadow p-4 mb-6 flex gap-4">
-        <button className="px-4 py-2 bg-teal-100 text-teal-700 rounded-lg font-medium">
-          📄 Tous ({documents.length})
-        </button>
-        <button className="px-4 py-2 hover:bg-gray-100 rounded-lg">
-          📐 Plans ({documents.filter(d => d.category === 'plan').length})
-        </button>
-        <button className="px-4 py-2 hover:bg-gray-100 rounded-lg">
-          🏗️ Maquettes ({documents.filter(d => d.category === 'model').length})
-        </button>
-        <button className="px-4 py-2 hover:bg-gray-100 rounded-lg">
-          📝 Documents ({documents.filter(d => d.category === 'document').length})
-        </button>
-      </div>
-
-      {/* DOCUMENTS LIST */}
-      {documents.length === 0 ? (
-        <div className="bg-white rounded-lg shadow p-12 text-center">
-          <Upload size={48} className="mx-auto text-gray-400 mb-4" />
-          <p className="text-gray-600 text-lg mb-2">Aucun document</p>
-          <p className="text-gray-500 text-sm">Uploadez votre premier document pour commencer</p>
+    <div className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-lg transition group cursor-pointer" onClick={() => onOpen(item)}>
+      <div className="flex justify-between items-start mb-3">
+        <div className={`p-3 rounded-lg ${item.type === 'folder' ? 'bg-amber-50' : 'bg-gray-50'}`}><Icon size={32} className={color} /></div>
+        <div className="flex items-center gap-1">
+          {item.isShared && <Users size={14} className="text-blue-500" />}
+          <button onClick={e => { e.stopPropagation(); onStar(item.id) }} className={`p-1 rounded ${item.isStarred ? 'text-amber-500' : 'text-gray-300 hover:text-amber-400'}`}><Star size={14} fill={item.isStarred ? 'currentColor' : 'none'} /></button>
         </div>
-      ) : (
-        <div className="space-y-4">
-          {documents.map((doc) => {
-            const isExpanded = expandedDocs.has(doc.id)
-            const latestVersion = doc.versions.find(v => v.is_latest)
+      </div>
+      <h3 className="font-medium text-gray-900 truncate mb-1">{item.name}</h3>
+      <div className="flex items-center justify-between text-xs text-gray-500">
+        <span>{item.type === 'file' && item.size ? formatFileSize(item.size) : '--'}</span>
+        <span>{format(new Date(item.updatedAt), 'dd MMM', { locale: fr })}</span>
+      </div>
+      {item.versions && item.versions.length > 1 && <div className="mt-2 text-xs text-teal-600 flex items-center gap-1"><Clock size={12} />v{item.versions.length}</div>}
+    </div>
+  )
+}
 
-            return (
-              <div key={doc.id} className="bg-white rounded-lg shadow overflow-hidden">
-                
-                {/* DOCUMENT HEADER */}
-                <div className="p-4 flex items-center justify-between hover:bg-gray-50 cursor-pointer"
-                     onClick={() => toggleExpand(doc.id)}>
-                  <div className="flex items-center gap-4 flex-1">
-                    <div className="text-2xl">{getIcon(doc.document_type)}</div>
-                    
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3">
-                        <h3 className="font-semibold text-gray-900">{doc.original_name}</h3>
-                        <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs font-medium">
-                          v{doc.current_version}
-                        </span>
-                        {latestVersion?.ocr_status && getStatusBadge(latestVersion.ocr_status)}
-                      </div>
-                      
-                      {latestVersion?.drawing_number && (
-                        <div className="flex items-center gap-4 text-sm text-gray-600 mt-1">
-                          <span className="font-medium">{latestVersion.drawing_number}</span>
-                          <span>•</span>
-                          <span>{latestVersion.drawing_title}</span>
-                        </div>
-                      )}
-                      
-                      <div className="text-xs text-gray-500 mt-1">
-                        {formatBytes(latestVersion?.file_size || 0)} • 
-                        Dernière mise à jour: {new Date(latestVersion?.uploaded_at || '').toLocaleDateString('fr-CA')}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); openViewer(doc, latestVersion) }}
-                      className="p-2 hover:bg-gray-200 rounded-lg"
-                      title="Voir le document"
-                    >
-                      <Eye size={18} />
-                    </button>
-                    <button 
-                      onClick={(e) => { 
-                        e.stopPropagation()
-                        window.open(getDocumentUrl(latestVersion?.storage_path || ''), '_blank')
-                      }}
-                      className="p-2 hover:bg-gray-200 rounded-lg" 
-                      title="Télécharger"
-                    >
-                      <Download size={18} />
-                    </button>
-                    {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-                  </div>
+function FileDetailsModal({ item, isOpen, onClose }: { item: FileItem | null; isOpen: boolean; onClose: () => void }) {
+  if (!isOpen || !item) return null
+  const { icon: Icon, color } = getFileIcon(item)
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-hidden">
+        <div className="bg-gray-50 p-6 border-b">
+          <div className="flex justify-between items-start">
+            <div className="flex items-center gap-4"><div className="p-3 bg-white rounded-lg border"><Icon size={32} className={color} /></div><div><h2 className="font-bold text-lg">{item.name}</h2><p className="text-sm text-gray-500">{item.type === 'file' ? formatFileSize(item.size || 0) : 'Dossier'}</p></div></div>
+            <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded"><X size={20} /></button>
+          </div>
+        </div>
+        <div className="p-6 space-y-4">
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div><span className="text-gray-500">Créé le</span><div className="font-medium">{format(new Date(item.createdAt), 'dd MMM yyyy', { locale: fr })}</div></div>
+            <div><span className="text-gray-500">Modifié le</span><div className="font-medium">{format(new Date(item.updatedAt), 'dd MMM yyyy', { locale: fr })}</div></div>
+            <div><span className="text-gray-500">Créé par</span><div className="font-medium">{item.createdBy}</div></div>
+            <div><span className="text-gray-500">Type</span><div className="font-medium">{item.mimeType || 'Dossier'}</div></div>
+          </div>
+          {item.tags && item.tags.length > 0 && <div><span className="text-sm text-gray-500">Tags</span><div className="flex flex-wrap gap-1 mt-1">{item.tags.map(t => <span key={t} className="bg-teal-50 text-teal-700 px-2 py-0.5 rounded text-xs">{t}</span>)}</div></div>}
+          {item.versions && item.versions.length > 0 && (
+            <div><span className="text-sm text-gray-500">Historique des versions</span>
+              <div className="mt-2 space-y-2">{item.versions.map(v => (
+                <div key={v.id} className="flex items-center justify-between bg-gray-50 rounded-lg p-3">
+                  <div className="flex items-center gap-2"><Clock size={14} className="text-gray-400" /><span className="font-medium">Version {v.version}</span></div>
+                  <div className="flex items-center gap-3"><span className="text-sm text-gray-500">{formatFileSize(v.size)}</span><span className="text-sm text-gray-500">{format(new Date(v.createdAt), 'dd MMM yyyy', { locale: fr })}</span><button className="text-teal-600 hover:text-teal-700"><Download size={14} /></button></div>
                 </div>
-
-                {/* VERSIONS LIST */}
-                {isExpanded && (
-                  <div className="border-t bg-gray-50 p-4">
-                    <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                      <Clock size={16} />
-                      Historique des versions ({doc.versions.length})
-                    </h4>
-                    
-                    <div className="space-y-2">
-                      {doc.versions.map((version) => (
-                        <div key={version.id} className="bg-white rounded-lg p-3 flex items-center justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-3">
-                              <span className={`font-semibold ${version.is_latest ? 'text-teal-600' : 'text-gray-600'}`}>
-                                Version {version.version_number}
-                              </span>
-                              {version.is_latest && (
-                                <span className="px-2 py-0.5 bg-teal-100 text-teal-700 rounded-full text-xs font-semibold">
-                                  ACTUELLE
-                                </span>
-                              )}
-                              {version.ocr_status && getStatusBadge(version.ocr_status)}
-                            </div>
-                            
-                            {version.drawing_number && (
-                              <div className="text-sm text-gray-600 mt-1">
-                                {version.drawing_number} - {version.drawing_title}
-                              </div>
-                            )}
-                            
-                            <div className="text-xs text-gray-500 mt-1">
-                              {formatBytes(version.file_size)} • {new Date(version.uploaded_at).toLocaleDateString('fr-CA')}
-                              {version.change_notes && ` • ${version.change_notes}`}
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-2">
-                            {doc.category === 'plan' && (
-                              <button 
-                                onClick={() => openMetadataEditor(doc, version)}
-                                className="p-2 hover:bg-gray-100 rounded-lg text-gray-600"
-                                title="Modifier les métadonnées"
-                              >
-                                <Edit3 size={16} />
-                              </button>
-                            )}
-                            <button 
-                              onClick={() => openViewer(doc, version)}
-                              className="p-2 hover:bg-gray-100 rounded-lg text-gray-600"
-                              title="Voir cette version"
-                            >
-                              <Eye size={16} />
-                            </button>
-                            <button 
-                              onClick={() => window.open(getDocumentUrl(version.storage_path), '_blank')}
-                              className="p-2 hover:bg-gray-100 rounded-lg text-gray-600" 
-                              title="Télécharger"
-                            >
-                              <Download size={16} />
-                            </button>
-                            {!version.is_latest && (
-                              <button 
-                                onClick={() => handleDelete(version.id, version.storage_path)}
-                                className="p-2 hover:bg-red-100 rounded-lg text-red-600" 
-                                title="Supprimer"
-                              >
-                                <Trash2 size={16} />
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )
-          })}
+              ))}</div>
+            </div>
+          )}
+          {item.isShared && item.sharedWith && <div><span className="text-sm text-gray-500">Partagé avec</span><div className="mt-1 space-y-1">{item.sharedWith.map(u => <div key={u} className="flex items-center gap-2 text-sm"><Users size={14} className="text-blue-500" />{u}</div>)}</div></div>}
         </div>
-      )}
+        <div className="bg-gray-50 px-6 py-4 flex justify-end gap-3 border-t">
+          <button onClick={onClose} className="px-4 py-2 border rounded-lg hover:bg-gray-100">Fermer</button>
+          <button className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 flex items-center gap-2"><Download size={16} />Télécharger</button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
-      {/* UPLOAD MODAL */}
-      {uploadModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg w-full max-w-md p-6">
-            <h3 className="text-xl font-bold mb-4">Uploader un document</h3>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Catégorie
-                </label>
-                <select
-                  value={uploadCategory}
-                  onChange={(e) => setUploadCategory(e.target.value as any)}
-                  className="w-full px-3 py-2 border rounded-lg"
-                >
-                  <option value="plan">📐 Plan (PDF, DWG, DXF)</option>
-                  <option value="model">🏗️ Maquette (RVT, IFC)</option>
-                  <option value="document">📝 Document (DOCX, PDF)</option>
-                  <option value="spreadsheet">📊 Tableur (XLSX)</option>
-                </select>
-              </div>
+export default function CloudStorage() {
+  const [files, setFiles] = useState(DEMO_FILES)
+  const [currentFolder, setCurrentFolder] = useState<string | null>(null)
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
+  const [search, setSearch] = useState('')
+  const [filter, setFilter] = useState<'all' | 'starred' | 'shared'>('all')
+  const [selected, setSelected] = useState<FileItem | null>(null)
+  const [breadcrumb, setBreadcrumb] = useState<{ id: string | null; name: string }[]>([{ id: null, name: 'Mes fichiers' }])
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Fichier
-                </label>
-                <input
-                  type="file"
-                  onChange={handleFileSelect}
-                  accept=".pdf,.dwg,.dxf,.rvt,.ifc,.docx,.xlsx"
-                  className="w-full px-3 py-2 border rounded-lg"
-                />
-                {uploadFile && (
-                  <p className="text-sm text-gray-600 mt-1">
-                    {uploadFile.name} ({formatBytes(uploadFile.size)})
-                  </p>
-                )}
-              </div>
+  const currentFiles = useMemo(() => {
+    let f = files.filter(file => file.parentId === currentFolder)
+    if (search) f = f.filter(file => file.name.toLowerCase().includes(search.toLowerCase()))
+    if (filter === 'starred') f = f.filter(file => file.isStarred)
+    if (filter === 'shared') f = f.filter(file => file.isShared)
+    return f.sort((a, b) => (a.type === 'folder' ? -1 : 1) - (b.type === 'folder' ? -1 : 1))
+  }, [files, currentFolder, search, filter])
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Notes de changement (optionnel)
-                </label>
-                <textarea
-                  value={changeNotes}
-                  onChange={(e) => setChangeNotes(e.target.value)}
-                  placeholder="Ex: Révision suite aux commentaires du client"
-                  rows={3}
-                  className="w-full px-3 py-2 border rounded-lg"
-                />
-              </div>
-            </div>
+  const stats = useMemo(() => {
+    const totalSize = files.filter(f => f.type === 'file').reduce((s, f) => s + (f.size || 0), 0)
+    return { total: files.length, folders: files.filter(f => f.type === 'folder').length, files: files.filter(f => f.type === 'file').length, size: totalSize, starred: files.filter(f => f.isStarred).length }
+  }, [files])
 
-            <div className="flex gap-3 mt-6">
-              <button 
-                onClick={() => {
-                  setUploadModalOpen(false)
-                  setUploadFile(null)
-                  setChangeNotes('')
-                }}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-                disabled={uploading}
-              >
-                Annuler
-              </button>
-              <button 
-                onClick={handleUpload}
-                className="flex-1 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:opacity-50"
-                disabled={!uploadFile || uploading}
-              >
-                {uploading ? 'Upload...' : 'Uploader'}
-              </button>
-            </div>
+  const handleOpen = (item: FileItem) => {
+    if (item.type === 'folder') {
+      setCurrentFolder(item.id)
+      setBreadcrumb(prev => [...prev, { id: item.id, name: item.name }])
+    } else {
+      setSelected(item)
+    }
+  }
+
+  const handleBreadcrumb = (index: number) => {
+    const newBreadcrumb = breadcrumb.slice(0, index + 1)
+    setBreadcrumb(newBreadcrumb)
+    setCurrentFolder(newBreadcrumb[newBreadcrumb.length - 1].id)
+  }
+
+  const toggleStar = (id: string) => setFiles(prev => prev.map(f => f.id === id ? { ...f, isStarred: !f.isStarred } : f))
+
+  return (
+    <div className="p-6 max-w-7xl mx-auto">
+      <div className="flex justify-between items-center mb-8">
+        <div><PageTitle title="Cloud Storage" /><p className="text-gray-500 mt-1">Gestion de vos documents et fichiers</p></div>
+        <div className="flex gap-3">
+          <button className="flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-gray-50"><FolderPlus size={18} />Nouveau dossier</button>
+          <button className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700"><Upload size={18} />Importer</button>
+        </div>
+      </div>
+      <div className="grid grid-cols-5 gap-4 mb-6">
+        <div className="bg-white rounded-xl border p-4"><div className="flex items-center gap-3"><div className="p-2 bg-blue-100 rounded-lg"><HardDrive size={20} className="text-blue-600" /></div><div><div className="text-2xl font-bold">{formatFileSize(stats.size)}</div><div className="text-sm text-gray-500">Utilisé</div></div></div></div>
+        <div className="bg-white rounded-xl border p-4"><div className="flex items-center gap-3"><div className="p-2 bg-amber-100 rounded-lg"><Folder size={20} className="text-amber-600" /></div><div><div className="text-2xl font-bold">{stats.folders}</div><div className="text-sm text-gray-500">Dossiers</div></div></div></div>
+        <div className="bg-white rounded-xl border p-4"><div className="flex items-center gap-3"><div className="p-2 bg-green-100 rounded-lg"><File size={20} className="text-green-600" /></div><div><div className="text-2xl font-bold">{stats.files}</div><div className="text-sm text-gray-500">Fichiers</div></div></div></div>
+        <div className="bg-white rounded-xl border p-4"><div className="flex items-center gap-3"><div className="p-2 bg-purple-100 rounded-lg"><Star size={20} className="text-purple-600" /></div><div><div className="text-2xl font-bold">{stats.starred}</div><div className="text-sm text-gray-500">Favoris</div></div></div></div>
+        <div className="bg-white rounded-xl border p-4"><div className="flex items-center gap-3"><div className="p-2 bg-teal-100 rounded-lg"><Cloud size={20} className="text-teal-600" /></div><div><div className="text-2xl font-bold">5 GB</div><div className="text-sm text-gray-500">Disponible</div></div></div></div>
+      </div>
+      <div className="bg-white rounded-xl border p-4 mb-6">
+        <div className="flex flex-col lg:flex-row gap-4">
+          <div className="flex-1 relative"><Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" /><input type="text" placeholder="Rechercher..." value={search} onChange={e => setSearch(e.target.value)} className="w-full pl-10 pr-4 py-2 border rounded-lg" /></div>
+          <div className="flex gap-2">
+            <button onClick={() => setFilter('all')} className={`px-4 py-2 rounded-lg ${filter === 'all' ? 'bg-teal-600 text-white' : 'border hover:bg-gray-50'}`}>Tous</button>
+            <button onClick={() => setFilter('starred')} className={`px-4 py-2 rounded-lg flex items-center gap-2 ${filter === 'starred' ? 'bg-teal-600 text-white' : 'border hover:bg-gray-50'}`}><Star size={16} />Favoris</button>
+            <button onClick={() => setFilter('shared')} className={`px-4 py-2 rounded-lg flex items-center gap-2 ${filter === 'shared' ? 'bg-teal-600 text-white' : 'border hover:bg-gray-50'}`}><Share2 size={16} />Partagés</button>
+          </div>
+          <div className="flex border rounded-lg">
+            <button onClick={() => setViewMode('grid')} className={`p-2 ${viewMode === 'grid' ? 'bg-gray-100' : ''}`}><Grid size={18} /></button>
+            <button onClick={() => setViewMode('list')} className={`p-2 ${viewMode === 'list' ? 'bg-gray-100' : ''}`}><List size={18} /></button>
           </div>
         </div>
-      )}
-
-      {/* VIEWER MODAL */}
-      {viewerMode === 'viewer' && selectedDoc && (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg w-full max-w-6xl h-[90vh] flex flex-col">
-            <div className="p-4 border-b flex justify-between items-center">
-              <div>
-                <h3 className="font-bold text-lg">{selectedDoc.original_name}</h3>
-                <p className="text-sm text-gray-600">Version {selectedDoc.selectedVersion.version_number}</p>
-              </div>
-              <button 
-                onClick={() => setViewerMode(null)}
-                className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg"
-              >
-                Fermer
-              </button>
-            </div>
-            
-            <div className="flex-1 p-8 bg-gray-100 flex items-center justify-center">
-              <div className="text-center">
-                <div className="text-6xl mb-4">{getIcon(selectedDoc.document_type)}</div>
-                <p className="text-gray-600 text-lg font-semibold mb-2">
-                  Viewer {selectedDoc.document_type.toUpperCase()}
-                </p>
-                <p className="text-sm text-gray-500 mb-4">
-                  🚧 Intégration à venir avec pdf.js / IFC.js / Viewer DWG
-                </p>
-                <button
-                  onClick={() => window.open(getDocumentUrl(selectedDoc.selectedVersion.storage_path), '_blank')}
-                  className="btn btn-primary"
-                >
-                  Télécharger pour ouvrir
-                </button>
-              </div>
-            </div>
+      </div>
+      <div className="flex items-center gap-2 mb-4 text-sm">
+        {breadcrumb.map((b, i) => (
+          <div key={i} className="flex items-center gap-2">
+            {i > 0 && <ChevronRight size={14} className="text-gray-400" />}
+            <button onClick={() => handleBreadcrumb(i)} className={`hover:text-teal-600 ${i === breadcrumb.length - 1 ? 'font-medium text-gray-900' : 'text-gray-500'}`}>{b.name}</button>
           </div>
-        </div>
+        ))}
+      </div>
+      {currentFiles.length === 0 ? (
+        <div className="text-center py-20 bg-gray-50 rounded-xl"><Folder size={48} className="mx-auto text-gray-300 mb-4" /><p className="text-gray-500">Aucun fichier</p></div>
+      ) : viewMode === 'grid' ? (
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">{currentFiles.map(f => <FileCard key={f.id} item={f} onOpen={handleOpen} onStar={toggleStar} onShare={() => {}} onDelete={() => {}} viewMode="grid" />)}</div>
+      ) : (
+        <div className="bg-white rounded-xl border divide-y">{currentFiles.map(f => <FileCard key={f.id} item={f} onOpen={handleOpen} onStar={toggleStar} onShare={() => {}} onDelete={() => {}} viewMode="list" />)}</div>
       )}
-
-      {/* METADATA EDITOR MODAL */}
-      {viewerMode === 'metadata' && editingMetadata && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg w-full max-w-md p-6">
-            <h3 className="text-xl font-bold mb-4">Modifier les métadonnées</h3>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Numéro de plan
-                </label>
-                <input
-                  type="text"
-                  value={editingMetadata.drawingNumber}
-                  onChange={(e) => setEditingMetadata({...editingMetadata, drawingNumber: e.target.value})}
-                  placeholder="Ex: A-101"
-                  className="w-full px-3 py-2 border rounded-lg"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Titre du plan
-                </label>
-                <input
-                  type="text"
-                  value={editingMetadata.drawingTitle}
-                  onChange={(e) => setEditingMetadata({...editingMetadata, drawingTitle: e.target.value})}
-                  placeholder="Ex: PLAN SOUS-SOL"
-                  className="w-full px-3 py-2 border rounded-lg"
-                />
-              </div>
-            </div>
-
-            <div className="flex gap-3 mt-6">
-              <button 
-                onClick={() => setViewerMode(null)}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-              >
-                Annuler
-              </button>
-              <button 
-                onClick={saveMetadata}
-                className="flex-1 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700"
-              >
-                Enregistrer
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
+      <FileDetailsModal item={selected} isOpen={!!selected} onClose={() => setSelected(null)} />
     </div>
   )
 }

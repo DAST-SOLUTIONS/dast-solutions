@@ -1,42 +1,42 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { ToastProvider } from '@/components/ToastProvider'
-import { Login } from '@/pages/Login'
-import { Dashboard } from '@/pages/Dashboard'
-import { ProjectDetails } from '@/pages/ProjectDetails'
-import { Takeoff } from '@/pages/Takeoff'
-import { Settings } from '@/pages/Settings'
-import { Pricing } from '@/pages/Pricing'
+import Login from '@/pages/Login'
+import Dashboard from '@/pages/Dashboard'
+import ProjectDetails from '@/pages/ProjectDetails'
+import Takeoff from '@/pages/Takeoff'
+import Settings from '@/pages/Settings'
+import Pricing from '@/pages/Pricing'
 import CloudStorage from '@/pages/CloudStorage'
 import BidProposal from '@/pages/BidProposal'
 import ProjectCosts from '@/pages/ProjectCosts'
 
 // Pages Projets
-import { ProjetsConcept } from '@/pages/Projets/Conception'
-import { ProjetsEstimation } from '@/pages/Projets/Estimation'
-import { ProjetsGestion } from '@/pages/Projets/Gestion'
-import { AppelOffresPage } from '@/pages/Projets/AppelOffres'
+import ProjetsConcept from '@/pages/Projets/Conception'
+import ProjetsEstimation from '@/pages/Projets/Estimation'
+import ProjetsGestion from '@/pages/Projets/Gestion'
+import AppelOffresPage from '@/pages/Projets/AppelOffres'
 
 // Pages Entrepreneurs
-import { EntrepreneursRBQ } from '@/pages/Entrepreneurs/RBQ'
-import { EntrepreneursPersonnel } from '@/pages/Entrepreneurs/Personnel'
+import EntrepreneursRBQ from '@/pages/Entrepreneurs/RBQ'
+import EntrepreneursPersonnel from '@/pages/Entrepreneurs/Personnel'
 
 // Pages Appels d'offre
-import { AppelsOffreSEAO } from '@/pages/AppelsOffre/SEAO'
-import { AppelsOffreMERX } from '@/pages/AppelsOffre/MERX'
-import { AppelsOffreBuyGC } from '@/pages/AppelsOffre/BuyGC'
-import { AppelsOffreBonfire } from '@/pages/AppelsOffre/Bonfire'
+import AppelsOffreSEAO from '@/pages/AppelsOffre/SEAO'
+import AppelsOffreMERX from '@/pages/AppelsOffre/MERX'
+import AppelsOffreBuyGC from '@/pages/AppelsOffre/BuyGC'
+import AppelsOffreBonfire from '@/pages/AppelsOffre/Bonfire'
 
 // Pages Ressources
-import { CodeNavigator } from '@/pages/Ressources/CodeNavigator'
-import { CCQNavigator } from '@/pages/Ressources/CCQNavigator'
-import { DocumentsACCCDC } from '@/pages/Ressources/DocumentsACCCCDC'
-import { Associations } from '@/pages/Ressources/Associations'
+import CodeNavigator from '@/pages/Ressources/CodeNavigator'
+import CCQNavigator from '@/pages/Ressources/CCQNavigator'
+import DocumentsACCCDC from '@/pages/Ressources/DocumentsACCCCDC'
+import Associations from '@/pages/Ressources/Associations'
 
 // Pages Outils Avancés
-import { ApplicationMobileTerrain } from '@/pages/OutilsAvances/ApplicationMobile'
-import { MessagerieEquipe } from '@/pages/OutilsAvances/Messagerie'
-import { Geolocalisation } from '@/pages/OutilsAvances/Geolocalisation'
+import ApplicationMobileTerrain from '@/pages/OutilsAvances/ApplicationMobile'
+import MessagerieEquipe from '@/pages/OutilsAvances/Messagerie'
+import Geolocalisation from '@/pages/OutilsAvances/Geolocalisation'
 
 import AppHeader from '@/components/AppHeader'
 

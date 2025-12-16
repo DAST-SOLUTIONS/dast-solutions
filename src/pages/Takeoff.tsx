@@ -385,3 +385,5 @@ export function Takeoff() {
     </div>
   )
 }
+
+export default Takeoff
