@@ -19,7 +19,7 @@
     "@supabase/supabase-js": "^2.38.0",
     "clsx": "^2.0.0",
     "date-fns": "^4.1.0",
-    "jspdf": "^3.0.3",
+    "jspdf": "^3.0.4",
     "jspdf-autotable": "^5.0.2",
     "lucide-react": "^0.263.1",
     "pdfjs-dist": "^5.4.394",
