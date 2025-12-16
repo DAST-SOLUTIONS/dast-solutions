@@ -1,5 +1,5 @@
 /**
- * DAST Solutions - TakeoffViewer v4
+ * DAST Solutions - TakeoffViewer v5
  * Interface style Bluebeam avec MESURES INTERACTIVES:
  * - Ligne: cliquer 2 points → calcul distance
  * - Rectangle: cliquer 2 coins → périmètre + aire
@@ -7,16 +7,25 @@
  * - Comptage: cliquer pour ajouter des points
  * - Échelle X/Y configurable
  * - Édition des mesures avec dimensions, métiers CCQ, coûts
+ * - Mode plein écran (F11)
+ * - Calibration interactive 2 points
+ * - Export PDF annoté
+ * - Liaison vers Soumission
+ * - Annotations sur plans
  */
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { 
   FileText, Ruler, ChevronLeft, ChevronRight,
   Upload, ZoomIn, ZoomOut, RotateCw, Maximize2, Minimize2, List,
   MousePointer, Minus, Square, Hexagon, Plus, Download, Trash2,
-  AlertCircle, Loader2, X, Check, Edit3, DollarSign, Target, Move
+  AlertCircle, Loader2, X, Check, Edit3, DollarSign, Target, Move,
+  FileDown, Send, Type, StickyNote
 } from 'lucide-react'
 import { ScaleCalibration } from './ScaleCalibration'
 import { MeasurementEditor } from './MeasurementEditor'
+import { PDFExporter } from './PDFExporter'
+import { TakeoffToSoumission } from './TakeoffToSoumission'
+import { AnnotationToolbar, drawAnnotations, createAnnotation, type Annotation, type AnnotationType } from './PlanAnnotations'
 import type { Measurement, MeasureToolType } from '@/types/takeoff-measure-types'
 import { TAKEOFF_CATEGORIES, calculateDerivedValues, calculateMeasurementCosts } from '@/types/takeoff-measure-types'
 
@@ -164,6 +173,19 @@ export function TakeoffViewer({
   const [calibrationPoint2, setCalibrationPoint2] = useState<Point | null>(null)
   const [calibrationRealDistance, setCalibrationRealDistance] = useState('')
   const [calibrationUnit, setCalibrationUnit] = useState<'m' | 'cm' | 'mm' | 'ft' | 'in'>('m')
+  
+  // Option E - Export vers Soumission
+  const [showExportToSoumission, setShowExportToSoumission] = useState(false)
+  
+  // Option F - Annotations
+  const [annotations, setAnnotations] = useState<Annotation[]>([])
+  const [activeAnnotationTool, setActiveAnnotationTool] = useState<AnnotationType | null>(null)
+  const [annotationColor, setAnnotationColor] = useState('#EF4444')
+  const [selectedAnnotation, setSelectedAnnotationState] = useState<string | null>(null)
+  
+  // Option G - Export PDF
+  const [showPDFExporter, setShowPDFExporter] = useState(false)
+  const [planImageBase64, setPlanImageBase64] = useState<string | null>(null)
   
   // Refs
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -1312,15 +1334,43 @@ export function TakeoffViewer({
           {TOOLS.map(tool => (
             <button
               key={tool.type}
-              onClick={() => { setActiveTool(tool.type); cancelDrawing(); }}
+              onClick={() => { setActiveTool(tool.type); setActiveAnnotationTool(null); cancelDrawing(); }}
               title={`${tool.label} (${tool.shortcut})`}
               className={`p-2 rounded transition ${
-                activeTool === tool.type ? 'bg-teal-600 text-white' : 'text-gray-300 hover:bg-gray-600'
+                activeTool === tool.type && !activeAnnotationTool ? 'bg-teal-600 text-white' : 'text-gray-300 hover:bg-gray-600'
               }`}
             >
               <tool.icon size={20} />
             </button>
           ))}
+
+          <div className="h-6 w-px bg-gray-500 mx-2" />
+
+          {/* Outils d'annotation (Option F) */}
+          <button
+            onClick={() => {
+              setActiveAnnotationTool(activeAnnotationTool === 'text' ? null : 'text')
+              if (activeAnnotationTool !== 'text') setActiveTool('select')
+            }}
+            title="Texte (T)"
+            className={`p-2 rounded transition ${
+              activeAnnotationTool === 'text' ? 'bg-purple-600 text-white' : 'text-gray-300 hover:bg-gray-600'
+            }`}
+          >
+            <Type size={20} />
+          </button>
+          <button
+            onClick={() => {
+              setActiveAnnotationTool(activeAnnotationTool === 'note' ? null : 'note')
+              if (activeAnnotationTool !== 'note') setActiveTool('select')
+            }}
+            title="Note (N)"
+            className={`p-2 rounded transition ${
+              activeAnnotationTool === 'note' ? 'bg-purple-600 text-white' : 'text-gray-300 hover:bg-gray-600'
+            }`}
+          >
+            <StickyNote size={20} />
+          </button>
 
           <div className="h-6 w-px bg-gray-500 mx-2" />
 
@@ -1478,22 +1528,53 @@ export function TakeoffViewer({
         {!rightPanelCollapsed && (
           <div className="flex-1 overflow-y-auto p-3">
             {/* Actions */}
-            <div className="flex gap-2 mb-4">
-              <button
-                onClick={() => onExportToEstimation?.(measurements)}
-                disabled={measurements.length === 0}
-                className="flex-1 px-3 py-2 bg-teal-600 text-white rounded text-sm hover:bg-teal-700 disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                <Download size={16} />
-                Exporter
-              </button>
-              <button
-                onClick={() => { if (confirm('Supprimer toutes les mesures?')) setMeasurements([]) }}
-                disabled={measurements.length === 0}
-                className="px-3 py-2 border border-red-300 text-red-600 rounded text-sm hover:bg-red-50 disabled:opacity-50"
-              >
-                <Trash2 size={16} />
-              </button>
+            <div className="space-y-2 mb-4">
+              {/* Ligne 1: Export Soumission + PDF */}
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowExportToSoumission(true)}
+                  disabled={measurements.length === 0}
+                  className="flex-1 px-3 py-2 bg-teal-600 text-white rounded text-sm hover:bg-teal-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                  title="Exporter vers le module Soumission"
+                >
+                  <Send size={16} />
+                  Soumission
+                </button>
+                <button
+                  onClick={() => {
+                    // Capturer l'image du canvas
+                    if (canvasRef.current) {
+                      setPlanImageBase64(canvasRef.current.toDataURL('image/jpeg', 0.8))
+                    }
+                    setShowPDFExporter(true)
+                  }}
+                  disabled={measurements.length === 0}
+                  className="flex-1 px-3 py-2 bg-purple-600 text-white rounded text-sm hover:bg-purple-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                  title="Générer un PDF avec les mesures"
+                >
+                  <FileDown size={16} />
+                  PDF
+                </button>
+              </div>
+              
+              {/* Ligne 2: Export classique + Supprimer */}
+              <div className="flex gap-2">
+                <button
+                  onClick={() => onExportToEstimation?.(measurements)}
+                  disabled={measurements.length === 0}
+                  className="flex-1 px-3 py-2 border border-teal-500 text-teal-600 rounded text-sm hover:bg-teal-50 disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  <Download size={16} />
+                  JSON
+                </button>
+                <button
+                  onClick={() => { if (confirm('Supprimer toutes les mesures?')) setMeasurements([]) }}
+                  disabled={measurements.length === 0}
+                  className="px-3 py-2 border border-red-300 text-red-600 rounded text-sm hover:bg-red-50 disabled:opacity-50"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
             </div>
 
             {/* Totaux */}
@@ -1645,6 +1726,30 @@ export function TakeoffViewer({
           />
         </div>
       )}
+
+      {/* Option E - Modal export vers Soumission */}
+      <TakeoffToSoumission
+        isOpen={showExportToSoumission}
+        onClose={() => setShowExportToSoumission(false)}
+        measurements={measurements}
+        projectId={projectId}
+        projectName="Projet"
+        onExportComplete={(items) => {
+          console.log('Exporté vers soumission:', items)
+          // TODO: Intégrer avec le module Soumission
+        }}
+      />
+
+      {/* Option G - Modal export PDF */}
+      <PDFExporter
+        isOpen={showPDFExporter}
+        onClose={() => setShowPDFExporter(false)}
+        measurements={measurements}
+        annotations={annotations}
+        planImage={planImageBase64 || undefined}
+        planName={selectedPlan?.name || 'Plan'}
+        projectName="Projet"
+      />
     </div>
   )
 }
