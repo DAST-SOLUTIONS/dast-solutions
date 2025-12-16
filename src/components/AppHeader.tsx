@@ -6,7 +6,7 @@ import {
   Palette, Calculator, ClipboardList, FileText, Receipt,
   Building2, Contact,
   Link, TrendingUp, Flame, ShoppingCart,
-  BookMarked, Scale, FileCheck, Handshake,
+  BookMarked, Scale, FileCheck, Users2,
   Smartphone, MessageSquare, MapPin, ClipboardCheck
 } from "lucide-react"
 import { useState, useEffect, useRef } from "react"
@@ -278,7 +278,7 @@ export default function AppHeader() {
                   <FileCheck size={16} className="text-teal-600" /> Contrats ACC/CCDC
                 </button>
                 <button onClick={() => navigate("/ressources/associations")} className={submenuLink}>
-                  <Handshake size={16} className="text-rose-500" /> Associations
+                  <Users2 size={16} className="text-rose-500" /> Associations
                 </button>
               </div>
             </div>
