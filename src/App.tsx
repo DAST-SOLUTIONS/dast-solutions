@@ -10,6 +10,7 @@ import Pricing from '@/pages/Pricing'
 import CloudStorage from '@/pages/CloudStorage'
 import BidProposal from '@/pages/BidProposal'
 import ProjectCosts from '@/pages/ProjectCosts'
+import ImportData from '@/pages/ImportData'
 
 // Pages Projets
 import ProjetsConcept from '@/pages/Projets/Conception'
@@ -79,6 +80,15 @@ export default function App() {
             <PrivateRoute>
               <PrivateLayout>
                 <Dashboard />
+              </PrivateLayout>
+            </PrivateRoute>
+          } />
+
+          {/* Private Routes - Import Data */}
+          <Route path="/import" element={
+            <PrivateRoute>
+              <PrivateLayout>
+                <ImportData />
               </PrivateLayout>
             </PrivateRoute>
           } />
