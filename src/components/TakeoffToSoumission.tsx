@@ -6,7 +6,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import {
   Check, ChevronDown, ChevronRight, Search, Ruler, Square,
-  Pentagon, Hash, DollarSign, Plus, X, Package
+  Hexagon, Hash, DollarSign, Plus, X, Package
 } from 'lucide-react'
 
 export interface TakeoffMeasure {
@@ -47,7 +47,7 @@ interface TakeoffSelectorProps {
 const TYPE_ICONS = {
   line: Ruler,
   rectangle: Square,
-  polygon: Pentagon,
+  polygon: Hexagon,
   count: Hash
 }
 
