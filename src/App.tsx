@@ -10,7 +10,6 @@ import Pricing from '@/pages/Pricing'
 import CloudStorage from '@/pages/CloudStorage'
 import BidProposal from '@/pages/BidProposal'
 import ProjectCosts from '@/pages/ProjectCosts'
-import ImportData from '@/pages/ImportData'
 
 // Pages Projets
 import ProjetsConcept from '@/pages/Projets/Conception'
@@ -38,6 +37,13 @@ import Associations from '@/pages/Ressources/Associations'
 import ApplicationMobileTerrain from '@/pages/OutilsAvances/ApplicationMobile'
 import MessagerieEquipe from '@/pages/OutilsAvances/Messagerie'
 import Geolocalisation from '@/pages/OutilsAvances/Geolocalisation'
+
+// =====================================================
+// NOUVELLES PAGES - MEGA PACKAGE A,B,C,D,E
+// =====================================================
+import Factures from '@/pages/Factures'
+import RapportsTerrain from '@/pages/RapportsTerrain'
+// =====================================================
 
 import AppHeader from '@/components/AppHeader'
 
@@ -80,15 +86,6 @@ export default function App() {
             <PrivateRoute>
               <PrivateLayout>
                 <Dashboard />
-              </PrivateLayout>
-            </PrivateRoute>
-          } />
-
-          {/* Private Routes - Import Data */}
-          <Route path="/import" element={
-            <PrivateRoute>
-              <PrivateLayout>
-                <ImportData />
               </PrivateLayout>
             </PrivateRoute>
           } />
@@ -284,6 +281,30 @@ export default function App() {
               </PrivateLayout>
             </PrivateRoute>
           } />
+
+          {/* ============================================== */}
+          {/* NOUVELLES ROUTES - MEGA PACKAGE A,B,C,D,E      */}
+          {/* ============================================== */}
+          
+          {/* MODULE C - FACTURES */}
+          <Route path="/factures" element={
+            <PrivateRoute>
+              <PrivateLayout>
+                <Factures />
+              </PrivateLayout>
+            </PrivateRoute>
+          } />
+
+          {/* MODULE E - RAPPORTS TERRAIN */}
+          <Route path="/terrain" element={
+            <PrivateRoute>
+              <PrivateLayout>
+                <RapportsTerrain />
+              </PrivateLayout>
+            </PrivateRoute>
+          } />
+          
+          {/* ============================================== */}
 
           {/* Settings */}
           <Route path="/settings" element={
