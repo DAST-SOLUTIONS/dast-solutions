@@ -185,7 +185,9 @@ export function PDFProgressiveLoader({
       const page = await pdfDoc.getPage(pageNum)
       
       // Calculer l'échelle
-      const useHighRes = forceHighRes || quality === 'high'
+      // forceHighRes = true si on veut explicitement haute résolution
+      // Sinon on commence par basse résolution pour rapidité
+      const useHighRes = forceHighRes
       const baseScale = (zoom / 100) * (window.devicePixelRatio || 1)
       const scale = useHighRes ? baseScale : baseScale * 0.5 // Basse résolution = 50%
       

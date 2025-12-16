@@ -73,7 +73,7 @@ function measurementToSoumissionItem(m: Measurement): SoumissionItem {
     description: m.label || `${MEASURE_TYPE_LABELS[m.type] || m.type} - ${m.category}`,
     quantity: m.value,
     unit: m.unit,
-    unitPrice: m.costs?.unitPrice || 0,
+    unitPrice: m.costs?.materialUnitPrice || 0,
     laborCost: m.costs?.laborCost || 0,
     materialCost: m.costs?.materialCost || 0,
     totalCost: m.costs?.totalCost || 0,
@@ -319,7 +319,7 @@ export function TakeoffToSoumission({
                               <div className="text-sm text-gray-500">
                                 {m.value.toFixed(2)} {m.unit}
                                 {m.dimensions?.height && ` • H: ${m.dimensions.height}m`}
-                                {m.trade && ` • ${m.trade.name}`}
+                                {m.costs?.laborTradeName && ` • ${m.costs.laborTradeName}`}
                               </div>
                             </div>
                             {(m.costs?.totalCost || 0) > 0 && (

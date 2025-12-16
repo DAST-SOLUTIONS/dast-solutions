@@ -7,8 +7,8 @@ import { useState, useCallback, useRef, useEffect } from 'react'
 import {
   Box, Upload, AlertCircle, Loader2, ChevronLeft, ChevronRight,
   Eye, EyeOff, Info, Layers, ZoomIn, ZoomOut, RotateCw, Move,
-  Maximize2, Grid3X3, Sun, Moon, Camera, Download, Ruler,
-  Package, Home, Target, Crosshair
+  Maximize2, LayoutGrid, Sun, Moon, Camera, Download, Ruler,
+  Package, Home, Target, Crosshair, X
 } from 'lucide-react'
 
 // Types IFC
@@ -560,7 +560,7 @@ export function IFCViewer3D({ onExtractQuantities, onSelectElement }: IFCViewer3
             className={`p-1.5 rounded ${showGrid ? 'bg-gray-600 text-white' : 'text-gray-400 hover:bg-gray-700'}`}
             title="Grille"
           >
-            <Grid3X3 size={18} />
+            <LayoutGrid size={18} />
           </button>
 
           <button
