@@ -281,15 +281,15 @@ export default function ImportData() {
 
       for (const row of validRows) {
         try {
-          const insertData = {
+          const insertData: Record<string, any> = {
             ...row.data,
             user_id: user.id,
             created_at: new Date().toISOString()
           }
 
           // Pour les entrepreneurs, ajouter le contact si présent
-          if (importType === 'entrepreneurs' && row.data.contact_nom) {
-            const contactNom = row.data.contact_nom
+          if (importType === 'entrepreneurs' && insertData.contact_nom) {
+            const contactNom = insertData.contact_nom
             delete insertData.contact_nom
             
             const { data: entrepreneur, error: entError } = await supabase
