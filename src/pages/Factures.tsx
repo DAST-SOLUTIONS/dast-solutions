@@ -1,6 +1,6 @@
 /**
- * DAST Solutions - Page Factures
- * Gestion complète des factures et paiements
+ * DAST Solutions - Page Factures COMPLETE
+ * Avec PDF, Email, Paiements, Signatures
  */
 import { useState } from 'react'
 import { PageTitle } from '@/components/PageTitle'
@@ -12,12 +12,15 @@ import {
   PAYMENT_METHODS,
   calculateFactureTotals
 } from '@/hooks/useFactures'
-import { useSoumissions } from '@/hooks/useSoumissions'
+import { generateFacturePDF, downloadFacturePDF, openFacturePDFInNewTab, loadEntrepriseSettings } from '@/services/pdfFactureService'
+import { sendFactureEmail, sendFactureRappel } from '@/services/emailService'
+import { SignatureCanvas, SignatureDisplay } from '@/components/SignatureCanvas'
+import { supabase } from '@/lib/supabase'
 import {
   Plus, FileText, Download, Send, Eye, Trash2, X, Check,
   Building, User, Phone, Mail, Calendar, DollarSign, 
   CreditCard, Clock, AlertCircle, CheckCircle, Loader2,
-  ChevronDown, Filter, Search, Receipt
+  ChevronDown, Filter, Search, Receipt, Pen, FileDown
 } from 'lucide-react'
 
 // Badge de statut
@@ -47,10 +50,9 @@ function CreateFactureModal({
   onCreated: () => void 
 }) {
   const { createFacture, createFromSoumission } = useFactures()
-  const { soumissions } = useSoumissions()
-  
   const [mode, setMode] = useState<'new' | 'from_soumission'>('new')
   const [selectedSoumission, setSelectedSoumission] = useState('')
+  const [soumissions, setSoumissions] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   
   // Données client
@@ -77,9 +79,20 @@ function CreateFactureModal({
     new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
   )
 
-  if (!isOpen) return null
+  // Charger les soumissions acceptées
+  useState(() => {
+    const loadSoumissions = async () => {
+      const { data } = await supabase
+        .from('soumissions')
+        .select('*')
+        .eq('status', 'acceptee')
+        .order('created_at', { ascending: false })
+      setSoumissions(data || [])
+    }
+    loadSoumissions()
+  })
 
-  const acceptedSoumissions = soumissions.filter(s => s.status === 'acceptee')
+  if (!isOpen) return null
 
   const handleSubmit = async () => {
     setLoading(true)
@@ -153,7 +166,6 @@ function CreateFactureModal({
             >
               <FileText className="mx-auto mb-2 text-teal-600" size={24} />
               <p className="font-medium">Nouvelle facture</p>
-              <p className="text-xs text-gray-500">Créer manuellement</p>
             </button>
             <button
               onClick={() => setMode('from_soumission')}
@@ -165,7 +177,6 @@ function CreateFactureModal({
             >
               <Receipt className="mx-auto mb-2 text-teal-600" size={24} />
               <p className="font-medium">Depuis soumission</p>
-              <p className="text-xs text-gray-500">{acceptedSoumissions.length} acceptée(s)</p>
             </button>
           </div>
 
@@ -177,28 +188,21 @@ function CreateFactureModal({
               <select
                 value={selectedSoumission}
                 onChange={(e) => setSelectedSoumission(e.target.value)}
-                className="input-field"
+                className="w-full px-3 py-2 border rounded-lg"
               >
                 <option value="">-- Choisir --</option>
-                {acceptedSoumissions.map(s => (
+                {soumissions.map(s => (
                   <option key={s.id} value={s.id}>
                     {s.soumission_number} - {s.client_name} ({s.total?.toLocaleString('fr-CA', { style: 'currency', currency: 'CAD' })})
                   </option>
                 ))}
               </select>
-              {acceptedSoumissions.length === 0 && (
-                <p className="mt-2 text-sm text-amber-600">
-                  Aucune soumission acceptée. Créez une facture manuellement.
-                </p>
-              )}
             </div>
           ) : (
             <div className="space-y-6">
               {/* Client */}
               <div>
-                <h3 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
-                  <User size={18} /> Client
-                </h3>
+                <h3 className="font-bold text-gray-900 mb-3">Client</h3>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Nom *</label>
@@ -206,8 +210,7 @@ function CreateFactureModal({
                       type="text"
                       value={client.name}
                       onChange={(e) => setClient({...client, name: e.target.value})}
-                      className="input-field"
-                      required
+                      className="w-full px-3 py-2 border rounded-lg"
                     />
                   </div>
                   <div>
@@ -216,7 +219,7 @@ function CreateFactureModal({
                       type="text"
                       value={client.company}
                       onChange={(e) => setClient({...client, company: e.target.value})}
-                      className="input-field"
+                      className="w-full px-3 py-2 border rounded-lg"
                     />
                   </div>
                   <div>
@@ -225,7 +228,7 @@ function CreateFactureModal({
                       type="tel"
                       value={client.phone}
                       onChange={(e) => setClient({...client, phone: e.target.value})}
-                      className="input-field"
+                      className="w-full px-3 py-2 border rounded-lg"
                     />
                   </div>
                   <div>
@@ -234,7 +237,7 @@ function CreateFactureModal({
                       type="email"
                       value={client.email}
                       onChange={(e) => setClient({...client, email: e.target.value})}
-                      className="input-field"
+                      className="w-full px-3 py-2 border rounded-lg"
                     />
                   </div>
                 </div>
@@ -242,9 +245,7 @@ function CreateFactureModal({
 
               {/* Items */}
               <div>
-                <h3 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
-                  <FileText size={18} /> Items
-                </h3>
+                <h3 className="font-bold text-gray-900 mb-3">Items</h3>
                 <div className="space-y-3">
                   {items.map((item, index) => (
                     <div key={index} className="flex gap-2 items-start">
@@ -253,49 +254,31 @@ function CreateFactureModal({
                         placeholder="Description"
                         value={item.description}
                         onChange={(e) => updateItem(index, 'description', e.target.value)}
-                        className="input-field flex-1"
+                        className="flex-1 px-3 py-2 border rounded-lg"
                       />
                       <input
                         type="number"
                         placeholder="Qté"
                         value={item.quantity}
                         onChange={(e) => updateItem(index, 'quantity', parseFloat(e.target.value) || 0)}
-                        className="input-field w-20"
-                        min="0"
-                        step="0.01"
-                      />
-                      <input
-                        type="text"
-                        placeholder="Unité"
-                        value={item.unit}
-                        onChange={(e) => updateItem(index, 'unit', e.target.value)}
-                        className="input-field w-20"
+                        className="w-20 px-3 py-2 border rounded-lg"
                       />
                       <input
                         type="number"
                         placeholder="Prix"
                         value={item.unit_price}
                         onChange={(e) => updateItem(index, 'unit_price', parseFloat(e.target.value) || 0)}
-                        className="input-field w-28"
-                        min="0"
-                        step="0.01"
+                        className="w-28 px-3 py-2 border rounded-lg"
                       />
-                      <span className="py-2 px-2 text-gray-700 font-medium w-28 text-right">
-                        {(item.quantity * item.unit_price).toLocaleString('fr-CA', { style: 'currency', currency: 'CAD' })}
-                      </span>
                       <button
                         onClick={() => removeItem(index)}
                         className="p-2 text-red-500 hover:bg-red-50 rounded"
-                        disabled={items.length === 1}
                       >
                         <X size={18} />
                       </button>
                     </div>
                   ))}
-                  <button
-                    onClick={addItem}
-                    className="text-teal-600 hover:text-teal-700 text-sm font-medium flex items-center gap-1"
-                  >
+                  <button onClick={addItem} className="text-teal-600 text-sm flex items-center gap-1">
                     <Plus size={16} /> Ajouter un item
                   </button>
                 </div>
@@ -323,14 +306,12 @@ function CreateFactureModal({
 
               {/* Date échéance */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  <Calendar size={16} className="inline mr-1" /> Date d'échéance
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Date d'échéance</label>
                 <input
                   type="date"
                   value={dateEcheance}
                   onChange={(e) => setDateEcheance(e.target.value)}
-                  className="input-field w-48"
+                  className="w-48 px-3 py-2 border rounded-lg"
                 />
               </div>
             </div>
@@ -338,16 +319,14 @@ function CreateFactureModal({
         </div>
 
         <div className="bg-gray-50 px-6 py-4 flex justify-end gap-3">
-          <button onClick={onClose} className="btn btn-secondary">
-            Annuler
-          </button>
+          <button onClick={onClose} className="px-4 py-2 border rounded-lg">Annuler</button>
           <button 
             onClick={handleSubmit}
-            disabled={loading || (mode === 'from_soumission' && !selectedSoumission)}
-            className="btn btn-primary"
+            disabled={loading}
+            className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:opacity-50"
           >
-            {loading ? <Loader2 className="animate-spin mr-2" size={18} /> : <Plus size={18} className="mr-2" />}
-            Créer la facture
+            {loading ? <Loader2 className="animate-spin" size={18} /> : <Plus size={18} className="inline mr-2" />}
+            Créer
           </button>
         </div>
       </div>
@@ -384,11 +363,7 @@ function AddPaiementModal({
 
     setLoading(true)
     try {
-      await addPaiement(facture.id, {
-        montant: montantNum,
-        methode,
-        reference
-      })
+      await addPaiement(facture.id, { montant: montantNum, methode, reference })
       onAdded()
       onClose()
     } finally {
@@ -401,59 +376,48 @@ function AddPaiementModal({
       <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
         <div className="px-6 py-4 border-b flex justify-between items-center">
           <h3 className="font-bold text-gray-900">Enregistrer un paiement</h3>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
-            <X size={20} />
-          </button>
+          <button onClick={onClose} className="text-gray-500"><X size={20} /></button>
         </div>
 
         <div className="p-6 space-y-4">
           <div className="bg-gray-50 p-3 rounded-lg">
-            <p className="text-sm text-gray-600">Facture: <strong>{facture.facture_number}</strong></p>
-            <p className="text-sm text-gray-600">Solde dû: <strong className="text-red-600">{facture.balance_due.toLocaleString('fr-CA', { style: 'currency', currency: 'CAD' })}</strong></p>
+            <p className="text-sm">Facture: <strong>{facture.facture_number}</strong></p>
+            <p className="text-sm">Solde dû: <strong className="text-red-600">{facture.balance_due.toLocaleString('fr-CA', { style: 'currency', currency: 'CAD' })}</strong></p>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Montant *</label>
+            <label className="block text-sm font-medium mb-1">Montant *</label>
             <input
               type="number"
               value={montant}
               onChange={(e) => setMontant(e.target.value)}
-              placeholder={facture.balance_due.toString()}
-              className="input-field"
-              min="0"
-              step="0.01"
+              className="w-full px-3 py-2 border rounded-lg"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Méthode</label>
-            <select
-              value={methode}
-              onChange={(e) => setMethode(e.target.value as any)}
-              className="input-field"
-            >
-              {PAYMENT_METHODS.map(m => (
-                <option key={m.value} value={m.value}>{m.label}</option>
-              ))}
+            <label className="block text-sm font-medium mb-1">Méthode</label>
+            <select value={methode} onChange={(e) => setMethode(e.target.value as any)} className="w-full px-3 py-2 border rounded-lg">
+              {PAYMENT_METHODS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
             </select>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Référence</label>
+            <label className="block text-sm font-medium mb-1">Référence</label>
             <input
               type="text"
               value={reference}
               onChange={(e) => setReference(e.target.value)}
-              placeholder="N° chèque, confirmation, etc."
-              className="input-field"
+              placeholder="N° chèque, confirmation..."
+              className="w-full px-3 py-2 border rounded-lg"
             />
           </div>
         </div>
 
         <div className="px-6 py-4 bg-gray-50 flex justify-end gap-3">
-          <button onClick={onClose} className="btn btn-secondary">Annuler</button>
-          <button onClick={handleSubmit} disabled={loading} className="btn btn-primary">
-            {loading ? <Loader2 className="animate-spin mr-2" size={18} /> : <Check size={18} className="mr-2" />}
+          <button onClick={onClose} className="px-4 py-2 border rounded-lg">Annuler</button>
+          <button onClick={handleSubmit} disabled={loading} className="px-4 py-2 bg-teal-600 text-white rounded-lg">
+            {loading ? <Loader2 className="animate-spin" size={18} /> : <Check size={18} className="inline mr-2" />}
             Enregistrer
           </button>
         </div>
@@ -467,8 +431,11 @@ export default function FacturesPage() {
   const { factures, loading, getStats, updateStatus, deleteFacture, refetch } = useFactures()
   const [showCreate, setShowCreate] = useState(false)
   const [paiementModal, setPaiementModal] = useState<Facture | null>(null)
+  const [signatureModal, setSignatureModal] = useState<Facture | null>(null)
   const [filter, setFilter] = useState<string>('all')
   const [search, setSearch] = useState('')
+  const [pdfLoading, setPdfLoading] = useState<string | null>(null)
+  const [emailLoading, setEmailLoading] = useState<string | null>(null)
 
   const stats = getStats()
 
@@ -476,11 +443,126 @@ export default function FacturesPage() {
     if (filter !== 'all' && f.status !== filter) return false
     if (search) {
       const s = search.toLowerCase()
-      return f.facture_number.toLowerCase().includes(s) ||
-             f.client_name.toLowerCase().includes(s)
+      return f.facture_number.toLowerCase().includes(s) || f.client_name.toLowerCase().includes(s)
     }
     return true
   })
+
+  // Générer et télécharger PDF
+  const handleDownloadPDF = async (facture: Facture) => {
+    setPdfLoading(facture.id)
+    try {
+      const entreprise = await loadEntrepriseSettings()
+      
+      // Charger les items
+      const { data: items } = await supabase
+        .from('facture_items')
+        .select('*')
+        .eq('facture_id', facture.id)
+      
+      // Charger les paiements
+      const { data: paiements } = await supabase
+        .from('paiements')
+        .select('*')
+        .eq('facture_id', facture.id)
+
+      const pdfData = {
+        entreprise,
+        facture_number: facture.facture_number,
+        date_facture: facture.date_facture,
+        date_echeance: facture.date_echeance,
+        client: {
+          name: facture.client_name,
+          company: facture.client_company,
+          address: facture.client_address,
+          city: facture.client_city,
+          province: facture.client_province,
+          postal_code: facture.client_postal_code,
+          phone: facture.client_phone,
+          email: facture.client_email
+        },
+        project_name: facture.project_name,
+        project_address: facture.project_address,
+        items: (items || []).map(i => ({
+          description: i.description,
+          category: i.category,
+          quantity: i.quantity,
+          unit: i.unit,
+          unit_price: i.unit_price,
+          total_price: i.total_price
+        })),
+        subtotal: facture.subtotal,
+        tps_amount: facture.tps_amount,
+        tvq_amount: facture.tvq_amount,
+        total: facture.total,
+        amount_paid: facture.amount_paid,
+        balance_due: facture.balance_due,
+        paiements: (paiements || []).map(p => ({
+          date: p.date_paiement,
+          montant: p.montant,
+          methode: p.methode
+        })),
+        conditions: facture.conditions,
+        notes: facture.notes
+      }
+
+      const blob = generateFacturePDF(pdfData)
+      downloadFacturePDF(blob, `Facture_${facture.facture_number}.pdf`)
+    } catch (err) {
+      console.error('Erreur PDF:', err)
+      alert('Erreur lors de la génération du PDF')
+    } finally {
+      setPdfLoading(null)
+    }
+  }
+
+  // Envoyer par email
+  const handleSendEmail = async (facture: Facture) => {
+    if (!facture.client_email) {
+      alert('Aucun courriel client défini')
+      return
+    }
+
+    if (!confirm(`Envoyer la facture à ${facture.client_email}?`)) return
+
+    setEmailLoading(facture.id)
+    try {
+      const entreprise = await loadEntrepriseSettings()
+      const result = await sendFactureEmail(
+        {
+          id: facture.id,
+          facture_number: facture.facture_number,
+          client_name: facture.client_name,
+          client_email: facture.client_email,
+          total: facture.total,
+          date_echeance: facture.date_echeance || ''
+        },
+        entreprise.nom || 'DAST Solutions'
+      )
+
+      if (result.success) {
+        alert('Facture envoyée!')
+        await updateStatus(facture.id, 'envoyee')
+      } else {
+        alert(`Erreur: ${result.error}`)
+      }
+    } finally {
+      setEmailLoading(null)
+    }
+  }
+
+  // Signature callback
+  const handleSignatureSaved = async (signatureData: string, signatureId: string) => {
+    if (signatureModal) {
+      await supabase
+        .from('factures')
+        .update({ signature_id: signatureId })
+        .eq('id', signatureModal.id)
+      
+      refetch()
+      setSignatureModal(null)
+    }
+  }
 
   const handleDelete = async (id: string) => {
     if (confirm('Supprimer cette facture?')) {
@@ -490,18 +572,13 @@ export default function FacturesPage() {
 
   return (
     <div className="animate-fade-in">
-      <PageTitle 
-        title="Factures" 
-        subtitle="Gestion des factures et paiements" 
-      />
+      <PageTitle title="Factures" subtitle="Gestion des factures et paiements" />
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <div className="bg-white rounded-xl p-4 shadow-sm border">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <FileText className="text-blue-600" size={24} />
-            </div>
+            <div className="p-2 bg-blue-100 rounded-lg"><FileText className="text-blue-600" size={24} /></div>
             <div>
               <p className="text-sm text-gray-500">Total facturé</p>
               <p className="text-xl font-bold">{stats.totalFacture.toLocaleString('fr-CA', { style: 'currency', currency: 'CAD' })}</p>
@@ -510,9 +587,7 @@ export default function FacturesPage() {
         </div>
         <div className="bg-white rounded-xl p-4 shadow-sm border">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-green-100 rounded-lg">
-              <CheckCircle className="text-green-600" size={24} />
-            </div>
+            <div className="p-2 bg-green-100 rounded-lg"><CheckCircle className="text-green-600" size={24} /></div>
             <div>
               <p className="text-sm text-gray-500">Encaissé</p>
               <p className="text-xl font-bold text-green-600">{stats.totalPaye.toLocaleString('fr-CA', { style: 'currency', currency: 'CAD' })}</p>
@@ -521,9 +596,7 @@ export default function FacturesPage() {
         </div>
         <div className="bg-white rounded-xl p-4 shadow-sm border">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-amber-100 rounded-lg">
-              <Clock className="text-amber-600" size={24} />
-            </div>
+            <div className="p-2 bg-amber-100 rounded-lg"><Clock className="text-amber-600" size={24} /></div>
             <div>
               <p className="text-sm text-gray-500">À recevoir</p>
               <p className="text-xl font-bold text-amber-600">{stats.totalDu.toLocaleString('fr-CA', { style: 'currency', currency: 'CAD' })}</p>
@@ -532,9 +605,7 @@ export default function FacturesPage() {
         </div>
         <div className="bg-white rounded-xl p-4 shadow-sm border">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-red-100 rounded-lg">
-              <AlertCircle className="text-red-600" size={24} />
-            </div>
+            <div className="p-2 bg-red-100 rounded-lg"><AlertCircle className="text-red-600" size={24} /></div>
             <div>
               <p className="text-sm text-gray-500">En retard</p>
               <p className="text-xl font-bold text-red-600">{stats.enRetard}</p>
@@ -553,14 +624,10 @@ export default function FacturesPage() {
               placeholder="Rechercher..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500"
+              className="pl-10 pr-4 py-2 border rounded-lg"
             />
           </div>
-          <select
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            className="border rounded-lg px-3 py-2"
-          >
+          <select value={filter} onChange={(e) => setFilter(e.target.value)} className="border rounded-lg px-3 py-2">
             <option value="all">Tous les statuts</option>
             <option value="brouillon">Brouillon</option>
             <option value="envoyee">Envoyée</option>
@@ -569,23 +636,20 @@ export default function FacturesPage() {
             <option value="en_retard">En retard</option>
           </select>
         </div>
-        <button onClick={() => setShowCreate(true)} className="btn btn-primary">
-          <Plus size={18} className="mr-2" /> Nouvelle facture
+        <button onClick={() => setShowCreate(true)} className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 flex items-center gap-2">
+          <Plus size={18} /> Nouvelle facture
         </button>
       </div>
 
       {/* Liste */}
       {loading ? (
-        <div className="flex justify-center py-12">
-          <Loader2 className="animate-spin text-teal-600" size={40} />
-        </div>
+        <div className="flex justify-center py-12"><Loader2 className="animate-spin text-teal-600" size={40} /></div>
       ) : filteredFactures.length === 0 ? (
         <div className="bg-white rounded-xl p-12 text-center">
           <Receipt size={64} className="mx-auto mb-4 text-gray-300" />
-          <h3 className="text-xl font-bold text-gray-900 mb-2">Aucune facture</h3>
-          <p className="text-gray-600 mb-6">Créez votre première facture ou importez depuis une soumission acceptée.</p>
-          <button onClick={() => setShowCreate(true)} className="btn btn-primary">
-            <Plus size={18} className="mr-2" /> Créer une facture
+          <h3 className="text-xl font-bold mb-2">Aucune facture</h3>
+          <button onClick={() => setShowCreate(true)} className="px-4 py-2 bg-teal-600 text-white rounded-lg">
+            <Plus size={18} className="inline mr-2" /> Créer une facture
           </button>
         </div>
       ) : (
@@ -593,26 +657,22 @@ export default function FacturesPage() {
           <table className="w-full">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Numéro</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Client</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Date</th>
-                <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">Total</th>
-                <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">Solde</th>
-                <th className="px-4 py-3 text-center text-sm font-medium text-gray-700">Statut</th>
-                <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">Actions</th>
+                <th className="px-4 py-3 text-left text-sm font-medium">Numéro</th>
+                <th className="px-4 py-3 text-left text-sm font-medium">Client</th>
+                <th className="px-4 py-3 text-left text-sm font-medium">Date</th>
+                <th className="px-4 py-3 text-right text-sm font-medium">Total</th>
+                <th className="px-4 py-3 text-right text-sm font-medium">Solde</th>
+                <th className="px-4 py-3 text-center text-sm font-medium">Statut</th>
+                <th className="px-4 py-3 text-right text-sm font-medium">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y">
               {filteredFactures.map(facture => (
                 <tr key={facture.id} className="hover:bg-gray-50">
+                  <td className="px-4 py-3 font-medium">{facture.facture_number}</td>
                   <td className="px-4 py-3">
-                    <span className="font-medium text-gray-900">{facture.facture_number}</span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <p className="font-medium text-gray-900">{facture.client_name}</p>
-                    {facture.client_company && (
-                      <p className="text-sm text-gray-500">{facture.client_company}</p>
-                    )}
+                    <p className="font-medium">{facture.client_name}</p>
+                    {facture.client_company && <p className="text-sm text-gray-500">{facture.client_company}</p>}
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-600">
                     {new Date(facture.date_facture).toLocaleDateString('fr-CA')}
@@ -625,11 +685,41 @@ export default function FacturesPage() {
                       {facture.balance_due.toLocaleString('fr-CA', { style: 'currency', currency: 'CAD' })}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-center">
-                    <StatusBadge status={facture.status} />
-                  </td>
+                  <td className="px-4 py-3 text-center"><StatusBadge status={facture.status} /></td>
                   <td className="px-4 py-3">
                     <div className="flex justify-end gap-1">
+                      {/* PDF */}
+                      <button
+                        onClick={() => handleDownloadPDF(facture)}
+                        disabled={pdfLoading === facture.id}
+                        className="p-2 text-blue-600 hover:bg-blue-50 rounded"
+                        title="Télécharger PDF"
+                      >
+                        {pdfLoading === facture.id ? <Loader2 className="animate-spin" size={18} /> : <FileDown size={18} />}
+                      </button>
+                      
+                      {/* Email */}
+                      {facture.client_email && (
+                        <button
+                          onClick={() => handleSendEmail(facture)}
+                          disabled={emailLoading === facture.id}
+                          className="p-2 text-teal-600 hover:bg-teal-50 rounded"
+                          title="Envoyer par email"
+                        >
+                          {emailLoading === facture.id ? <Loader2 className="animate-spin" size={18} /> : <Send size={18} />}
+                        </button>
+                      )}
+
+                      {/* Signature */}
+                      <button
+                        onClick={() => setSignatureModal(facture)}
+                        className="p-2 text-purple-600 hover:bg-purple-50 rounded"
+                        title="Signature"
+                      >
+                        <Pen size={18} />
+                      </button>
+
+                      {/* Paiement */}
                       {facture.balance_due > 0 && facture.status !== 'annulee' && (
                         <button
                           onClick={() => setPaiementModal(facture)}
@@ -639,15 +729,8 @@ export default function FacturesPage() {
                           <CreditCard size={18} />
                         </button>
                       )}
-                      {facture.status === 'brouillon' && (
-                        <button
-                          onClick={() => updateStatus(facture.id, 'envoyee')}
-                          className="p-2 text-blue-600 hover:bg-blue-50 rounded"
-                          title="Marquer envoyée"
-                        >
-                          <Send size={18} />
-                        </button>
-                      )}
+                      
+                      {/* Supprimer */}
                       <button
                         onClick={() => handleDelete(facture.id)}
                         className="p-2 text-red-600 hover:bg-red-50 rounded"
@@ -665,17 +748,19 @@ export default function FacturesPage() {
       )}
 
       {/* Modals */}
-      <CreateFactureModal
-        isOpen={showCreate}
-        onClose={() => setShowCreate(false)}
-        onCreated={refetch}
-      />
-      <AddPaiementModal
-        isOpen={!!paiementModal}
-        facture={paiementModal}
-        onClose={() => setPaiementModal(null)}
-        onAdded={refetch}
-      />
+      <CreateFactureModal isOpen={showCreate} onClose={() => setShowCreate(false)} onCreated={refetch} />
+      <AddPaiementModal isOpen={!!paiementModal} facture={paiementModal} onClose={() => setPaiementModal(null)} onAdded={refetch} />
+      
+      {signatureModal && (
+        <SignatureCanvas
+          onSave={handleSignatureSaved}
+          onCancel={() => setSignatureModal(null)}
+          documentType="facture"
+          documentId={signatureModal.id}
+          signerName={signatureModal.client_name}
+          signerRole="client"
+        />
+      )}
     </div>
   )
 }

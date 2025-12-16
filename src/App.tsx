@@ -39,10 +39,11 @@ import MessagerieEquipe from '@/pages/OutilsAvances/Messagerie'
 import Geolocalisation from '@/pages/OutilsAvances/Geolocalisation'
 
 // =====================================================
-// NOUVELLES PAGES - MEGA PACKAGE A,B,C,D,E
+// NOUVELLES PAGES - MODULES 1 à 6
 // =====================================================
 import Factures from '@/pages/Factures'
 import RapportsTerrain from '@/pages/RapportsTerrain'
+import Analytics from '@/pages/Analytics'
 // =====================================================
 
 import AppHeader from '@/components/AppHeader'
@@ -81,238 +82,116 @@ export default function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/pricing" element={<Pricing />} />
 
-          {/* Private Routes - Dashboard */}
+          {/* Dashboard */}
           <Route path="/dashboard" element={
-            <PrivateRoute>
-              <PrivateLayout>
-                <Dashboard />
-              </PrivateLayout>
-            </PrivateRoute>
+            <PrivateRoute><PrivateLayout><Dashboard /></PrivateLayout></PrivateRoute>
           } />
 
-          {/* Private Routes - Projects */}
+          {/* Projects */}
           <Route path="/project/:projectId" element={
-            <PrivateRoute>
-              <PrivateLayout>
-                <ProjectDetails />
-              </PrivateLayout>
-            </PrivateRoute>
+            <PrivateRoute><PrivateLayout><ProjectDetails /></PrivateLayout></PrivateRoute>
           } />
-
           <Route path="/takeoff/:projectId" element={
-            <PrivateRoute>
-              <PrivateLayout>
-                <Takeoff />
-              </PrivateLayout>
-            </PrivateRoute>
+            <PrivateRoute><PrivateLayout><Takeoff /></PrivateLayout></PrivateRoute>
           } />
-
           <Route path="/cloud-storage/:projectId" element={
-            <PrivateRoute>
-              <PrivateLayout>
-                <CloudStorage />
-              </PrivateLayout>
-            </PrivateRoute>
+            <PrivateRoute><PrivateLayout><CloudStorage /></PrivateLayout></PrivateRoute>
           } />
-
           <Route path="/bid-proposal/:projectId" element={
-            <PrivateRoute>
-              <PrivateLayout>
-                <BidProposal />
-              </PrivateLayout>
-            </PrivateRoute>
+            <PrivateRoute><PrivateLayout><BidProposal /></PrivateLayout></PrivateRoute>
           } />
-
           <Route path="/project-costs/:projectId" element={
-            <PrivateRoute>
-              <PrivateLayout>
-                <ProjectCosts />
-              </PrivateLayout>
-            </PrivateRoute>
+            <PrivateRoute><PrivateLayout><ProjectCosts /></PrivateLayout></PrivateRoute>
           } />
 
-          {/* Private Routes - Projets Menu */}
+          {/* Projets Menu */}
           <Route path="/projets/conception" element={
-            <PrivateRoute>
-              <PrivateLayout>
-                <ProjetsConcept />
-              </PrivateLayout>
-            </PrivateRoute>
+            <PrivateRoute><PrivateLayout><ProjetsConcept /></PrivateLayout></PrivateRoute>
           } />
-
-          {/* Route Estimation sans projectId - affiche sélecteur */}
           <Route path="/projets/estimation" element={
-            <PrivateRoute>
-              <PrivateLayout>
-                <ProjetsEstimation />
-              </PrivateLayout>
-            </PrivateRoute>
+            <PrivateRoute><PrivateLayout><ProjetsEstimation /></PrivateLayout></PrivateRoute>
           } />
-          {/* FIX: Route Estimation avec projectId */}
           <Route path="/projets/:projectId/estimation" element={
-            <PrivateRoute>
-              <PrivateLayout>
-                <ProjetsEstimation />
-              </PrivateLayout>
-            </PrivateRoute>
+            <PrivateRoute><PrivateLayout><ProjetsEstimation /></PrivateLayout></PrivateRoute>
           } />
-
           <Route path="/projets/gestion" element={
-            <PrivateRoute>
-              <PrivateLayout>
-                <ProjetsGestion />
-              </PrivateLayout>
-            </PrivateRoute>
+            <PrivateRoute><PrivateLayout><ProjetsGestion /></PrivateLayout></PrivateRoute>
           } />
-
-          {/* Private Routes - Appels d'offres internes */}
           <Route path="/projets/appels-offres" element={
-            <PrivateRoute>
-              <PrivateLayout>
-                <AppelOffresPage />
-              </PrivateLayout>
-            </PrivateRoute>
+            <PrivateRoute><PrivateLayout><AppelOffresPage /></PrivateLayout></PrivateRoute>
           } />
 
-          {/* Private Routes - Entrepreneurs */}
+          {/* Entrepreneurs */}
           <Route path="/entrepreneurs/rbq" element={
-            <PrivateRoute>
-              <PrivateLayout>
-                <EntrepreneursRBQ />
-              </PrivateLayout>
-            </PrivateRoute>
+            <PrivateRoute><PrivateLayout><EntrepreneursRBQ /></PrivateLayout></PrivateRoute>
           } />
-
           <Route path="/entrepreneurs/personnel" element={
-            <PrivateRoute>
-              <PrivateLayout>
-                <EntrepreneursPersonnel />
-              </PrivateLayout>
-            </PrivateRoute>
+            <PrivateRoute><PrivateLayout><EntrepreneursPersonnel /></PrivateLayout></PrivateRoute>
           } />
 
-          {/* Private Routes - Appels d'offre publics */}
+          {/* Appels d'offre */}
           <Route path="/appels-offre/seao" element={
-            <PrivateRoute>
-              <PrivateLayout>
-                <AppelsOffreSEAO />
-              </PrivateLayout>
-            </PrivateRoute>
+            <PrivateRoute><PrivateLayout><AppelsOffreSEAO /></PrivateLayout></PrivateRoute>
           } />
-
           <Route path="/appels-offre/merx" element={
-            <PrivateRoute>
-              <PrivateLayout>
-                <AppelsOffreMERX />
-              </PrivateLayout>
-            </PrivateRoute>
+            <PrivateRoute><PrivateLayout><AppelsOffreMERX /></PrivateLayout></PrivateRoute>
           } />
-
           <Route path="/appels-offre/buy-gc" element={
-            <PrivateRoute>
-              <PrivateLayout>
-                <AppelsOffreBuyGC />
-              </PrivateLayout>
-            </PrivateRoute>
+            <PrivateRoute><PrivateLayout><AppelsOffreBuyGC /></PrivateLayout></PrivateRoute>
           } />
-
           <Route path="/appels-offre/bonfire" element={
-            <PrivateRoute>
-              <PrivateLayout>
-                <AppelsOffreBonfire />
-              </PrivateLayout>
-            </PrivateRoute>
+            <PrivateRoute><PrivateLayout><AppelsOffreBonfire /></PrivateLayout></PrivateRoute>
           } />
 
-          {/* Private Routes - Ressources */}
+          {/* Ressources */}
           <Route path="/ressources/code-navigator" element={
-            <PrivateRoute>
-              <PrivateLayout>
-                <CodeNavigator />
-              </PrivateLayout>
-            </PrivateRoute>
+            <PrivateRoute><PrivateLayout><CodeNavigator /></PrivateLayout></PrivateRoute>
           } />
-
           <Route path="/ressources/ccq-navigator" element={
-            <PrivateRoute>
-              <PrivateLayout>
-                <CCQNavigator />
-              </PrivateLayout>
-            </PrivateRoute>
+            <PrivateRoute><PrivateLayout><CCQNavigator /></PrivateLayout></PrivateRoute>
           } />
-
           <Route path="/ressources/documents-acc-ccdc" element={
-            <PrivateRoute>
-              <PrivateLayout>
-                <DocumentsACCCDC />
-              </PrivateLayout>
-            </PrivateRoute>
+            <PrivateRoute><PrivateLayout><DocumentsACCCDC /></PrivateLayout></PrivateRoute>
           } />
-
           <Route path="/ressources/associations" element={
-            <PrivateRoute>
-              <PrivateLayout>
-                <Associations />
-              </PrivateLayout>
-            </PrivateRoute>
+            <PrivateRoute><PrivateLayout><Associations /></PrivateLayout></PrivateRoute>
           } />
 
-          {/* Private Routes - Outils Avancés */}
+          {/* Outils Avancés */}
           <Route path="/outils-avances/application-mobile" element={
-            <PrivateRoute>
-              <PrivateLayout>
-                <ApplicationMobileTerrain />
-              </PrivateLayout>
-            </PrivateRoute>
+            <PrivateRoute><PrivateLayout><ApplicationMobileTerrain /></PrivateLayout></PrivateRoute>
           } />
-
           <Route path="/outils-avances/messagerie" element={
-            <PrivateRoute>
-              <PrivateLayout>
-                <MessagerieEquipe />
-              </PrivateLayout>
-            </PrivateRoute>
+            <PrivateRoute><PrivateLayout><MessagerieEquipe /></PrivateLayout></PrivateRoute>
           } />
-
           <Route path="/outils-avances/geolocalisation" element={
-            <PrivateRoute>
-              <PrivateLayout>
-                <Geolocalisation />
-              </PrivateLayout>
-            </PrivateRoute>
+            <PrivateRoute><PrivateLayout><Geolocalisation /></PrivateLayout></PrivateRoute>
           } />
 
           {/* ============================================== */}
-          {/* NOUVELLES ROUTES - MEGA PACKAGE A,B,C,D,E      */}
+          {/* NOUVELLES ROUTES - MODULES 1-6               */}
           {/* ============================================== */}
           
-          {/* MODULE C - FACTURES */}
+          {/* FACTURES (avec PDF, Email, Signatures) */}
           <Route path="/factures" element={
-            <PrivateRoute>
-              <PrivateLayout>
-                <Factures />
-              </PrivateLayout>
-            </PrivateRoute>
+            <PrivateRoute><PrivateLayout><Factures /></PrivateLayout></PrivateRoute>
           } />
 
-          {/* MODULE E - RAPPORTS TERRAIN */}
+          {/* RAPPORTS TERRAIN (avec Photos, Signatures) */}
           <Route path="/terrain" element={
-            <PrivateRoute>
-              <PrivateLayout>
-                <RapportsTerrain />
-              </PrivateLayout>
-            </PrivateRoute>
+            <PrivateRoute><PrivateLayout><RapportsTerrain /></PrivateLayout></PrivateRoute>
+          } />
+
+          {/* ANALYTICS DASHBOARD */}
+          <Route path="/analytics" element={
+            <PrivateRoute><PrivateLayout><Analytics /></PrivateLayout></PrivateRoute>
           } />
           
           {/* ============================================== */}
 
           {/* Settings */}
           <Route path="/settings" element={
-            <PrivateRoute>
-              <PrivateLayout>
-                <Settings />
-              </PrivateLayout>
-            </PrivateRoute>
+            <PrivateRoute><PrivateLayout><Settings /></PrivateLayout></PrivateRoute>
           } />
 
           {/* Redirect */}

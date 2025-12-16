@@ -1,18 +1,24 @@
 /**
- * DAST Solutions - Rapports Terrain
- * Interface mobile-first pour rapports de chantier
+ * DAST Solutions - Rapports Terrain COMPLET
+ * Avec Photos, Géolocalisation, Signatures
  */
 import { useState, useEffect, useRef } from 'react'
 import { PageTitle } from '@/components/PageTitle'
 import { supabase } from '@/lib/supabase'
-import { useProjects } from '@/hooks/useProjects'
+import { SignatureCanvas, SignatureDisplay } from '@/components/SignatureCanvas'
 import {
   Plus, Camera, MapPin, Cloud, Sun, CloudRain, Snowflake,
   Clock, Users, FileText, Check, X, Loader2, Calendar,
-  ChevronRight, Upload, Trash2, Edit, Eye, Send
+  ChevronRight, Upload, Trash2, Edit, Eye, Send, Image, Pen
 } from 'lucide-react'
 
 // Types
+interface RapportPhoto {
+  id: string
+  url: string
+  description?: string
+}
+
 interface RapportTerrain {
   id: string
   project_id: string
@@ -33,14 +39,9 @@ interface RapportTerrain {
   heure_fin?: string
   heures_total?: number
   status: 'brouillon' | 'soumis' | 'approuve'
+  signature_id?: string
   photos?: RapportPhoto[]
   created_at: string
-}
-
-interface RapportPhoto {
-  id: string
-  url: string
-  description?: string
 }
 
 // Icônes météo
@@ -50,6 +51,21 @@ const METEO_OPTIONS = [
   { value: 'pluie', label: 'Pluie', icon: CloudRain },
   { value: 'neige', label: 'Neige', icon: Snowflake }
 ]
+
+// Hook pour les projets
+function useProjects() {
+  const [projects, setProjects] = useState<any[]>([])
+  
+  useEffect(() => {
+    const load = async () => {
+      const { data } = await supabase.from('projects').select('id, name').order('name')
+      setProjects(data || [])
+    }
+    load()
+  }, [])
+  
+  return { projects }
+}
 
 // Hook pour rapports terrain
 function useRapportsTerrain(projectId?: string) {
@@ -72,9 +88,19 @@ function useRapportsTerrain(projectId?: string) {
       }
 
       const { data, error } = await query
-
       if (error) throw error
-      setRapports(data || [])
+
+      // Charger les photos pour chaque rapport
+      const rapportsWithPhotos = await Promise.all((data || []).map(async (r) => {
+        const { data: photos } = await supabase
+          .from('rapport_photos')
+          .select('id, url, description')
+          .eq('rapport_id', r.id)
+        
+        return { ...r, photos: photos || [] }
+      }))
+
+      setRapports(rapportsWithPhotos)
     } catch (err) {
       console.error('Erreur chargement rapports:', err)
     } finally {
@@ -103,7 +129,6 @@ function useRapportsTerrain(projectId?: string) {
         .single()
 
       if (error) throw error
-
       await fetchRapports()
       return data
     } catch (err) {
@@ -120,28 +145,83 @@ function useRapportsTerrain(projectId?: string) {
         .eq('id', id)
 
       if (error) throw error
-
       await fetchRapports()
       return true
     } catch (err) {
-      console.error('Erreur mise à jour rapport:', err)
+      console.error('Erreur mise à jour:', err)
       return false
     }
   }
 
   const deleteRapport = async (id: string): Promise<boolean> => {
     try {
-      const { error } = await supabase
-        .from('rapports_terrain')
-        .delete()
-        .eq('id', id)
-
+      const { error } = await supabase.from('rapports_terrain').delete().eq('id', id)
       if (error) throw error
-
       await fetchRapports()
       return true
     } catch (err) {
-      console.error('Erreur suppression rapport:', err)
+      console.error('Erreur suppression:', err)
+      return false
+    }
+  }
+
+  // Upload photo
+  const uploadPhoto = async (rapportId: string, file: File): Promise<RapportPhoto | null> => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return null
+
+      const fileName = `${user.id}/${rapportId}/${Date.now()}_${file.name}`
+      
+      const { error: uploadError } = await supabase.storage
+        .from('rapport-photos')
+        .upload(fileName, file)
+
+      if (uploadError) throw uploadError
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('rapport-photos')
+        .getPublicUrl(fileName)
+
+      const { data, error } = await supabase
+        .from('rapport_photos')
+        .insert({
+          rapport_id: rapportId,
+          storage_path: fileName,
+          url: publicUrl,
+          filename: file.name
+        })
+        .select()
+        .single()
+
+      if (error) throw error
+      
+      await fetchRapports()
+      return { id: data.id, url: publicUrl }
+    } catch (err) {
+      console.error('Erreur upload photo:', err)
+      return null
+    }
+  }
+
+  // Supprimer photo
+  const deletePhoto = async (photoId: string): Promise<boolean> => {
+    try {
+      const { data: photo } = await supabase
+        .from('rapport_photos')
+        .select('storage_path')
+        .eq('id', photoId)
+        .single()
+
+      if (photo?.storage_path) {
+        await supabase.storage.from('rapport-photos').remove([photo.storage_path])
+      }
+
+      await supabase.from('rapport_photos').delete().eq('id', photoId)
+      await fetchRapports()
+      return true
+    } catch (err) {
+      console.error('Erreur suppression photo:', err)
       return false
     }
   }
@@ -152,21 +232,30 @@ function useRapportsTerrain(projectId?: string) {
     createRapport,
     updateRapport,
     deleteRapport,
+    uploadPhoto,
+    deletePhoto,
     refetch: fetchRapports
   }
 }
 
-// Formulaire de rapport (mobile-friendly)
+// Formulaire de rapport
 function RapportForm({
   rapport,
   onSave,
-  onCancel
+  onCancel,
+  onUploadPhoto,
+  onDeletePhoto
 }: {
   rapport?: RapportTerrain
   onSave: (data: Partial<RapportTerrain>) => void
   onCancel: () => void
+  onUploadPhoto?: (file: File) => Promise<void>
+  onDeletePhoto?: (photoId: string) => Promise<void>
 }) {
   const { projects } = useProjects()
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [uploading, setUploading] = useState(false)
+  
   const [formData, setFormData] = useState<Partial<RapportTerrain>>({
     project_id: rapport?.project_id || '',
     date_rapport: rapport?.date_rapport || new Date().toISOString().split('T')[0],
@@ -186,7 +275,7 @@ function RapportForm({
   const [personnelInput, setPersonnelInput] = useState('')
   const [gettingLocation, setGettingLocation] = useState(false)
 
-  // Obtenir la géolocalisation
+  // Géolocalisation
   const getLocation = () => {
     if (!navigator.geolocation) {
       alert('Géolocalisation non supportée')
@@ -199,7 +288,6 @@ function RapportForm({
         const { latitude, longitude } = position.coords
         setFormData(prev => ({ ...prev, latitude, longitude }))
         
-        // Reverse geocoding (optionnel)
         try {
           const response = await fetch(
             `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`
@@ -212,14 +300,11 @@ function RapportForm({
         
         setGettingLocation(false)
       },
-      (error) => {
-        console.error('Erreur géolocalisation:', error)
-        setGettingLocation(false)
-      }
+      () => setGettingLocation(false)
     )
   }
 
-  // Ajouter personnel
+  // Personnel
   const addPersonnel = () => {
     if (personnelInput.trim()) {
       setFormData(prev => ({
@@ -237,7 +322,7 @@ function RapportForm({
     }))
   }
 
-  // Calculer heures totales
+  // Heures
   useEffect(() => {
     if (formData.heure_debut && formData.heure_fin) {
       const [h1, m1] = formData.heure_debut.split(':').map(Number)
@@ -247,71 +332,70 @@ function RapportForm({
     }
   }, [formData.heure_debut, formData.heure_fin])
 
+  // Upload photo
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file && onUploadPhoto) {
+      setUploading(true)
+      await onUploadPhoto(file)
+      setUploading(false)
+    }
+  }
+
   return (
     <div className="bg-white rounded-xl shadow-sm">
-      {/* Header */}
       <div className="px-4 py-3 border-b bg-gray-50 flex justify-between items-center">
-        <h3 className="font-semibold text-gray-900">
-          {rapport ? 'Modifier le rapport' : 'Nouveau rapport'}
-        </h3>
-        <button onClick={onCancel} className="p-1 text-gray-500">
-          <X size={20} />
-        </button>
+        <h3 className="font-semibold">{rapport ? 'Modifier' : 'Nouveau rapport'}</h3>
+        <button onClick={onCancel} className="p-1 text-gray-500"><X size={20} /></button>
       </div>
 
       <div className="p-4 space-y-4">
         {/* Projet */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Projet *</label>
+          <label className="block text-sm font-medium mb-1">Projet *</label>
           <select
             value={formData.project_id}
             onChange={(e) => setFormData({ ...formData, project_id: e.target.value })}
-            className="input-field"
-            required
+            className="w-full px-3 py-2 border rounded-lg"
           >
-            <option value="">Sélectionner un projet</option>
-            {projects.map(p => (
-              <option key={p.id} value={p.id}>{p.name}</option>
-            ))}
+            <option value="">Sélectionner</option>
+            {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
         </div>
 
         {/* Date et titre */}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+            <label className="block text-sm font-medium mb-1">Date</label>
             <input
               type="date"
               value={formData.date_rapport}
               onChange={(e) => setFormData({ ...formData, date_rapport: e.target.value })}
-              className="input-field"
+              className="w-full px-3 py-2 border rounded-lg"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Titre</label>
+            <label className="block text-sm font-medium mb-1">Titre</label>
             <input
               type="text"
               value={formData.titre}
               onChange={(e) => setFormData({ ...formData, titre: e.target.value })}
-              placeholder="Rapport journalier"
-              className="input-field"
+              className="w-full px-3 py-2 border rounded-lg"
             />
           </div>
         </div>
 
         {/* Météo */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Météo</label>
+          <label className="block text-sm font-medium mb-2">Météo</label>
           <div className="flex gap-2 mb-2">
             {METEO_OPTIONS.map(option => (
               <button
                 key={option.value}
                 type="button"
                 onClick={() => setFormData({ ...formData, meteo_condition: option.value })}
-                className={`flex-1 p-3 rounded-lg border-2 transition-all ${
-                  formData.meteo_condition === option.value
-                    ? 'border-teal-500 bg-teal-50'
-                    : 'border-gray-200'
+                className={`flex-1 p-3 rounded-lg border-2 ${
+                  formData.meteo_condition === option.value ? 'border-teal-500 bg-teal-50' : 'border-gray-200'
                 }`}
               >
                 <option.icon className="mx-auto mb-1" size={24} />
@@ -324,152 +408,129 @@ function RapportForm({
               type="number"
               value={formData.meteo_temperature}
               onChange={(e) => setFormData({ ...formData, meteo_temperature: parseInt(e.target.value) })}
-              className="input-field w-20"
-              placeholder="°C"
+              className="w-20 px-3 py-2 border rounded-lg"
             />
-            <span className="text-gray-500">°C</span>
+            <span>°C</span>
           </div>
         </div>
 
         {/* Localisation */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Localisation</label>
+          <label className="block text-sm font-medium mb-1">Localisation</label>
           <button
             type="button"
             onClick={getLocation}
             disabled={gettingLocation}
-            className="w-full p-3 border-2 border-dashed rounded-lg flex items-center justify-center gap-2 text-gray-600 hover:border-teal-400 hover:text-teal-600"
+            className="w-full p-3 border-2 border-dashed rounded-lg flex items-center justify-center gap-2 text-gray-600 hover:border-teal-400"
           >
-            {gettingLocation ? (
-              <Loader2 className="animate-spin" size={20} />
-            ) : (
-              <MapPin size={20} />
-            )}
-            {formData.latitude ? 'Position enregistrée' : 'Obtenir ma position'}
+            {gettingLocation ? <Loader2 className="animate-spin" size={20} /> : <MapPin size={20} />}
+            {formData.latitude ? 'Position enregistrée ✓' : 'Obtenir ma position'}
           </button>
-          {formData.adresse && (
-            <p className="text-xs text-gray-500 mt-1">{formData.adresse}</p>
-          )}
+          {formData.adresse && <p className="text-xs text-gray-500 mt-1">{formData.adresse}</p>}
         </div>
 
         {/* Heures */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Heures de travail</label>
+          <label className="block text-sm font-medium mb-1">Heures de travail</label>
           <div className="grid grid-cols-3 gap-2">
-            <div>
-              <input
-                type="time"
-                value={formData.heure_debut}
-                onChange={(e) => setFormData({ ...formData, heure_debut: e.target.value })}
-                className="input-field"
-              />
-              <span className="text-xs text-gray-500">Début</span>
-            </div>
-            <div>
-              <input
-                type="time"
-                value={formData.heure_fin}
-                onChange={(e) => setFormData({ ...formData, heure_fin: e.target.value })}
-                className="input-field"
-              />
-              <span className="text-xs text-gray-500">Fin</span>
-            </div>
-            <div>
-              <input
-                type="text"
-                value={formData.heures_total?.toFixed(1) || '0'}
-                className="input-field bg-gray-50"
-                readOnly
-              />
-              <span className="text-xs text-gray-500">Total (h)</span>
-            </div>
+            <input type="time" value={formData.heure_debut} onChange={(e) => setFormData({ ...formData, heure_debut: e.target.value })} className="px-3 py-2 border rounded-lg" />
+            <input type="time" value={formData.heure_fin} onChange={(e) => setFormData({ ...formData, heure_fin: e.target.value })} className="px-3 py-2 border rounded-lg" />
+            <input type="text" value={`${formData.heures_total?.toFixed(1) || 0}h`} className="px-3 py-2 border rounded-lg bg-gray-50" readOnly />
           </div>
         </div>
 
-        {/* Personnel présent */}
+        {/* Personnel */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Personnel présent</label>
+          <label className="block text-sm font-medium mb-1">Personnel présent</label>
           <div className="flex gap-2 mb-2">
             <input
               type="text"
               value={personnelInput}
               onChange={(e) => setPersonnelInput(e.target.value)}
-              placeholder="Nom de l'employé"
-              className="input-field flex-1"
+              placeholder="Nom"
+              className="flex-1 px-3 py-2 border rounded-lg"
               onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addPersonnel())}
             />
-            <button
-              type="button"
-              onClick={addPersonnel}
-              className="btn btn-secondary"
-            >
-              <Plus size={18} />
-            </button>
+            <button type="button" onClick={addPersonnel} className="px-4 py-2 border rounded-lg"><Plus size={18} /></button>
           </div>
           <div className="flex flex-wrap gap-2">
             {(formData.personnel_present || []).map((name, index) => (
-              <span
-                key={index}
-                className="inline-flex items-center gap-1 px-2 py-1 bg-teal-100 text-teal-700 rounded-full text-sm"
-              >
+              <span key={index} className="px-2 py-1 bg-teal-100 text-teal-700 rounded-full text-sm flex items-center gap-1">
                 {name}
-                <button onClick={() => removePersonnel(index)} className="hover:text-teal-900">
-                  <X size={14} />
-                </button>
+                <button onClick={() => removePersonnel(index)}><X size={14} /></button>
               </span>
             ))}
           </div>
         </div>
 
-        {/* Travaux effectués */}
+        {/* Travaux */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Travaux effectués</label>
+          <label className="block text-sm font-medium mb-1">Travaux effectués</label>
           <textarea
             value={formData.travaux_effectues}
             onChange={(e) => setFormData({ ...formData, travaux_effectues: e.target.value })}
             rows={3}
-            placeholder="Décrivez les travaux réalisés..."
-            className="input-field"
+            className="w-full px-3 py-2 border rounded-lg"
           />
         </div>
 
         {/* Problèmes */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Problèmes rencontrés</label>
+          <label className="block text-sm font-medium mb-1">Problèmes rencontrés</label>
           <textarea
             value={formData.problemes_rencontres}
             onChange={(e) => setFormData({ ...formData, problemes_rencontres: e.target.value })}
             rows={2}
-            placeholder="Problèmes, retards, etc."
-            className="input-field"
+            className="w-full px-3 py-2 border rounded-lg"
           />
         </div>
 
-        {/* Décisions */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Décisions prises</label>
-          <textarea
-            value={formData.decisions_prises}
-            onChange={(e) => setFormData({ ...formData, decisions_prises: e.target.value })}
-            rows={2}
-            placeholder="Décisions importantes..."
-            className="input-field"
-          />
-        </div>
+        {/* Photos (si édition) */}
+        {rapport && (
+          <div>
+            <label className="block text-sm font-medium mb-2">Photos</label>
+            <div className="grid grid-cols-3 gap-2 mb-2">
+              {(rapport.photos || []).map(photo => (
+                <div key={photo.id} className="relative group">
+                  <img src={photo.url} alt="" className="w-full h-24 object-cover rounded-lg" />
+                  <button
+                    onClick={() => onDeletePhoto?.(photo.id)}
+                    className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100"
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
+              ))}
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleFileChange}
+              className="hidden"
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="w-full p-3 border-2 border-dashed rounded-lg flex items-center justify-center gap-2 text-gray-600 hover:border-teal-400"
+            >
+              {uploading ? <Loader2 className="animate-spin" size={20} /> : <Camera size={20} />}
+              Ajouter une photo
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Actions */}
       <div className="px-4 py-3 border-t bg-gray-50 flex gap-3">
-        <button onClick={onCancel} className="btn btn-secondary flex-1">
-          Annuler
-        </button>
+        <button onClick={onCancel} className="flex-1 px-4 py-2 border rounded-lg">Annuler</button>
         <button
           onClick={() => onSave(formData)}
           disabled={!formData.project_id}
-          className="btn btn-primary flex-1"
+          className="flex-1 px-4 py-2 bg-teal-600 text-white rounded-lg disabled:opacity-50"
         >
-          <Check size={18} className="mr-2" />
-          Sauvegarder
+          <Check size={18} className="inline mr-2" /> Sauvegarder
         </button>
       </div>
     </div>
@@ -478,10 +539,11 @@ function RapportForm({
 
 // Page principale
 export default function RapportsTerrainPage() {
-  const { rapports, loading, createRapport, updateRapport, deleteRapport, refetch } = useRapportsTerrain()
+  const { rapports, loading, createRapport, updateRapport, deleteRapport, uploadPhoto, deletePhoto, refetch } = useRapportsTerrain()
   const { projects } = useProjects()
   const [showForm, setShowForm] = useState(false)
   const [editingRapport, setEditingRapport] = useState<RapportTerrain | undefined>()
+  const [signatureModal, setSignatureModal] = useState<RapportTerrain | null>(null)
 
   const handleSave = async (data: Partial<RapportTerrain>) => {
     if (editingRapport) {
@@ -499,9 +561,25 @@ export default function RapportsTerrainPage() {
     }
   }
 
+  const handleUploadPhoto = async (file: File) => {
+    if (editingRapport) {
+      await uploadPhoto(editingRapport.id, file)
+    }
+  }
+
+  const handleDeletePhoto = async (photoId: string) => {
+    await deletePhoto(photoId)
+  }
+
+  const handleSignatureSaved = async (signatureData: string, signatureId: string) => {
+    if (signatureModal) {
+      await updateRapport(signatureModal.id, { signature_id: signatureId, status: 'soumis' })
+      setSignatureModal(null)
+    }
+  }
+
   const getProjectName = (projectId: string) => {
-    const project = projects.find(p => p.id === projectId)
-    return project?.name || 'Projet inconnu'
+    return projects.find(p => p.id === projectId)?.name || 'Projet'
   }
 
   const getMeteoIcon = (condition?: string) => {
@@ -511,16 +589,13 @@ export default function RapportsTerrainPage() {
 
   return (
     <div className="animate-fade-in">
-      <PageTitle 
-        title="Rapports Terrain" 
-        subtitle="Suivi journalier des chantiers" 
-      />
+      <PageTitle title="Rapports Terrain" subtitle="Suivi journalier des chantiers" />
 
-      {/* Bouton nouveau rapport (mobile-friendly) */}
+      {/* Bouton mobile */}
       {!showForm && (
         <button
           onClick={() => setShowForm(true)}
-          className="fixed bottom-6 right-6 w-14 h-14 bg-teal-600 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-teal-700 z-40 md:hidden"
+          className="fixed bottom-6 right-6 w-14 h-14 bg-teal-600 text-white rounded-full shadow-lg flex items-center justify-center z-40 md:hidden"
         >
           <Plus size={28} />
         </button>
@@ -528,8 +603,8 @@ export default function RapportsTerrainPage() {
 
       {/* Desktop button */}
       <div className="hidden md:flex justify-end mb-6">
-        <button onClick={() => setShowForm(true)} className="btn btn-primary">
-          <Plus size={18} className="mr-2" /> Nouveau rapport
+        <button onClick={() => setShowForm(true)} className="px-4 py-2 bg-teal-600 text-white rounded-lg flex items-center gap-2">
+          <Plus size={18} /> Nouveau rapport
         </button>
       </div>
 
@@ -539,26 +614,22 @@ export default function RapportsTerrainPage() {
           <RapportForm
             rapport={editingRapport}
             onSave={handleSave}
-            onCancel={() => {
-              setShowForm(false)
-              setEditingRapport(undefined)
-            }}
+            onCancel={() => { setShowForm(false); setEditingRapport(undefined) }}
+            onUploadPhoto={editingRapport ? handleUploadPhoto : undefined}
+            onDeletePhoto={editingRapport ? handleDeletePhoto : undefined}
           />
         </div>
       )}
 
-      {/* Liste des rapports */}
+      {/* Liste */}
       {loading ? (
-        <div className="flex justify-center py-12">
-          <Loader2 className="animate-spin text-teal-600" size={40} />
-        </div>
+        <div className="flex justify-center py-12"><Loader2 className="animate-spin text-teal-600" size={40} /></div>
       ) : rapports.length === 0 && !showForm ? (
         <div className="bg-white rounded-xl p-12 text-center">
           <FileText size={64} className="mx-auto mb-4 text-gray-300" />
-          <h3 className="text-xl font-bold text-gray-900 mb-2">Aucun rapport</h3>
-          <p className="text-gray-600 mb-6">Créez votre premier rapport de chantier.</p>
-          <button onClick={() => setShowForm(true)} className="btn btn-primary">
-            <Plus size={18} className="mr-2" /> Créer un rapport
+          <h3 className="text-xl font-bold mb-2">Aucun rapport</h3>
+          <button onClick={() => setShowForm(true)} className="px-4 py-2 bg-teal-600 text-white rounded-lg">
+            <Plus size={18} className="inline mr-2" /> Créer un rapport
           </button>
         </div>
       ) : (
@@ -567,62 +638,52 @@ export default function RapportsTerrainPage() {
             const MeteoIcon = getMeteoIcon(rapport.meteo_condition)
             
             return (
-              <div
-                key={rapport.id}
-                className="bg-white rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow"
-              >
+              <div key={rapport.id} className="bg-white rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
                       <Calendar size={16} className="text-gray-400" />
-                      <span className="font-medium text-gray-900">
-                        {new Date(rapport.date_rapport).toLocaleDateString('fr-CA', {
-                          weekday: 'long',
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric'
-                        })}
+                      <span className="font-medium">
+                        {new Date(rapport.date_rapport).toLocaleDateString('fr-CA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                       </span>
                     </div>
-                    <p className="text-sm text-gray-600 mb-2">
-                      {getProjectName(rapport.project_id)}
-                    </p>
+                    <p className="text-sm text-gray-600 mb-2">{getProjectName(rapport.project_id)}</p>
                     
                     <div className="flex items-center gap-4 text-sm text-gray-500">
-                      <span className="flex items-center gap-1">
-                        <MeteoIcon size={16} />
-                        {rapport.meteo_temperature}°C
-                      </span>
-                      {rapport.heures_total && (
-                        <span className="flex items-center gap-1">
-                          <Clock size={16} />
-                          {rapport.heures_total}h
-                        </span>
-                      )}
-                      {rapport.personnel_present?.length > 0 && (
-                        <span className="flex items-center gap-1">
-                          <Users size={16} />
-                          {rapport.personnel_present.length}
-                        </span>
-                      )}
+                      <span className="flex items-center gap-1"><MeteoIcon size={16} /> {rapport.meteo_temperature}°C</span>
+                      {rapport.heures_total && <span className="flex items-center gap-1"><Clock size={16} /> {rapport.heures_total}h</span>}
+                      {rapport.personnel_present?.length > 0 && <span className="flex items-center gap-1"><Users size={16} /> {rapport.personnel_present.length}</span>}
+                      {(rapport.photos?.length || 0) > 0 && <span className="flex items-center gap-1"><Image size={16} /> {rapport.photos?.length}</span>}
                     </div>
 
-                    {rapport.travaux_effectues && (
-                      <p className="text-sm text-gray-600 mt-2 line-clamp-2">
-                        {rapport.travaux_effectues}
-                      </p>
+                    {/* Photos miniatures */}
+                    {rapport.photos && rapport.photos.length > 0 && (
+                      <div className="flex gap-1 mt-2">
+                        {rapport.photos.slice(0, 4).map(photo => (
+                          <img key={photo.id} src={photo.url} alt="" className="w-12 h-12 object-cover rounded" />
+                        ))}
+                        {rapport.photos.length > 4 && (
+                          <div className="w-12 h-12 bg-gray-200 rounded flex items-center justify-center text-sm text-gray-600">
+                            +{rapport.photos.length - 4}
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
 
                   <div className="flex gap-1 ml-2">
                     <button
-                      onClick={() => {
-                        setEditingRapport(rapport)
-                        setShowForm(true)
-                      }}
+                      onClick={() => { setEditingRapport(rapport); setShowForm(true) }}
                       className="p-2 text-gray-500 hover:bg-gray-100 rounded"
                     >
                       <Edit size={18} />
+                    </button>
+                    <button
+                      onClick={() => setSignatureModal(rapport)}
+                      className="p-2 text-purple-600 hover:bg-purple-50 rounded"
+                      title="Signer"
+                    >
+                      <Pen size={18} />
                     </button>
                     <button
                       onClick={() => handleDelete(rapport.id)}
@@ -633,27 +694,31 @@ export default function RapportsTerrainPage() {
                   </div>
                 </div>
 
-                {/* Status badge */}
+                {/* Status */}
                 <div className="mt-3 pt-3 border-t flex justify-between items-center">
                   <span className={`text-xs px-2 py-1 rounded-full ${
                     rapport.status === 'approuve' ? 'bg-green-100 text-green-700' :
                     rapport.status === 'soumis' ? 'bg-blue-100 text-blue-700' :
                     'bg-gray-100 text-gray-700'
                   }`}>
-                    {rapport.status === 'approuve' ? 'Approuvé' :
-                     rapport.status === 'soumis' ? 'Soumis' : 'Brouillon'}
+                    {rapport.status === 'approuve' ? '✓ Approuvé' : rapport.status === 'soumis' ? '📤 Soumis' : 'Brouillon'}
                   </span>
-                  
-                  {rapport.status === 'brouillon' && (
-                    <button className="text-sm text-teal-600 hover:text-teal-700 flex items-center gap-1">
-                      <Send size={14} /> Soumettre
-                    </button>
-                  )}
                 </div>
               </div>
             )
           })}
         </div>
+      )}
+
+      {/* Signature Modal */}
+      {signatureModal && (
+        <SignatureCanvas
+          onSave={handleSignatureSaved}
+          onCancel={() => setSignatureModal(null)}
+          documentType="rapport_terrain"
+          documentId={signatureModal.id}
+          signerRole="superviseur"
+        />
       )}
     </div>
   )
