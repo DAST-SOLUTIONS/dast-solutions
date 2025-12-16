@@ -389,16 +389,20 @@ export async function sendEmail(
     // Logger dans la BD
     const { data: { user } } = await supabase.auth.getUser()
     if (user) {
-      await supabase.from('email_logs').insert({
-        user_id: user.id,
-        to_email: to.email,
-        to_name: to.name,
-        subject: emailContent.subject,
-        template,
-        status: response.ok ? 'sent' : 'failed',
-        error_message: response.ok ? null : result.message,
-        sent_at: response.ok ? new Date().toISOString() : null
-      }).catch(() => {}) // Ignore si table n'existe pas encore
+      try {
+        await supabase.from('email_logs').insert({
+          user_id: user.id,
+          to_email: to.email,
+          to_name: to.name,
+          subject: emailContent.subject,
+          template,
+          status: response.ok ? 'sent' : 'failed',
+          error_message: response.ok ? null : result.message,
+          sent_at: response.ok ? new Date().toISOString() : null
+        })
+      } catch {
+        // Ignore si table n'existe pas encore
+      }
     }
 
     if (!response.ok) {
