@@ -1,456 +1,451 @@
 /**
- * DAST Solutions - Dashboard KPI avec VRAIES DONNÉES
- * Connecté à Supabase - Projets, Soumissions, Entrepreneurs, Personnel
+ * DAST Solutions - Dashboard Amélioré
+ * KPIs, Graphiques, Projets récents
  */
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { PageTitle } from '@/components/PageTitle'
-import { useDashboardStats } from '@/hooks/useDashboardStats'
+import { supabase } from '@/lib/supabase'
 import {
-  BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid,
-  Tooltip, Legend, ResponsiveContainer, AreaChart, Area
-} from 'recharts'
-import {
-  TrendingUp, TrendingDown, DollarSign, FileText, FolderOpen,
-  CheckCircle, Clock, Users, Calendar, ArrowRight, Building,
-  Target, AlertTriangle, RefreshCw, Download, ChevronRight,
-  UserCheck, Award, Loader2, HardHat, Briefcase
+  FolderOpen, FileText, DollarSign, TrendingUp, Clock, CheckCircle,
+  AlertTriangle, Plus, ArrowRight, Calendar, Users, Receipt,
+  BarChart3, PieChart, Activity
 } from 'lucide-react'
-import { format } from 'date-fns'
-import { fr } from 'date-fns/locale'
 
-const STATUS_COLORS: Record<string, string> = {
-  'en_cours': '#3B82F6',
-  'active': '#3B82F6',
-  'termine': '#10B981',
-  'completed': '#10B981',
-  'en_attente': '#F59E0B',
-  'envoyee': '#F59E0B',
-  'acceptee': '#10B981',
-  'refusee': '#EF4444',
-  'annule': '#EF4444',
-  'brouillon': '#6B7280'
+interface DashboardStats {
+  totalProjects: number
+  activeProjects: number
+  totalSoumissions: number
+  pendingSoumissions: number
+  acceptedSoumissions: number
+  totalFactures: number
+  unpaidFactures: number
+  overdueFactures: number
+  revenueThisMonth: number
+  revenueLastMonth: number
+  totalClients: number
 }
 
-const URGENCY_COLORS = {
-  low: 'bg-blue-100 text-blue-800',
-  medium: 'bg-amber-100 text-amber-800',
-  high: 'bg-red-100 text-red-800'
+interface RecentProject {
+  id: string
+  name: string
+  client_name?: string
+  status: string
+  updated_at: string
 }
 
-interface KPICardProps {
-  title: string
-  value: string | number
-  change?: number
-  icon: React.ElementType
-  color: string
-  trend?: 'up' | 'down' | 'neutral'
-  loading?: boolean
-}
-
-function KPICard({ title, value, change, icon: Icon, color, trend, loading }: KPICardProps) {
-  return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-sm text-gray-500 font-medium">{title}</p>
-          {loading ? (
-            <div className="h-9 flex items-center mt-2">
-              <Loader2 className="animate-spin text-gray-400" size={24} />
-            </div>
-          ) : (
-            <>
-              <p className="text-3xl font-bold mt-2" style={{ color }}>{value}</p>
-              {change !== undefined && change !== 0 && (
-                <div className={`flex items-center gap-1 mt-2 text-sm ${
-                  trend === 'up' ? 'text-green-600' : trend === 'down' ? 'text-red-600' : 'text-gray-500'
-                }`}>
-                  {trend === 'up' && <TrendingUp size={14} />}
-                  {trend === 'down' && <TrendingDown size={14} />}
-                  <span>{change > 0 ? '+' : ''}{change}%</span>
-                  <span className="text-gray-400 ml-1">vs mois dernier</span>
-                </div>
-              )}
-            </>
-          )}
-        </div>
-        <div className="p-3 rounded-xl" style={{ backgroundColor: `${color}15` }}>
-          <Icon size={24} style={{ color }} />
-        </div>
-      </div>
-    </div>
-  )
+interface RecentSoumission {
+  id: string
+  soumission_number: string
+  client_name: string
+  total: number
+  status: string
+  created_at: string
 }
 
 export default function Dashboard() {
   const navigate = useNavigate()
-  const { stats, chartData, recentActivity, reminders, loading, error, refresh } = useDashboardStats()
-  const [timeRange, setTimeRange] = useState<'week' | 'month' | 'quarter' | 'year'>('month')
-  const [refreshing, setRefreshing] = useState(false)
+  const [stats, setStats] = useState<DashboardStats | null>(null)
+  const [recentProjects, setRecentProjects] = useState<RecentProject[]>([])
+  const [recentSoumissions, setRecentSoumissions] = useState<RecentSoumission[]>([])
+  const [loading, setLoading] = useState(true)
+  const [monthlyRevenue, setMonthlyRevenue] = useState<{ month: string; revenue: number }[]>([])
 
-  const handleRefresh = async () => {
-    setRefreshing(true)
-    await refresh()
-    setRefreshing(false)
+  useEffect(() => {
+    loadDashboardData()
+  }, [])
+
+  const loadDashboardData = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      // Projets
+      const { data: projects } = await supabase
+        .from('projects')
+        .select('id, name, client_name, status, updated_at')
+        .eq('user_id', user.id)
+        .order('updated_at', { ascending: false })
+
+      const activeProjects = projects?.filter(p => p.status !== 'completed' && p.status !== 'cancelled') || []
+
+      // Soumissions
+      const { data: soumissions } = await supabase
+        .from('soumissions')
+        .select('id, soumission_number, client_name, total, status, created_at')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+
+      const pending = soumissions?.filter(s => s.status === 'draft' || s.status === 'sent') || []
+      const accepted = soumissions?.filter(s => s.status === 'accepted') || []
+
+      // Factures
+      const { data: factures } = await supabase
+        .from('factures')
+        .select('id, total, balance_due, status, date_echeance')
+        .eq('user_id', user.id)
+
+      const unpaid = factures?.filter(f => f.status !== 'paid') || []
+      const overdue = factures?.filter(f => {
+        if (f.status === 'paid') return false
+        return new Date(f.date_echeance) < new Date()
+      }) || []
+
+      // Revenus ce mois
+      const now = new Date()
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+      const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+      const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0)
+
+      const { data: paymentsThisMonth } = await supabase
+        .from('facture_payments')
+        .select('amount')
+        .eq('user_id', user.id)
+        .gte('payment_date', startOfMonth.toISOString())
+
+      const { data: paymentsLastMonth } = await supabase
+        .from('facture_payments')
+        .select('amount')
+        .eq('user_id', user.id)
+        .gte('payment_date', startOfLastMonth.toISOString())
+        .lt('payment_date', endOfLastMonth.toISOString())
+
+      // Clients
+      const { count: clientsCount } = await supabase
+        .from('clients')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+
+      // Revenus mensuels (6 derniers mois)
+      const monthlyData: { month: string; revenue: number }[] = []
+      for (let i = 5; i >= 0; i--) {
+        const monthStart = new Date(now.getFullYear(), now.getMonth() - i, 1)
+        const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0)
+        
+        const { data: monthPayments } = await supabase
+          .from('facture_payments')
+          .select('amount')
+          .eq('user_id', user.id)
+          .gte('payment_date', monthStart.toISOString())
+          .lte('payment_date', monthEnd.toISOString())
+
+        monthlyData.push({
+          month: monthStart.toLocaleDateString('fr-CA', { month: 'short' }),
+          revenue: monthPayments?.reduce((sum, p) => sum + p.amount, 0) || 0
+        })
+      }
+      setMonthlyRevenue(monthlyData)
+
+      setStats({
+        totalProjects: projects?.length || 0,
+        activeProjects: activeProjects.length,
+        totalSoumissions: soumissions?.length || 0,
+        pendingSoumissions: pending.length,
+        acceptedSoumissions: accepted.length,
+        totalFactures: factures?.length || 0,
+        unpaidFactures: unpaid.length,
+        overdueFactures: overdue.length,
+        revenueThisMonth: paymentsThisMonth?.reduce((sum, p) => sum + p.amount, 0) || 0,
+        revenueLastMonth: paymentsLastMonth?.reduce((sum, p) => sum + p.amount, 0) || 0,
+        totalClients: clientsCount || 0
+      })
+
+      setRecentProjects(projects?.slice(0, 5) || [])
+      setRecentSoumissions(soumissions?.slice(0, 5) || [])
+
+    } catch (err) {
+      console.error('Erreur dashboard:', err)
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const formatCurrency = (value: number) => {
-    if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M$`
-    if (value >= 1000) return `${(value / 1000).toFixed(0)}k$`
-    return `${value.toLocaleString()}$`
+  const revenueChange = stats ? (
+    stats.revenueLastMonth > 0 
+      ? ((stats.revenueThisMonth - stats.revenueLastMonth) / stats.revenueLastMonth * 100).toFixed(1)
+      : stats.revenueThisMonth > 0 ? '+100' : '0'
+  ) : '0'
+
+  const maxRevenue = Math.max(...monthlyRevenue.map(m => m.revenue), 1)
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin w-8 h-8 border-2 border-teal-600 border-t-transparent rounded-full" />
+      </div>
+    )
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex justify-between items-center">
         <div>
-          <PageTitle title="Tableau de bord" />
-          <p className="text-gray-500 mt-1">Vue d'ensemble de vos activités</p>
+          <h1 className="text-2xl font-bold text-gray-900">Tableau de bord</h1>
+          <p className="text-gray-600">Bienvenue dans DAST Solutions</p>
         </div>
-        <div className="flex items-center gap-3">
-          <select
-            value={timeRange}
-            onChange={(e) => setTimeRange(e.target.value as any)}
-            className="px-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-teal-500"
-          >
-            <option value="week">Cette semaine</option>
-            <option value="month">Ce mois</option>
-            <option value="quarter">Ce trimestre</option>
-            <option value="year">Cette année</option>
-          </select>
-          <button
-            onClick={handleRefresh}
-            disabled={refreshing || loading}
-            className="p-2 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50"
-          >
-            <RefreshCw size={20} className={refreshing || loading ? 'animate-spin' : ''} />
-          </button>
-          <button className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700">
-            <Download size={18} />
-            Exporter
-          </button>
+        <button onClick={() => navigate('/project/new')} className="btn btn-primary">
+          <Plus size={18} className="mr-1" /> Nouveau projet
+        </button>
+      </div>
+
+      {/* KPIs principaux */}
+      <div className="grid grid-cols-4 gap-4">
+        <div className="bg-white rounded-xl p-5 border shadow-sm">
+          <div className="flex items-center justify-between mb-3">
+            <div className="w-12 h-12 rounded-xl bg-teal-100 flex items-center justify-center">
+              <DollarSign className="text-teal-600" size={24} />
+            </div>
+            <span className={`text-sm font-medium ${parseFloat(revenueChange) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              {parseFloat(revenueChange) >= 0 ? '+' : ''}{revenueChange}%
+            </span>
+          </div>
+          <p className="text-2xl font-bold text-gray-900">
+            {stats?.revenueThisMonth.toLocaleString('fr-CA', { style: 'currency', currency: 'CAD', maximumFractionDigits: 0 })}
+          </p>
+          <p className="text-sm text-gray-500">Revenus ce mois</p>
+        </div>
+
+        <div className="bg-white rounded-xl p-5 border shadow-sm">
+          <div className="flex items-center justify-between mb-3">
+            <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center">
+              <FolderOpen className="text-blue-600" size={24} />
+            </div>
+            <span className="text-sm font-medium text-blue-600">{stats?.activeProjects} actifs</span>
+          </div>
+          <p className="text-2xl font-bold text-gray-900">{stats?.totalProjects}</p>
+          <p className="text-sm text-gray-500">Projets totaux</p>
+        </div>
+
+        <div className="bg-white rounded-xl p-5 border shadow-sm">
+          <div className="flex items-center justify-between mb-3">
+            <div className="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center">
+              <FileText className="text-purple-600" size={24} />
+            </div>
+            <span className="text-sm font-medium text-amber-600">{stats?.pendingSoumissions} en attente</span>
+          </div>
+          <p className="text-2xl font-bold text-gray-900">{stats?.totalSoumissions}</p>
+          <p className="text-sm text-gray-500">Soumissions</p>
+        </div>
+
+        <div className="bg-white rounded-xl p-5 border shadow-sm">
+          <div className="flex items-center justify-between mb-3">
+            <div className="w-12 h-12 rounded-xl bg-orange-100 flex items-center justify-center">
+              <Receipt className="text-orange-600" size={24} />
+            </div>
+            {stats && stats.overdueFactures > 0 && (
+              <span className="text-sm font-medium text-red-600">{stats.overdueFactures} en retard</span>
+            )}
+          </div>
+          <p className="text-2xl font-bold text-gray-900">{stats?.unpaidFactures}</p>
+          <p className="text-sm text-gray-500">Factures impayées</p>
         </div>
       </div>
 
-      {/* Error Banner */}
-      {error && (
-        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
-          {error}
-        </div>
-      )}
-
-      {/* KPIs Row 1 - Finances & Projets */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-        <KPICard
-          title="Chiffre d'affaires"
-          value={formatCurrency(stats?.totalRevenue || 0)}
-          change={stats?.revenueTrend}
-          icon={DollarSign}
-          color="#10B981"
-          trend={stats?.revenueTrend && stats.revenueTrend > 0 ? 'up' : stats?.revenueTrend && stats.revenueTrend < 0 ? 'down' : 'neutral'}
-          loading={loading}
-        />
-        <KPICard
-          title="Projets actifs"
-          value={stats?.activeProjects || 0}
-          change={stats?.projectsTrend}
-          icon={FolderOpen}
-          color="#3B82F6"
-          trend={stats?.projectsTrend && stats.projectsTrend > 0 ? 'up' : stats?.projectsTrend && stats.projectsTrend < 0 ? 'down' : 'neutral'}
-          loading={loading}
-        />
-        <KPICard
-          title="Soumissions"
-          value={stats?.totalSoumissions || 0}
-          change={stats?.soumissionsTrend}
-          icon={FileText}
-          color="#8B5CF6"
-          trend={stats?.soumissionsTrend && stats.soumissionsTrend > 0 ? 'up' : stats?.soumissionsTrend && stats.soumissionsTrend < 0 ? 'down' : 'neutral'}
-          loading={loading}
-        />
-        <KPICard
-          title="Taux de conversion"
-          value={`${stats?.conversionRate || 0}%`}
-          icon={Target}
-          color="#F59E0B"
-          loading={loading}
-        />
-      </div>
-
-      {/* KPIs Row 2 - Entrepreneurs & Personnel */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <KPICard
-          title="Entrepreneurs"
-          value={stats?.totalEntrepreneurs || 0}
-          icon={Building}
-          color="#6366F1"
-          loading={loading}
-        />
-        <KPICard
-          title="Favoris"
-          value={stats?.favoriteEntrepreneurs || 0}
-          icon={UserCheck}
-          color="#EC4899"
-          loading={loading}
-        />
-        <KPICard
-          title="Personnel CCQ"
-          value={stats?.activePersonnel || 0}
-          icon={HardHat}
-          color="#14B8A6"
-          loading={loading}
-        />
-        <KPICard
-          title="Certifications à renouveler"
-          value={stats?.expiringCertifications || 0}
-          icon={Award}
-          color={stats?.expiringCertifications && stats.expiringCertifications > 0 ? '#EF4444' : '#6B7280'}
-          loading={loading}
-        />
-      </div>
-
-      {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        {/* Revenue Chart */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-6">Revenus (6 derniers mois)</h3>
-          {loading ? (
-            <div className="h-[300px] flex items-center justify-center">
-              <Loader2 className="animate-spin text-gray-400" size={32} />
-            </div>
-          ) : chartData?.revenue && chartData.revenue.some(r => r.soumissions > 0 || r.acceptees > 0) ? (
-            <ResponsiveContainer width="100%" height={300}>
-              <AreaChart data={chartData.revenue}>
-                <defs>
-                  <linearGradient id="colorSoumissions" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#14B8A6" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#14B8A6" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="colorAcceptees" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                <XAxis dataKey="month" stroke="#9CA3AF" fontSize={12} />
-                <YAxis stroke="#9CA3AF" fontSize={12} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k$`} />
-                <Tooltip formatter={(value: number) => [`${value.toLocaleString()}$`, '']} />
-                <Legend />
-                <Area type="monotone" dataKey="soumissions" name="Total soumis" stroke="#14B8A6" fill="url(#colorSoumissions)" strokeWidth={2} />
-                <Area type="monotone" dataKey="acceptees" name="Acceptées" stroke="#3B82F6" fill="url(#colorAcceptees)" strokeWidth={2} />
-              </AreaChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="h-[300px] flex flex-col items-center justify-center text-gray-400">
-              <FileText size={48} className="mb-4" />
-              <p>Aucune donnée de soumission</p>
-              <button
-                onClick={() => navigate('/soumissions')}
-                className="mt-4 text-teal-600 hover:text-teal-700 font-medium"
-              >
-                Créer une soumission →
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* Projects Chart */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-6">Activité projets</h3>
-          {loading ? (
-            <div className="h-[300px] flex items-center justify-center">
-              <Loader2 className="animate-spin text-gray-400" size={32} />
-            </div>
-          ) : chartData?.projects && chartData.projects.some(p => p.nouveaux > 0 || p.en_cours > 0) ? (
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={chartData.projects}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                <XAxis dataKey="month" stroke="#9CA3AF" fontSize={12} />
-                <YAxis stroke="#9CA3AF" fontSize={12} />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="nouveaux" name="Nouveaux" fill="#3B82F6" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="termines" name="Terminés" fill="#10B981" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="en_cours" name="En cours" fill="#F59E0B" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="h-[300px] flex flex-col items-center justify-center text-gray-400">
-              <FolderOpen size={48} className="mb-4" />
-              <p>Aucun projet créé</p>
-              <button
-                onClick={() => navigate('/projets')}
-                className="mt-4 text-teal-600 hover:text-teal-700 font-medium"
-              >
-                Créer un projet →
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Bottom Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Conversion Pie */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-6">Taux de conversion</h3>
-          {loading ? (
-            <div className="h-[250px] flex items-center justify-center">
-              <Loader2 className="animate-spin text-gray-400" size={32} />
-            </div>
-          ) : chartData?.conversion && chartData.conversion.length > 0 ? (
-            <>
-              <ResponsiveContainer width="100%" height={200}>
-                <PieChart>
-                  <Pie
-                    data={chartData.conversion}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={50}
-                    outerRadius={80}
-                    paddingAngle={5}
-                    dataKey="value"
-                  >
-                    {chartData.conversion.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="grid grid-cols-2 gap-2 mt-4">
-                {chartData.conversion.map((item, i) => (
-                  <div key={i} className="flex items-center gap-2 text-sm">
-                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
-                    <span className="text-gray-600">{item.name}</span>
-                    <span className="font-medium ml-auto">{item.value}</span>
-                  </div>
-                ))}
+      {/* Graphiques et listes */}
+      <div className="grid grid-cols-3 gap-6">
+        {/* Graphique revenus */}
+        <div className="col-span-2 bg-white rounded-xl border p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold text-gray-900">Revenus mensuels</h3>
+            <BarChart3 className="text-gray-400" size={20} />
+          </div>
+          <div className="flex items-end gap-2 h-48">
+            {monthlyRevenue.map((m, i) => (
+              <div key={i} className="flex-1 flex flex-col items-center">
+                <div 
+                  className="w-full bg-gradient-to-t from-teal-600 to-teal-400 rounded-t"
+                  style={{ height: `${(m.revenue / maxRevenue) * 100}%`, minHeight: m.revenue > 0 ? '8px' : '2px' }}
+                />
+                <span className="text-xs text-gray-500 mt-2">{m.month}</span>
+                <span className="text-xs font-medium text-gray-700">
+                  {m.revenue > 0 ? `${(m.revenue / 1000).toFixed(0)}k` : '-'}
+                </span>
               </div>
-            </>
-          ) : (
-            <div className="h-[250px] flex flex-col items-center justify-center text-gray-400">
-              <Target size={48} className="mb-4" />
-              <p>Aucune soumission</p>
-            </div>
-          )}
+            ))}
+          </div>
         </div>
 
-        {/* Recent Activity & Reminders */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 lg:col-span-2">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-semibold text-gray-900">Activité récente</h3>
-            <button
-              onClick={() => navigate('/projets')}
-              className="text-teal-600 hover:text-teal-700 text-sm flex items-center gap-1"
-            >
-              Voir tout <ChevronRight size={16} />
+        {/* Stats rapides */}
+        <div className="bg-white rounded-xl border p-5">
+          <h3 className="font-semibold text-gray-900 mb-4">Performance</h3>
+          <div className="space-y-4">
+            <div>
+              <div className="flex justify-between text-sm mb-1">
+                <span className="text-gray-600">Taux acceptation</span>
+                <span className="font-medium">
+                  {stats && stats.totalSoumissions > 0 
+                    ? ((stats.acceptedSoumissions / stats.totalSoumissions) * 100).toFixed(0)
+                    : 0}%
+                </span>
+              </div>
+              <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-green-500 rounded-full"
+                  style={{ 
+                    width: `${stats && stats.totalSoumissions > 0 
+                      ? (stats.acceptedSoumissions / stats.totalSoumissions) * 100 
+                      : 0}%` 
+                  }}
+                />
+              </div>
+            </div>
+            <div>
+              <div className="flex justify-between text-sm mb-1">
+                <span className="text-gray-600">Factures payées</span>
+                <span className="font-medium">
+                  {stats && stats.totalFactures > 0 
+                    ? (((stats.totalFactures - stats.unpaidFactures) / stats.totalFactures) * 100).toFixed(0)
+                    : 0}%
+                </span>
+              </div>
+              <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-teal-500 rounded-full"
+                  style={{ 
+                    width: `${stats && stats.totalFactures > 0 
+                      ? ((stats.totalFactures - stats.unpaidFactures) / stats.totalFactures) * 100 
+                      : 0}%` 
+                  }}
+                />
+              </div>
+            </div>
+            <div className="pt-3 border-t">
+              <div className="flex items-center gap-3 text-sm">
+                <Users className="text-gray-400" size={18} />
+                <span className="text-gray-600">Clients actifs</span>
+                <span className="ml-auto font-bold">{stats?.totalClients || 0}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Projets et soumissions récents */}
+      <div className="grid grid-cols-2 gap-6">
+        {/* Projets récents */}
+        <div className="bg-white rounded-xl border">
+          <div className="p-4 border-b flex items-center justify-between">
+            <h3 className="font-semibold text-gray-900">Projets récents</h3>
+            <button onClick={() => navigate('/dashboard')} className="text-sm text-teal-600 hover:underline flex items-center gap-1">
+              Voir tout <ArrowRight size={14} />
             </button>
           </div>
-          
-          {loading ? (
-            <div className="space-y-3">
-              {[1, 2, 3].map(i => (
-                <div key={i} className="animate-pulse flex items-center p-3 bg-gray-50 rounded-lg">
-                  <div className="w-2 h-10 bg-gray-200 rounded-full mr-3" />
-                  <div className="flex-1">
-                    <div className="h-4 bg-gray-200 rounded w-1/2 mb-2" />
-                    <div className="h-3 bg-gray-200 rounded w-1/3" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : recentActivity.length > 0 ? (
-            <div className="space-y-3">
-              {recentActivity.map((activity) => (
-                <div
-                  key={activity.id}
-                  onClick={() => navigate(activity.type === 'project' ? `/projects/${activity.id}` : '/soumissions')}
-                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors"
+          <div className="divide-y">
+            {recentProjects.length === 0 ? (
+              <div className="p-8 text-center text-gray-500">
+                <FolderOpen className="mx-auto mb-2" size={32} />
+                <p>Aucun projet</p>
+              </div>
+            ) : (
+              recentProjects.map(project => (
+                <div 
+                  key={project.id} 
+                  className="p-4 hover:bg-gray-50 cursor-pointer flex items-center justify-between"
+                  onClick={() => navigate(`/project/${project.id}`)}
                 >
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="w-2 h-10 rounded-full"
-                      style={{ backgroundColor: STATUS_COLORS[activity.status || ''] || '#6B7280' }}
-                    />
-                    <div>
-                      <p className="font-medium text-gray-900">{activity.title}</p>
-                      <p className="text-sm text-gray-500">{activity.subtitle}</p>
-                    </div>
+                  <div>
+                    <p className="font-medium text-gray-900">{project.name}</p>
+                    <p className="text-sm text-gray-500">{project.client_name || 'Sans client'}</p>
                   </div>
                   <div className="text-right">
-                    {activity.value && (
-                      <p className="font-semibold text-gray-900">{formatCurrency(activity.value)}</p>
-                    )}
-                    <p className="text-xs text-gray-400">
-                      {format(new Date(activity.date), 'dd MMM yyyy', { locale: fr })}
+                    <span className={`text-xs px-2 py-1 rounded-full ${
+                      project.status === 'active' ? 'bg-green-100 text-green-700' :
+                      project.status === 'draft' ? 'bg-gray-100 text-gray-700' :
+                      'bg-blue-100 text-blue-700'
+                    }`}>
+                      {project.status}
+                    </span>
+                    <p className="text-xs text-gray-400 mt-1">
+                      {new Date(project.updated_at).toLocaleDateString('fr-CA')}
                     </p>
                   </div>
                 </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-8 text-gray-400">
-              <Clock size={48} className="mx-auto mb-4" />
-              <p>Aucune activité récente</p>
-            </div>
-          )}
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Soumissions récentes */}
+        <div className="bg-white rounded-xl border">
+          <div className="p-4 border-b flex items-center justify-between">
+            <h3 className="font-semibold text-gray-900">Soumissions récentes</h3>
+            <button onClick={() => navigate('/projets/estimation')} className="text-sm text-teal-600 hover:underline flex items-center gap-1">
+              Voir tout <ArrowRight size={14} />
+            </button>
+          </div>
+          <div className="divide-y">
+            {recentSoumissions.length === 0 ? (
+              <div className="p-8 text-center text-gray-500">
+                <FileText className="mx-auto mb-2" size={32} />
+                <p>Aucune soumission</p>
+              </div>
+            ) : (
+              recentSoumissions.map(soumission => (
+                <div key={soumission.id} className="p-4 hover:bg-gray-50">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium text-gray-900">{soumission.soumission_number}</p>
+                      <p className="text-sm text-gray-500">{soumission.client_name}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-medium text-gray-900">
+                        {soumission.total.toLocaleString('fr-CA', { style: 'currency', currency: 'CAD' })}
+                      </p>
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${
+                        soumission.status === 'accepted' ? 'bg-green-100 text-green-700' :
+                        soumission.status === 'sent' ? 'bg-blue-100 text-blue-700' :
+                        soumission.status === 'rejected' ? 'bg-red-100 text-red-700' :
+                        'bg-gray-100 text-gray-700'
+                      }`}>
+                        {soumission.status}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Reminders */}
-      {reminders.length > 0 && (
-        <div className="mt-8 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-6">
-          <div className="flex items-start gap-4">
-            <div className="p-2 bg-amber-100 rounded-lg">
-              <AlertTriangle size={24} className="text-amber-600" />
-            </div>
-            <div className="flex-1">
-              <h3 className="font-semibold text-amber-900">Rappels importants</h3>
-              <div className="mt-3 space-y-2">
-                {reminders.map((reminder) => (
-                  <div key={reminder.id} className="flex items-center justify-between text-sm">
-                    <div className="flex items-center gap-2">
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${URGENCY_COLORS[reminder.urgency]}`}>
-                        {reminder.urgency === 'high' ? 'Urgent' : reminder.urgency === 'medium' ? 'Bientôt' : 'Info'}
-                      </span>
-                      <span className="text-amber-800">{reminder.title}</span>
-                    </div>
-                    <button
-                      onClick={() => navigate(reminder.link)}
-                      className="text-amber-600 font-medium hover:text-amber-700"
-                    >
-                      Voir →
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
+      {/* Actions rapides */}
+      <div className="grid grid-cols-4 gap-4">
+        <button 
+          onClick={() => navigate('/project/new')}
+          className="bg-white rounded-xl border p-4 hover:shadow-md transition flex items-center gap-3"
+        >
+          <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
+            <Plus className="text-blue-600" size={20} />
           </div>
-        </div>
-      )}
-
-      {/* Quick Actions */}
-      <div className="mt-8 grid grid-cols-2 md:grid-cols-4 gap-4">
-        {[
-          { label: 'Nouvelle soumission', icon: FileText, color: '#3B82F6', path: '/soumissions' },
-          { label: 'Nouveau projet', icon: FolderOpen, color: '#10B981', path: '/projets' },
-          { label: 'Takeoff', icon: Target, color: '#8B5CF6', path: '/takeoff' },
-          { label: 'Import données', icon: Download, color: '#F59E0B', path: '/import' }
-        ].map((action, i) => (
-          <button
-            key={i}
-            onClick={() => navigate(action.path)}
-            className="flex items-center gap-3 p-4 bg-white rounded-xl border border-gray-100 hover:shadow-md transition-all group"
-          >
-            <div className="p-2 rounded-lg" style={{ backgroundColor: `${action.color}15` }}>
-              <action.icon size={20} style={{ color: action.color }} />
-            </div>
-            <span className="font-medium text-gray-900">{action.label}</span>
-            <ArrowRight size={16} className="ml-auto text-gray-400 group-hover:text-gray-600" />
-          </button>
-        ))}
+          <span className="font-medium text-gray-700">Nouveau projet</span>
+        </button>
+        <button 
+          onClick={() => navigate('/clients')}
+          className="bg-white rounded-xl border p-4 hover:shadow-md transition flex items-center gap-3"
+        >
+          <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
+            <Users className="text-purple-600" size={20} />
+          </div>
+          <span className="font-medium text-gray-700">Gérer clients</span>
+        </button>
+        <button 
+          onClick={() => navigate('/factures')}
+          className="bg-white rounded-xl border p-4 hover:shadow-md transition flex items-center gap-3"
+        >
+          <div className="w-10 h-10 rounded-lg bg-teal-100 flex items-center justify-center">
+            <Receipt className="text-teal-600" size={20} />
+          </div>
+          <span className="font-medium text-gray-700">Facturation</span>
+        </button>
+        <button 
+          onClick={() => navigate('/analytics')}
+          className="bg-white rounded-xl border p-4 hover:shadow-md transition flex items-center gap-3"
+        >
+          <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center">
+            <BarChart3 className="text-orange-600" size={20} />
+          </div>
+          <span className="font-medium text-gray-700">Analytics</span>
+        </button>
       </div>
     </div>
   )

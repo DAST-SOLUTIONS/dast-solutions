@@ -1,3 +1,7 @@
+/**
+ * DAST Solutions - App.tsx COMPLET
+ * Toutes les routes, pleine largeur
+ */
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { ToastProvider } from '@/components/ToastProvider'
@@ -38,13 +42,12 @@ import ApplicationMobileTerrain from '@/pages/OutilsAvances/ApplicationMobile'
 import MessagerieEquipe from '@/pages/OutilsAvances/Messagerie'
 import Geolocalisation from '@/pages/OutilsAvances/Geolocalisation'
 
-// =====================================================
-// NOUVELLES PAGES - MODULES 1 à 6
-// =====================================================
+// Pages Modules Avancés
 import Factures from '@/pages/Factures'
 import RapportsTerrain from '@/pages/RapportsTerrain'
 import Analytics from '@/pages/Analytics'
-// =====================================================
+import Clients from '@/pages/Clients'
+import MaterialPrices from '@/pages/MaterialPrices'
 
 import AppHeader from '@/components/AppHeader'
 
@@ -53,8 +56,11 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
   
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-screen">
-        <div className="spinner" />
+      <div className="flex justify-center items-center h-screen bg-gray-50">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-teal-600 border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="mt-4 text-gray-600">Chargement...</p>
+        </div>
       </div>
     )
   }
@@ -66,10 +72,20 @@ function PrivateLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-gray-50">
       <AppHeader />
-      {/* PLEINE LARGEUR - px-4 pour padding, pas de max-w-7xl */}
-      <main className="w-full px-4 py-6">
+      {/* PLEINE LARGEUR - w-full avec padding, pas de max-w */}
+      <main className="w-full px-4 lg:px-6 py-6">
         {children}
       </main>
+    </div>
+  )
+}
+
+// Layout pleine page (pour Takeoff)
+function FullPageLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <AppHeader />
+      {children}
     </div>
   )
 }
@@ -89,12 +105,18 @@ export default function App() {
           } />
 
           {/* Projects */}
+          <Route path="/project/new" element={
+            <PrivateRoute><PrivateLayout><ProjectDetails /></PrivateLayout></PrivateRoute>
+          } />
           <Route path="/project/:projectId" element={
             <PrivateRoute><PrivateLayout><ProjectDetails /></PrivateLayout></PrivateRoute>
           } />
+          
+          {/* Takeoff - Pleine page sans padding */}
           <Route path="/takeoff/:projectId" element={
-            <PrivateRoute><PrivateLayout><Takeoff /></PrivateLayout></PrivateRoute>
+            <PrivateRoute><FullPageLayout><Takeoff /></FullPageLayout></PrivateRoute>
           } />
+          
           <Route path="/cloud-storage/:projectId" element={
             <PrivateRoute><PrivateLayout><CloudStorage /></PrivateLayout></PrivateRoute>
           } />
@@ -170,22 +192,32 @@ export default function App() {
           } />
 
           {/* ============================================== */}
-          {/* NOUVELLES ROUTES - MODULES 1-6               */}
+          {/* NOUVELLES ROUTES                              */}
           {/* ============================================== */}
           
-          {/* FACTURES (avec PDF, Email, Signatures) */}
+          {/* FACTURES */}
           <Route path="/factures" element={
             <PrivateRoute><PrivateLayout><Factures /></PrivateLayout></PrivateRoute>
           } />
 
-          {/* RAPPORTS TERRAIN (avec Photos, Signatures) */}
+          {/* RAPPORTS TERRAIN */}
           <Route path="/terrain" element={
             <PrivateRoute><PrivateLayout><RapportsTerrain /></PrivateLayout></PrivateRoute>
           } />
 
-          {/* ANALYTICS DASHBOARD */}
+          {/* ANALYTICS */}
           <Route path="/analytics" element={
             <PrivateRoute><PrivateLayout><Analytics /></PrivateLayout></PrivateRoute>
+          } />
+
+          {/* CLIENTS CRM */}
+          <Route path="/clients" element={
+            <PrivateRoute><PrivateLayout><Clients /></PrivateLayout></PrivateRoute>
+          } />
+
+          {/* PRIX MATÉRIAUX */}
+          <Route path="/materiaux" element={
+            <PrivateRoute><PrivateLayout><MaterialPrices /></PrivateLayout></PrivateRoute>
           } />
           
           {/* ============================================== */}
@@ -197,6 +229,7 @@ export default function App() {
 
           {/* Redirect */}
           <Route path="/" element={<Navigate to="/dashboard" />} />
+          <Route path="*" element={<Navigate to="/dashboard" />} />
         </Routes>
       </ToastProvider>
     </Router>

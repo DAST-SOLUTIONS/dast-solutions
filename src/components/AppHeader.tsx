@@ -1,13 +1,18 @@
+/**
+ * DAST Solutions - AppHeader COMPLET
+ * Pleine largeur, icônes Lucide (sans emojis), chevrons élégants
+ */
 import { NavLink, useNavigate } from "react-router-dom"
 import { useAuth } from "@/hooks/useAuth"
 import { 
   Home, LogOut, Settings as SettingsIcon, Moon, Sun, Bell, X, BarChart3,
   FolderOpen, Users, Megaphone, BookOpen, Wrench, ChevronDown,
-  Palette, Calculator, ClipboardList, FileText, Receipt,
+  Palette, Calculator, ClipboardList, Receipt,
   Building2, Contact,
   Link, TrendingUp, Flame, ShoppingCart,
   BookMarked, Scale, FileCheck, Users2,
-  Smartphone, MessageSquare, MapPin, ClipboardCheck
+  Smartphone, MessageSquare, MapPin, ClipboardCheck,
+  Package, DollarSign
 } from "lucide-react"
 import { useState, useEffect, useRef } from "react"
 import { supabase } from "@/lib/supabase"
@@ -84,14 +89,6 @@ function NotificationsDropdown() {
     setNotifications(prev => prev.filter(n => n.id !== id))
   }
 
-  const markAllAsRead = async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-    await supabase.from('notifications').update({ read_at: new Date().toISOString() }).eq('user_id', user.id).is('read_at', null)
-    setNotifications(prev => prev.map(n => ({ ...n, read_at: new Date().toISOString() })))
-    setUnreadCount(0)
-  }
-
   const formatTime = (dateStr: string) => {
     const diff = new Date().getTime() - new Date(dateStr).getTime()
     const minutes = Math.floor(diff / 60000)
@@ -99,14 +96,6 @@ function NotificationsDropdown() {
     if (minutes < 60) return `${minutes} min`
     if (minutes < 1440) return `${Math.floor(minutes / 60)}h`
     return `${Math.floor(minutes / 1440)}j`
-  }
-
-  const getIcon = (type: string) => {
-    const icons: Record<string, string> = {
-      soumission_expire: '📋', facture_echeance: '💰', facture_retard: '⚠️',
-      rbq_expire: '🏗️', ccq_certification_expire: '👷', systeme: 'ℹ️'
-    }
-    return icons[type] || 'ℹ️'
   }
 
   return (
@@ -125,7 +114,7 @@ function NotificationsDropdown() {
           <div className="px-4 py-3 bg-gray-50 border-b flex justify-between items-center">
             <h3 className="font-semibold text-gray-900">Notifications</h3>
             {unreadCount > 0 && (
-              <button onClick={markAllAsRead} className="text-xs text-teal-600">Tout lire</button>
+              <button onClick={() => {}} className="text-xs text-teal-600">Tout lire</button>
             )}
           </div>
           <div className="max-h-80 overflow-y-auto">
@@ -140,7 +129,6 @@ function NotificationsDropdown() {
               notifications.map(n => (
                 <div key={n.id} className={`px-4 py-3 border-b hover:bg-gray-50 cursor-pointer ${!n.read_at ? 'bg-teal-50/50' : ''}`} onClick={() => markAsRead(n.id)}>
                   <div className="flex gap-3">
-                    <span className="text-xl">{getIcon(n.type)}</span>
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between items-start gap-2">
                         <p className={`text-sm ${!n.read_at ? 'font-semibold' : ''} text-gray-900`}>{n.title}</p>
@@ -177,17 +165,17 @@ export default function AppHeader() {
     navigate("/login")
   }
 
-  const menuBtn = "flex items-center gap-1 px-3 py-2 rounded-lg text-white/90 hover:text-white hover:bg-white/10 transition text-sm font-medium"
-  const submenuLink = "flex items-center gap-2 w-full text-left px-3 py-2 hover:bg-gray-100 text-gray-700 text-sm rounded-md"
+  const menuBtn = "flex items-center gap-1.5 px-3 py-2 rounded-lg text-white/90 hover:text-white hover:bg-white/10 transition text-sm font-medium"
+  const submenuLink = "flex items-center gap-2 w-full text-left px-3 py-2 hover:bg-gray-100 text-gray-700 text-sm rounded-md transition"
 
   return (
     <header className="bg-gradient-to-r from-teal-600 to-orange-400 text-white sticky top-0 z-50 shadow-lg">
-      {/* PLEINE LARGEUR - pas de max-w */}
+      {/* PLEINE LARGEUR */}
       <div className="w-full px-4 py-2">
         <div className="flex items-center gap-4">
           {/* Logo */}
           <button onClick={() => navigate("/dashboard")} className="text-left leading-tight hover:opacity-80 transition flex-shrink-0">
-            <div className="text-xl font-extrabold">DASTCC</div>
+            <div className="text-xl font-extrabold tracking-tight">DASTCC</div>
             <div className="text-xs opacity-80 -mt-0.5">Central Cloud</div>
           </button>
 
@@ -200,7 +188,7 @@ export default function AppHeader() {
             {/* PROJETS */}
             <div className="relative group">
               <button className={menuBtn}>
-                <FolderOpen size={16} /> Projets <ChevronDown size={14} className="opacity-70" />
+                <FolderOpen size={16} /> Projets <ChevronDown size={14} className="opacity-60 ml-0.5" />
               </button>
               <div className="hidden group-hover:block absolute left-0 mt-0 w-52 rounded-lg bg-white text-gray-800 shadow-xl p-2 z-50">
                 <button onClick={() => navigate("/dashboard")} className={submenuLink}>
@@ -229,7 +217,7 @@ export default function AppHeader() {
             {/* ENTREPRENEURS */}
             <div className="relative group">
               <button className={menuBtn}>
-                <Users size={16} /> Entrepreneurs <ChevronDown size={14} className="opacity-70" />
+                <Users size={16} /> Entrepreneurs <ChevronDown size={14} className="opacity-60 ml-0.5" />
               </button>
               <div className="hidden group-hover:block absolute left-0 mt-0 w-52 rounded-lg bg-white text-gray-800 shadow-xl p-2 z-50">
                 <button onClick={() => navigate("/entrepreneurs/rbq")} className={submenuLink}>
@@ -238,13 +226,17 @@ export default function AppHeader() {
                 <button onClick={() => navigate("/entrepreneurs/personnel")} className={submenuLink}>
                   <Contact size={16} className="text-teal-600" /> Bottin personnels
                 </button>
+                <div className="border-t my-1.5"></div>
+                <button onClick={() => navigate("/clients")} className={submenuLink}>
+                  <Users size={16} className="text-purple-600" /> Clients CRM
+                </button>
               </div>
             </div>
 
             {/* APPELS D'OFFRE */}
             <div className="relative group">
               <button className={menuBtn}>
-                <Megaphone size={16} /> Appels d'offre <ChevronDown size={14} className="opacity-70" />
+                <Megaphone size={16} /> Appels d'offre <ChevronDown size={14} className="opacity-60 ml-0.5" />
               </button>
               <div className="hidden group-hover:block absolute left-0 mt-0 w-52 rounded-lg bg-white text-gray-800 shadow-xl p-2 z-50">
                 <button onClick={() => navigate("/appels-offre/seao")} className={submenuLink}>
@@ -265,9 +257,9 @@ export default function AppHeader() {
             {/* RESSOURCES */}
             <div className="relative group">
               <button className={menuBtn}>
-                <BookOpen size={16} /> Ressources <ChevronDown size={14} className="opacity-70" />
+                <BookOpen size={16} /> Ressources <ChevronDown size={14} className="opacity-60 ml-0.5" />
               </button>
-              <div className="hidden group-hover:block absolute left-0 mt-0 w-52 rounded-lg bg-white text-gray-800 shadow-xl p-2 z-50">
+              <div className="hidden group-hover:block absolute left-0 mt-0 w-56 rounded-lg bg-white text-gray-800 shadow-xl p-2 z-50">
                 <button onClick={() => navigate("/ressources/code-navigator")} className={submenuLink}>
                   <BookMarked size={16} className="text-indigo-600" /> Code Navigator
                 </button>
@@ -280,13 +272,17 @@ export default function AppHeader() {
                 <button onClick={() => navigate("/ressources/associations")} className={submenuLink}>
                   <Users2 size={16} className="text-rose-500" /> Associations
                 </button>
+                <div className="border-t my-1.5"></div>
+                <button onClick={() => navigate("/materiaux")} className={submenuLink}>
+                  <Package size={16} className="text-gray-600" /> Prix matériaux
+                </button>
               </div>
             </div>
 
             {/* OUTILS AVANCÉS */}
             <div className="relative group">
               <button className={menuBtn}>
-                <Wrench size={16} /> Outils avancés <ChevronDown size={14} className="opacity-70" />
+                <Wrench size={16} /> Outils avancés <ChevronDown size={14} className="opacity-60 ml-0.5" />
               </button>
               <div className="hidden group-hover:block absolute left-0 mt-0 w-56 rounded-lg bg-white text-gray-800 shadow-xl p-2 z-50">
                 <button onClick={() => navigate("/outils-avances/application-mobile")} className={submenuLink}>
@@ -310,7 +306,7 @@ export default function AppHeader() {
           </nav>
 
           {/* RIGHT SIDE */}
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="flex items-center gap-1.5 flex-shrink-0">
             {/* Analytics quick link */}
             <button onClick={() => navigate("/analytics")} className="p-2 rounded-lg hover:bg-white/10 transition" title="Analytics">
               <BarChart3 size={18} />
@@ -327,19 +323,19 @@ export default function AppHeader() {
             {/* User Menu */}
             {userProfile && (
               <div className="relative">
-                <button onClick={() => setShowUserMenu(!showUserMenu)} className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-white/10 transition">
+                <button onClick={() => setShowUserMenu(!showUserMenu)} className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-white/10 transition">
                   <div className="w-8 h-8 rounded-full bg-white/20 grid place-items-center font-bold text-sm">
                     {userProfile.fullName?.charAt(0).toUpperCase() || 'U'}
                   </div>
                   <div className="text-left hidden lg:block">
-                    <div className="text-xs font-semibold leading-none">{userProfile.fullName}</div>
+                    <div className="text-sm font-semibold leading-tight">{userProfile.fullName}</div>
                     <div className="text-xs opacity-80">{userProfile.email}</div>
                   </div>
-                  <ChevronDown size={14} className="opacity-70 hidden lg:block" />
+                  <ChevronDown size={14} className="opacity-60 hidden lg:block" />
                 </button>
 
                 {showUserMenu && (
-                  <div className="absolute right-0 mt-2 w-48 rounded-lg bg-white text-gray-800 shadow-xl p-1 z-50">
+                  <div className="absolute right-0 mt-2 w-48 rounded-lg bg-white text-gray-800 shadow-xl p-1.5 z-50">
                     <button onClick={() => { navigate("/settings"); setShowUserMenu(false) }} className={submenuLink}>
                       <SettingsIcon size={16} /> Paramètres
                     </button>
