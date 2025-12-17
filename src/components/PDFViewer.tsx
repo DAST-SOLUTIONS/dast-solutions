@@ -61,7 +61,12 @@ export default function PDFViewer({ url, onPageChange, onLoad, className = '', i
       const viewport = page.getViewport({ scale: zoom / 100, rotation })
       canvas.width = viewport.width
       canvas.height = viewport.height
-      await page.render({ canvasContext: ctx, viewport }).promise
+      // FIX: Ajouter canvas dans les paramètres
+      await page.render({ 
+        canvasContext: ctx, 
+        viewport,
+        canvas 
+      } as any).promise
       onCanvasReady?.(canvas)
       onPageChange?.(currentPage, numPages)
     } finally { setRendering(false) }
