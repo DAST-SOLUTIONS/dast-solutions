@@ -16,6 +16,7 @@ import {
 } from "lucide-react"
 import { useState, useEffect, useRef } from "react"
 import { supabase } from "@/lib/supabase"
+import { useTheme } from "@/contexts/ThemeContext"
 
 // =====================================================
 // COMPOSANT NOTIFICATIONS INTÉGRÉ
@@ -157,7 +158,7 @@ function NotificationsDropdown() {
 export default function AppHeader() {
   const navigate = useNavigate()
   const { userProfile, signOut } = useAuth()
-  const [darkMode, setDarkMode] = useState(false)
+  const { isDark, toggleTheme } = useTheme()
   const [showUserMenu, setShowUserMenu] = useState(false)
 
   const handleSignOut = async () => {
@@ -316,8 +317,8 @@ export default function AppHeader() {
             <NotificationsDropdown />
             
             {/* Dark Mode */}
-            <button onClick={() => setDarkMode(!darkMode)} className="p-2 rounded-lg hover:bg-white/10 transition" title="Mode sombre">
-              {darkMode ? <Sun size={18} /> : <Moon size={18} />}
+            <button onClick={toggleTheme} className="p-2 rounded-lg hover:bg-white/10 transition" title="Mode sombre">
+              {isDark ? <Sun size={18} /> : <Moon size={18} />}
             </button>
 
             {/* User Menu */}

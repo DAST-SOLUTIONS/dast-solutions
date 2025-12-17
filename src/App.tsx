@@ -5,6 +5,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { ThemeProvider } from '@/contexts/ThemeContext'
 import Layout from '@/components/Layout'
 
 // Pages principales
@@ -79,8 +80,9 @@ function App() {
   }
 
   return (
-    <Router>
-      <Routes>
+    <ThemeProvider>
+      <Router>
+        <Routes>
         {/* Routes publiques */}
         <Route path="/login" element={!session ? <Login /> : <Navigate to="/dashboard" />} />
         <Route path="/pricing" element={<Pricing />} />
@@ -102,6 +104,7 @@ function App() {
           {/* === PROJETS Menu === */}
           <Route path="projets/conception" element={<Conception />} />
           <Route path="projets/estimation" element={<Estimation />} />
+          <Route path="projets/:projectId/estimation" element={<Estimation />} />
           <Route path="projets/gestion" element={<Gestion />} />
           <Route path="projets/appels-offres" element={<AppelOffres />} />
           <Route path="factures" element={<Factures />} />
@@ -142,6 +145,7 @@ function App() {
         <Route path="*" element={<Navigate to="/dashboard" />} />
       </Routes>
     </Router>
+    </ThemeProvider>
   )
 }
 
