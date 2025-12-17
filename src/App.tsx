@@ -2,7 +2,7 @@
  * DAST Solutions - Application Principale
  * Routes et configuration complètes
  */
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { DashboardConfigProvider } from '@/contexts/DashboardConfigContext';
 
@@ -26,6 +26,7 @@ import ProjectCosts from '@/pages/ProjectCosts';
 // ============================================================================
 import TakeoffViewerAdvanced from '@/components/Takeoff/TakeoffViewerAdvanced';
 import EstimationAdvanced from '@/pages/EstimationAdvanced';
+import AITakeoff from '@/components/AITakeoff';
 
 // Pages Soumissions
 import SoumissionsIndex from '@/pages/Soumissions/index';
@@ -84,8 +85,8 @@ function App() {
             {/* ============================================================ */}
             {/* PROTECTED ROUTES */}
             {/* ============================================================ */}
-            <Route element={<PrivateLayout />}>
-              <Route element={<Layout />}>
+            <Route element={<PrivateLayout><Outlet /></PrivateLayout>}>
+              <Route element={<Layout><Outlet /></Layout>}>
                 {/* ======================================================== */}
                 {/* DASHBOARD */}
                 {/* ======================================================== */}
@@ -106,11 +107,10 @@ function App() {
                 {/* ======================================================== */}
                 {/* TAKEOFF & ESTIMATION AVANCÉS (PHASES 1-4) */}
                 {/* ======================================================== */}
-                {/* Takeoff Viewer avec AI */}
                 <Route path="/takeoff" element={<TakeoffViewerAdvanced />} />
                 <Route path="/takeoff/:projectId" element={<TakeoffViewerAdvanced />} />
-                
-                {/* Estimation avec lien Takeoff */}
+                <Route path="/ai-takeoff" element={<AITakeoff />} />
+                <Route path="/ai-takeoff/:projectId" element={<AITakeoff />} />
                 <Route path="/estimation" element={<EstimationAdvanced />} />
                 <Route path="/estimation/:projectId" element={<EstimationAdvanced />} />
                 

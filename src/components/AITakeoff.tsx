@@ -1,23 +1,21 @@
 /**
  * DAST Solutions - AI Takeoff Component
  * Analyse automatique des plans avec intelligence artificielle
- * VERSION CORRIGÉE - Compatible avec aiTakeoffService
+ * VERSION CORRIGÉE - Compatible avec aiTakeoffService et pdfjs-dist v4
  */
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import * as pdfjs from 'pdfjs-dist';
 import {
-  Upload, ZoomIn, ZoomOut, RotateCw, Ruler, Square, MousePointer,
-  Move, Layers, Eye, EyeOff, Download, Save, Trash2,
-  ChevronLeft, ChevronRight, Cpu, Wand2, Target,
-  Plus, Minus, AlertCircle, Loader2, X, FileSpreadsheet,
-  Calculator, Settings, CheckCircle2
+  Upload, ZoomIn, ZoomOut, RotateCw, Target,
+  Download, Trash2, ChevronLeft, ChevronRight, Cpu, Wand2,
+  Plus, AlertCircle, Loader2, X, FileSpreadsheet,
+  Calculator
 } from 'lucide-react';
 import {
   analyzePageWithAI,
   elementsToTakeoffItems,
   exportTakeoffToExcel,
-  QUEBEC_PRICES_2024,
   CSC_CATEGORIES,
   DEFAULT_LAYERS,
   type DetectedElement,
@@ -36,10 +34,6 @@ interface ScaleConfig {
   pixelsPerUnit: number;
   unit: string;
   isCalibrated: boolean;
-}
-
-interface LocalTakeoffItem extends TakeoffItem {
-  // Alias pour compatibilité
 }
 
 // ============================================================================
@@ -74,8 +68,8 @@ export default function AITakeoff() {
   const [selectedElements, setSelectedElements] = useState<Set<string>>(new Set());
   
   // États takeoff items
-  const [takeoffItems, setTakeoffItems] = useState<LocalTakeoffItem[]>([]);
-  const [showItemsPanel, setShowItemsPanel] = useState(true);
+  const [takeoffItems, setTakeoffItems] = useState<TakeoffItem[]>([]);
+  const [showItemsPanel] = useState(true);
   
   // États layers
   const [layers, setLayers] = useState<TakeoffLayer[]>(DEFAULT_LAYERS);
@@ -126,13 +120,13 @@ export default function AITakeoff() {
     canvas.height = viewport.height;
     const ctx = canvas.getContext('2d')!;
     
-    // Render avec le bon format
-    const renderContext = {
+    // FIX: pdfjs-dist v4 requires canvas in RenderParameters
+    await page.render({
       canvasContext: ctx,
-      viewport: viewport
-    };
+      viewport: viewport,
+      canvas: canvas
+    } as any).promise;
     
-    await page.render(renderContext).promise;
     setPageImage(canvas.toDataURL('image/png'));
   };
   
@@ -219,11 +213,11 @@ export default function AITakeoff() {
       setAiResult(result);
       setDetectedElements(result.elements);
       
-      // Mettre à jour si échelle détectée
-      if (result.scaleDetected) {
+      // FIX: Use result.scale instead of result.scaleDetected
+      if (result.scale && result.scale.detected) {
         setScale({
-          pixelsPerUnit: result.scaleDetected.pixelsPerUnit,
-          unit: result.scaleDetected.unit,
+          pixelsPerUnit: result.scale.pixelsPerUnit,
+          unit: result.scale.unit,
           isCalibrated: true
         });
       }
@@ -258,7 +252,7 @@ export default function AITakeoff() {
   // GESTION ITEMS
   // ============================================================================
   const addManualItem = () => {
-    const newItem: LocalTakeoffItem = {
+    const newItem: TakeoffItem = {
       id: `manual-${Date.now()}`,
       category: '06',
       subcategory: 'Bois et plastiques',
@@ -272,7 +266,7 @@ export default function AITakeoff() {
     setTakeoffItems(prev => [...prev, newItem]);
   };
   
-  const updateItem = (id: string, updates: Partial<LocalTakeoffItem>) => {
+  const updateItem = (id: string, updates: Partial<TakeoffItem>) => {
     setTakeoffItems(prev => prev.map(item => {
       if (item.id !== id) return item;
       const updated = { ...item, ...updates };

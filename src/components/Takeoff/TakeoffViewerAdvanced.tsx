@@ -1,25 +1,24 @@
 /**
  * DAST Solutions - TakeoffViewer Avancé
  * Intégration AI, Layers, Outils de mesure avancés
- * VERSION CORRIGÉE - Sans Grid3X3, pdfjs fixé
+ * VERSION CORRIGÉE - pdfjs-dist v4 compatible
  */
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import * as pdfjs from 'pdfjs-dist';
 import {
   Upload, ZoomIn, ZoomOut, RotateCw, Ruler, Square, Circle,
   MousePointer, Move, Layers, Eye, EyeOff, Lock, Unlock,
-  Download, FileSpreadsheet, Save, Undo, Redo, Trash2,
-  ChevronLeft, ChevronRight, Settings, Play, Pause, RefreshCw,
+  Download, FileSpreadsheet, Trash2,
+  ChevronLeft, ChevronRight,
   Cpu, Wand2, Target, PenTool, Hash, ArrowRight,
-  Plus, Minus, CheckCircle2, AlertCircle, Loader2, X,
-  FileText, Calculator, Send, Grid
+  AlertCircle, Loader2, X,
+  Calculator, Send
 } from 'lucide-react';
 import {
   analyzePageWithAI,
   elementsToTakeoffItems,
   exportTakeoffToExcel,
-  QUEBEC_PRICES_2024,
   CSC_CATEGORIES,
   DEFAULT_LAYERS,
   type DetectedElement,
@@ -161,13 +160,12 @@ export default function TakeoffViewerAdvanced() {
     canvas.height = viewport.height;
     const ctx = canvas.getContext('2d')!;
     
-    // FIX: Utiliser le bon format pour render
-    const renderContext = {
+    // FIX: pdfjs-dist v4 requires canvas in RenderParameters
+    await page.render({
       canvasContext: ctx,
-      viewport: viewport
-    };
-    
-    await page.render(renderContext).promise;
+      viewport: viewport,
+      canvas: canvas
+    } as any).promise;
     
     const imageUrl = canvas.toDataURL('image/png');
     setPageImages(prev => new Map(prev).set(pageNum, imageUrl));
