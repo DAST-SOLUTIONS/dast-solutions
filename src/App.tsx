@@ -10,7 +10,7 @@ import Layout from '@/components/Layout'
 
 // Pages principales
 import Login from '@/pages/Login'
-import Dashboard from '@/pages/Dashboard'
+import Dashboard from '@/pages/DashboardV2'
 import Projects from '@/pages/Projects'
 import ProjectDetails from '@/pages/ProjectDetails'
 import TakeoffV2 from '@/pages/TakeoffV2'
