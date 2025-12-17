@@ -1,6 +1,7 @@
 /**
  * DAST Solutions - TakeoffViewer Avancé
  * Intégration AI, Layers, Outils de mesure avancés
+ * VERSION CORRIGÉE - Sans Grid3X3, pdfjs fixé
  */
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -10,11 +11,10 @@ import {
   MousePointer, Move, Layers, Eye, EyeOff, Lock, Unlock,
   Download, FileSpreadsheet, Save, Undo, Redo, Trash2,
   ChevronLeft, ChevronRight, Settings, Play, Pause, RefreshCw,
-  Cpu, Wand2, Target, Grid3X3, PenTool, Hash, ArrowRight,
+  Cpu, Wand2, Target, PenTool, Hash, ArrowRight,
   Plus, Minus, CheckCircle2, AlertCircle, Loader2, X,
-  FileText, Calculator, Send
+  FileText, Calculator, Send, Grid
 } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
 import {
   analyzePageWithAI,
   elementsToTakeoffItems,
@@ -141,7 +141,6 @@ export default function TakeoffViewerAdvanced() {
       setAiResult(null);
       setTakeoffItems([]);
       
-      // Rendre la première page
       await renderPage(pdf, 1);
     } catch (err) {
       console.error('Erreur chargement PDF:', err);
@@ -162,7 +161,13 @@ export default function TakeoffViewerAdvanced() {
     canvas.height = viewport.height;
     const ctx = canvas.getContext('2d')!;
     
-    await page.render({ canvasContext: ctx, viewport }).promise;
+    // FIX: Utiliser le bon format pour render
+    const renderContext = {
+      canvasContext: ctx,
+      viewport: viewport
+    };
+    
+    await page.render(renderContext).promise;
     
     const imageUrl = canvas.toDataURL('image/png');
     setPageImages(prev => new Map(prev).set(pageNum, imageUrl));
@@ -183,13 +188,11 @@ export default function TakeoffViewerAdvanced() {
     
     const img = new Image();
     img.onload = () => {
-      // Ajuster la taille du canvas
       canvas.width = img.width;
       canvas.height = img.height;
       overlay.width = img.width;
       overlay.height = img.height;
       
-      // Dessiner l'image
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.save();
       ctx.translate(canvas.width / 2, canvas.height / 2);
@@ -198,7 +201,6 @@ export default function TakeoffViewerAdvanced() {
       ctx.drawImage(img, 0, 0);
       ctx.restore();
       
-      // Dessiner les éléments sur l'overlay
       drawOverlay(overlayCtx);
     };
     img.src = pageImages.get(currentPage)!;
@@ -229,14 +231,12 @@ export default function TakeoffViewerAdvanced() {
         ctx.fill();
         ctx.stroke();
         
-        // Label
         if (element.label || element.type) {
           ctx.fillStyle = color;
           ctx.font = '12px sans-serif';
           ctx.fillText(element.label || element.type, x, y - 5);
         }
         
-        // Confidence
         if (element.confidence) {
           ctx.fillStyle = '#666';
           ctx.font = '10px sans-serif';
@@ -295,7 +295,6 @@ export default function TakeoffViewerAdvanced() {
         m.points.slice(1).forEach(p => ctx.lineTo(p.x, p.y));
         ctx.stroke();
         
-        // Afficher la mesure
         if (m.value && m.points.length >= 2) {
           const midX = (m.points[0].x + m.points[m.points.length - 1].x) / 2;
           const midY = (m.points[0].y + m.points[m.points.length - 1].y) / 2;
@@ -371,7 +370,7 @@ export default function TakeoffViewerAdvanced() {
           ctx.fillStyle = '#FFF';
           ctx.font = 'bold 12px sans-serif';
           ctx.fillText(`${i + 1}`, p.x - 4, p.y + 4);
-          ctx.fillStyle = m.color + '33';
+          ctx.fillStyle = (m.color || '#666') + '33';
         });
         break;
     }
@@ -397,7 +396,6 @@ export default function TakeoffViewerAdvanced() {
   const handleCanvasClick = (e: React.MouseEvent) => {
     const coords = getCanvasCoords(e);
     
-    // Calibration
     if (activeTool === 'calibrate') {
       if (calibrationStep === 'point1' || calibrationStep === 'point2') {
         setCalibrationPoints(prev => [...prev, coords]);
@@ -410,9 +408,7 @@ export default function TakeoffViewerAdvanced() {
       return;
     }
     
-    // Sélection
     if (activeTool === 'select') {
-      // Vérifier si on clique sur un élément AI
       const clickedElement = detectedElements.find(el => {
         const { x, y, width, height } = el.boundingBox;
         return coords.x >= x && coords.x <= x + width && coords.y >= y && coords.y <= y + height;
@@ -436,17 +432,13 @@ export default function TakeoffViewerAdvanced() {
         return;
       }
       
-      // Vérifier si on clique sur une mesure
-      // (Simplification: on désélectionne tout)
       setSelectedElements(new Set());
       setSelectedMeasurement(null);
       return;
     }
     
-    // Outils de mesure
     if (['line', 'rectangle', 'polygon', 'circle', 'polyline', 'count'].includes(activeTool)) {
       if (!currentMeasurement) {
-        // Commencer une nouvelle mesure
         setCurrentMeasurement({
           id: `m-${Date.now()}`,
           type: activeTool as Measurement['type'],
@@ -457,10 +449,8 @@ export default function TakeoffViewerAdvanced() {
           unit: scale.unit === 'ft' ? 'pi' : scale.unit
         });
       } else {
-        // Ajouter un point
         const newPoints = [...(currentMeasurement.points || []), coords];
         
-        // Terminer selon le type
         if (
           (activeTool === 'line' && newPoints.length === 2) ||
           (activeTool === 'rectangle' && newPoints.length === 2) ||
@@ -481,7 +471,6 @@ export default function TakeoffViewerAdvanced() {
   };
   
   const handleDoubleClick = () => {
-    // Terminer polygone/polyline
     if ((activeTool === 'polygon' || activeTool === 'polyline') && currentMeasurement?.points && currentMeasurement.points.length >= 3) {
       completeMeasurement(currentMeasurement.points);
     }
@@ -516,7 +505,6 @@ export default function TakeoffViewerAdvanced() {
     switch (currentMeasurement.type) {
       case 'line':
       case 'polyline':
-        // Calculer la longueur totale
         for (let i = 1; i < points.length; i++) {
           const dx = points[i].x - points[i - 1].x;
           const dy = points[i].y - points[i - 1].y;
@@ -532,7 +520,6 @@ export default function TakeoffViewerAdvanced() {
         break;
         
       case 'polygon':
-        // Formule de Shoelace
         let area = 0;
         for (let i = 0; i < points.length; i++) {
           const j = (i + 1) % points.length;
@@ -627,7 +614,6 @@ export default function TakeoffViewerAdvanced() {
       setAiResult(result);
       setDetectedElements(result.elements);
       
-      // Mettre à jour les compteurs de layers
       setLayers(prev => prev.map(layer => ({
         ...layer,
         itemCount: result.elements.filter(el => layer.elementTypes.includes(el.type)).length
@@ -663,9 +649,8 @@ export default function TakeoffViewerAdvanced() {
   };
   
   const handleExportToEstimation = () => {
-    // Sauvegarder en localStorage pour récupérer dans Estimation
     localStorage.setItem('takeoff_items', JSON.stringify(takeoffItems));
-    navigate(`/projets/estimation${projectId ? `/${projectId}` : ''}`);
+    navigate(`/estimation${projectId ? `/${projectId}` : ''}`);
   };
   
   // ============================================================================
@@ -699,7 +684,6 @@ export default function TakeoffViewerAdvanced() {
     <div className="h-screen flex flex-col bg-gray-100 dark:bg-gray-900">
       {/* Header Toolbar */}
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-2 flex items-center gap-2 flex-wrap">
-        {/* Upload */}
         <input
           ref={fileInputRef}
           type="file"
@@ -768,7 +752,7 @@ export default function TakeoffViewerAdvanced() {
           className="px-3 py-2 bg-purple-600 text-white rounded-lg flex items-center gap-2 hover:bg-purple-700 disabled:opacity-50"
         >
           {aiAnalyzing ? <Loader2 size={18} className="animate-spin" /> : <Wand2 size={18} />}
-          Analyse IA
+          🤖 Analyse IA
         </button>
         
         <button
@@ -955,10 +939,7 @@ export default function TakeoffViewerAdvanced() {
               transformOrigin: 'top left'
             }}
           >
-            <canvas
-              ref={canvasRef}
-              className="block"
-            />
+            <canvas ref={canvasRef} className="block" />
             <canvas
               ref={overlayCanvasRef}
               className="absolute top-0 left-0 pointer-events-auto"
@@ -1090,7 +1071,7 @@ export default function TakeoffViewerAdvanced() {
                         </button>
                       </div>
                       <div className="text-xs text-gray-500 mb-2">
-                        {CSC_CATEGORIES[item.category as keyof typeof CSC_CATEGORIES]?.name} / {item.subcategory}
+                        {CSC_CATEGORIES[item.category as keyof typeof CSC_CATEGORIES]?.name || item.category} / {item.subcategory}
                       </div>
                       <div className="flex justify-between text-sm">
                         <span>{item.quantity.toFixed(2)} {item.unit}</span>
@@ -1177,7 +1158,7 @@ export default function TakeoffViewerAdvanced() {
                   <label className="block text-sm font-medium mb-2">Unité de mesure</label>
                   <select
                     value={scale.unit}
-                    onChange={(e) => setScale(prev => ({ ...prev, unit: e.target.value as any }))}
+                    onChange={(e) => setScale(prev => ({ ...prev, unit: e.target.value as ScaleConfig['unit'] }))}
                     className="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
                   >
                     <option value="ft">Pieds (ft)</option>

@@ -1,613 +1,626 @@
 /**
  * DAST Solutions - AI Takeoff Component
- * Interface pour l'analyse automatique de plans
+ * Analyse automatique des plans avec intelligence artificielle
+ * VERSION CORRIGÉE - Compatible avec aiTakeoffService
  */
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { useParams } from 'react-router-dom';
+import * as pdfjs from 'pdfjs-dist';
 import {
-  Upload, FileText, Cpu, Play, Pause, CheckCircle, AlertCircle,
-  Download, RefreshCw, Layers, Eye, EyeOff, ChevronDown, ChevronRight,
-  Trash2, Edit2, Plus, Save, Wand2, Target, ZoomIn, ZoomOut
-} from 'lucide-react'
+  Upload, ZoomIn, ZoomOut, RotateCw, Ruler, Square, MousePointer,
+  Move, Layers, Eye, EyeOff, Download, Save, Trash2,
+  ChevronLeft, ChevronRight, Cpu, Wand2, Target,
+  Plus, Minus, AlertCircle, Loader2, X, FileSpreadsheet,
+  Calculator, Settings, CheckCircle2
+} from 'lucide-react';
 import {
   analyzePageWithAI,
   elementsToTakeoffItems,
   exportTakeoffToExcel,
+  QUEBEC_PRICES_2024,
   CSC_CATEGORIES,
-  DEFAULT_UNIT_PRICES,
-  type AIAnalysisResult,
+  DEFAULT_LAYERS,
   type DetectedElement,
-  type TakeoffItem
-} from '@/services/aiTakeoffService'
+  type AIAnalysisResult,
+  type TakeoffItem,
+  type TakeoffLayer
+} from '@/services/aiTakeoffService';
 
-interface AITakeoffProps {
-  projectId: string
-  projectName: string
-  onItemsGenerated?: (items: TakeoffItem[]) => void
+// Configuration PDF.js
+pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
+
+// ============================================================================
+// TYPES LOCAUX
+// ============================================================================
+interface ScaleConfig {
+  pixelsPerUnit: number;
+  unit: string;
+  isCalibrated: boolean;
 }
 
-export default function AITakeoff({ projectId, projectName, onItemsGenerated }: AITakeoffProps) {
-  const [pdfFile, setPdfFile] = useState<File | null>(null)
-  const [pages, setPages] = useState<string[]>([]) // Base64 images
-  const [currentPage, setCurrentPage] = useState(0)
-  const [analyzing, setAnalyzing] = useState(false)
-  const [analysisProgress, setAnalysisProgress] = useState(0)
-  const [results, setResults] = useState<AIAnalysisResult[]>([])
-  const [takeoffItems, setTakeoffItems] = useState<TakeoffItem[]>([])
-  const [showElements, setShowElements] = useState(true)
-  const [selectedElement, setSelectedElement] = useState<DetectedElement | null>(null)
-  const [scale, setScale] = useState({ ratio: 48, unit: 'pi' })
-  const [editingItem, setEditingItem] = useState<string | null>(null)
+interface LocalTakeoffItem extends TakeoffItem {
+  // Alias pour compatibilité
+}
 
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-
-  // Charger un PDF
+// ============================================================================
+// COMPOSANT PRINCIPAL
+// ============================================================================
+export default function AITakeoff() {
+  const { projectId } = useParams<{ projectId: string }>();
+  
+  // États PDF
+  const [pdfDoc, setPdfDoc] = useState<pdfjs.PDFDocumentProxy | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(0);
+  const [pageImage, setPageImage] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
+  // États vue
+  const [zoom, setZoom] = useState(1);
+  const [rotation, setRotation] = useState(0);
+  
+  // États échelle
+  const [scale, setScale] = useState<ScaleConfig>({
+    pixelsPerUnit: 20,
+    unit: 'ft',
+    isCalibrated: false
+  });
+  
+  // États AI
+  const [aiAnalyzing, setAiAnalyzing] = useState(false);
+  const [aiResult, setAiResult] = useState<AIAnalysisResult | null>(null);
+  const [detectedElements, setDetectedElements] = useState<DetectedElement[]>([]);
+  const [selectedElements, setSelectedElements] = useState<Set<string>>(new Set());
+  
+  // États takeoff items
+  const [takeoffItems, setTakeoffItems] = useState<LocalTakeoffItem[]>([]);
+  const [showItemsPanel, setShowItemsPanel] = useState(true);
+  
+  // États layers
+  const [layers, setLayers] = useState<TakeoffLayer[]>(DEFAULT_LAYERS);
+  
+  // Refs
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const overlayRef = useRef<HTMLCanvasElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // ============================================================================
+  // CHARGEMENT PDF
+  // ============================================================================
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file || file.type !== 'application/pdf') return
-
-    setPdfFile(file)
-    setPages([])
-    setResults([])
-    setTakeoffItems([])
-    setAnalysisProgress(0)
-
+    const file = e.target.files?.[0];
+    if (!file || file.type !== 'application/pdf') {
+      setError('Veuillez sélectionner un fichier PDF');
+      return;
+    }
+    
+    setLoading(true);
+    setError(null);
+    
     try {
-      // Utiliser pdf.js pour convertir les pages en images
-      const pdfjsLib = await import('pdfjs-dist')
-      pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`
-
-      const arrayBuffer = await file.arrayBuffer()
-      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
-
-      const pageImages: string[] = []
-      for (let i = 1; i <= pdf.numPages; i++) {
-        const page = await pdf.getPage(i)
-        const viewport = page.getViewport({ scale: 2 })
-        
-        const canvas = document.createElement('canvas')
-        canvas.width = viewport.width
-        canvas.height = viewport.height
-        
-        const ctx = canvas.getContext('2d')!
-        await page.render({ canvasContext: ctx, viewport, canvas }).promise
-        
-        pageImages.push(canvas.toDataURL('image/png'))
-      }
-
-      setPages(pageImages)
-      setCurrentPage(0)
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
+      setPdfDoc(pdf);
+      setTotalPages(pdf.numPages);
+      setCurrentPage(1);
+      setDetectedElements([]);
+      setAiResult(null);
+      setTakeoffItems([]);
+      
+      await renderPage(pdf, 1);
     } catch (err) {
-      console.error('Erreur chargement PDF:', err)
-      alert('Erreur lors du chargement du PDF')
+      console.error('Erreur chargement PDF:', err);
+      setError('Erreur lors du chargement du PDF');
+    } finally {
+      setLoading(false);
     }
-  }
-
-  // Analyser toutes les pages
-  const analyzeAllPages = async () => {
-    if (pages.length === 0) return
-
-    setAnalyzing(true)
-    setResults([])
-    setAnalysisProgress(0)
-
-    const allResults: AIAnalysisResult[] = []
-
-    for (let i = 0; i < pages.length; i++) {
-      setCurrentPage(i)
-      setAnalysisProgress(((i + 1) / pages.length) * 100)
-
-      const result = await analyzePageWithAI(pages[i], i + 1, {
-        detectScale: true,
-        extractDimensions: true,
-        categorizeElements: true
-      })
-
-      allResults.push(result)
-      setResults([...allResults])
-
-      // Pause pour permettre le rendu
-      await new Promise(resolve => setTimeout(resolve, 100))
-    }
-
-    // Générer les items de takeoff à partir des éléments détectés
-    const allElements = allResults.flatMap(r => r.elements)
-    const detectedScale = allResults.find(r => r.scale?.detected)?.scale
-    if (detectedScale) {
-      setScale(detectedScale)
-    }
-
-    const items = elementsToTakeoffItems(allElements, detectedScale || scale)
-    setTakeoffItems(items)
-
-    if (onItemsGenerated) {
-      onItemsGenerated(items)
-    }
-
-    setAnalyzing(false)
-  }
-
-  // Dessiner les éléments détectés sur le canvas
-  const drawElements = useCallback(() => {
-    if (!canvasRef.current || !pages[currentPage]) return
-
-    const canvas = canvasRef.current
-    const ctx = canvas.getContext('2d')!
-    const img = new Image()
-
+  };
+  
+  const renderPage = async (pdf: pdfjs.PDFDocumentProxy, pageNum: number) => {
+    const page = await pdf.getPage(pageNum);
+    const viewport = page.getViewport({ scale: 2 });
+    
+    const canvas = document.createElement('canvas');
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    const ctx = canvas.getContext('2d')!;
+    
+    // Render avec le bon format
+    const renderContext = {
+      canvasContext: ctx,
+      viewport: viewport
+    };
+    
+    await page.render(renderContext).promise;
+    setPageImage(canvas.toDataURL('image/png'));
+  };
+  
+  // ============================================================================
+  // RENDU CANVAS
+  // ============================================================================
+  useEffect(() => {
+    if (!pageImage) return;
+    
+    const canvas = canvasRef.current;
+    const overlay = overlayRef.current;
+    if (!canvas || !overlay) return;
+    
+    const ctx = canvas.getContext('2d')!;
+    const overlayCtx = overlay.getContext('2d')!;
+    
+    const img = new Image();
     img.onload = () => {
-      canvas.width = img.width
-      canvas.height = img.height
-      ctx.drawImage(img, 0, 0)
-
-      if (showElements && results[currentPage]) {
-        const elements = results[currentPage].elements
-
-        elements.forEach(element => {
-          const { x, y, width, height } = element.boundingBox
-          
-          // Couleurs par type
-          const colors: Record<string, string> = {
-            wall: '#3B82F6',
-            door: '#10B981',
-            window: '#F59E0B',
-            room: '#8B5CF6',
-            text: '#6B7280',
-            dimension: '#EF4444'
-          }
-
-          ctx.strokeStyle = colors[element.type] || '#9CA3AF'
-          ctx.lineWidth = 2
-          ctx.strokeRect(x, y, width, height)
-
-          // Label
-          ctx.fillStyle = colors[element.type] || '#9CA3AF'
-          ctx.font = '12px Inter, sans-serif'
-          ctx.fillText(element.label, x, y - 5)
-
-          // Highlight sélection
-          if (selectedElement?.id === element.id) {
-            ctx.strokeStyle = '#EF4444'
-            ctx.lineWidth = 3
-            ctx.strokeRect(x - 2, y - 2, width + 4, height + 4)
-          }
-        })
+      canvas.width = img.width;
+      canvas.height = img.height;
+      overlay.width = img.width;
+      overlay.height = img.height;
+      
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.save();
+      ctx.translate(canvas.width / 2, canvas.height / 2);
+      ctx.rotate((rotation * Math.PI) / 180);
+      ctx.translate(-canvas.width / 2, -canvas.height / 2);
+      ctx.drawImage(img, 0, 0);
+      ctx.restore();
+      
+      drawOverlay(overlayCtx);
+    };
+    img.src = pageImage;
+  }, [pageImage, rotation, detectedElements, selectedElements, layers]);
+  
+  const drawOverlay = (ctx: CanvasRenderingContext2D) => {
+    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+    
+    detectedElements
+      .filter(el => {
+        const layer = layers.find(l => l.elementTypes.includes(el.type));
+        return layer?.visible;
+      })
+      .forEach(element => {
+        const isSelected = selectedElements.has(element.id);
+        const layer = layers.find(l => l.elementTypes.includes(element.type));
+        const color = layer?.color || '#666';
+        
+        ctx.strokeStyle = isSelected ? '#FFD700' : color;
+        ctx.lineWidth = isSelected ? 3 : 2;
+        ctx.fillStyle = `${color}33`;
+        
+        const { x, y, width, height } = element.boundingBox;
+        
+        ctx.beginPath();
+        ctx.rect(x, y, width, height);
+        ctx.fill();
+        ctx.stroke();
+        
+        if (element.label || element.type) {
+          ctx.fillStyle = color;
+          ctx.font = '12px sans-serif';
+          ctx.fillText(element.label || element.type, x, y - 5);
+        }
+      });
+  };
+  
+  // ============================================================================
+  // ANALYSE AI
+  // ============================================================================
+  const runAIAnalysis = async () => {
+    if (!pageImage) return;
+    
+    setAiAnalyzing(true);
+    
+    try {
+      const result = await analyzePageWithAI(
+        pageImage,
+        currentPage,
+        scale.isCalibrated ? { pixelsPerUnit: scale.pixelsPerUnit, unit: scale.unit } : undefined
+      );
+      
+      setAiResult(result);
+      setDetectedElements(result.elements);
+      
+      // Mettre à jour si échelle détectée
+      if (result.scaleDetected) {
+        setScale({
+          pixelsPerUnit: result.scaleDetected.pixelsPerUnit,
+          unit: result.scaleDetected.unit,
+          isCalibrated: true
+        });
       }
+      
+      // Mettre à jour les compteurs de layers
+      setLayers(prev => prev.map(layer => ({
+        ...layer,
+        itemCount: result.elements.filter(el => layer.elementTypes.includes(el.type)).length
+      })));
+      
+    } catch (err) {
+      console.error('Erreur analyse AI:', err);
+      setError('Erreur lors de l\'analyse AI');
+    } finally {
+      setAiAnalyzing(false);
     }
-
-    img.src = pages[currentPage]
-  }, [pages, currentPage, results, showElements, selectedElement])
-
-  // Redessiner quand les données changent
-  useState(() => {
-    drawElements()
-  })
-
-  // Modifier un item
-  const updateItem = (id: string, updates: Partial<TakeoffItem>) => {
-    setTakeoffItems(prev => prev.map(item => {
-      if (item.id === id) {
-        const updated = { ...item, ...updates }
-        updated.total = updated.quantity * updated.unitPrice
-        updated.source = 'manual'
-        return updated
-      }
-      return item
-    }))
-  }
-
-  // Ajouter un item manuel
+  };
+  
+  const convertToTakeoffItems = () => {
+    const selectedEls = detectedElements.filter(el => selectedElements.has(el.id));
+    const elementsToConvert = selectedEls.length > 0 ? selectedEls : detectedElements;
+    
+    const items = elementsToTakeoffItems(
+      elementsToConvert,
+      scale.isCalibrated ? { pixelsPerUnit: scale.pixelsPerUnit, unit: scale.unit } : undefined
+    );
+    
+    setTakeoffItems(prev => [...prev, ...items]);
+  };
+  
+  // ============================================================================
+  // GESTION ITEMS
+  // ============================================================================
   const addManualItem = () => {
-    const newItem: TakeoffItem = {
+    const newItem: LocalTakeoffItem = {
       id: `manual-${Date.now()}`,
-      category: 'Structure',
-      description: 'Nouvel élément',
-      quantity: 1,
-      unit: 'unité',
+      category: '06',
+      subcategory: 'Bois et plastiques',
+      description: 'Nouvel item',
+      quantity: 0,
+      unit: 'pi²',
       unitPrice: 0,
-      total: 0,
+      totalPrice: 0,
       source: 'manual'
-    }
-    setTakeoffItems(prev => [...prev, newItem])
-    setEditingItem(newItem.id)
-  }
-
-  // Supprimer un item
-  const removeItem = (id: string) => {
-    setTakeoffItems(prev => prev.filter(item => item.id !== id))
-  }
-
-  // Calculer le total
-  const grandTotal = takeoffItems.reduce((sum, item) => sum + item.total, 0)
-
+    };
+    setTakeoffItems(prev => [...prev, newItem]);
+  };
+  
+  const updateItem = (id: string, updates: Partial<LocalTakeoffItem>) => {
+    setTakeoffItems(prev => prev.map(item => {
+      if (item.id !== id) return item;
+      const updated = { ...item, ...updates };
+      // Recalculer le total
+      updated.totalPrice = updated.quantity * updated.unitPrice;
+      return updated;
+    }));
+  };
+  
+  const deleteItem = (id: string) => {
+    setTakeoffItems(prev => prev.filter(i => i.id !== id));
+  };
+  
+  // ============================================================================
+  // EXPORT
+  // ============================================================================
+  const handleExportExcel = () => {
+    const projectName = `Projet-${projectId || 'nouveau'}`;
+    exportTakeoffToExcel(takeoffItems, projectName);
+  };
+  
+  // ============================================================================
+  // NAVIGATION PAGES
+  // ============================================================================
+  const goToPage = async (page: number) => {
+    if (!pdfDoc || page < 1 || page > totalPages) return;
+    setCurrentPage(page);
+    await renderPage(pdfDoc, page);
+  };
+  
+  // Calculer les totaux
+  const totals = {
+    sousTotal: takeoffItems.reduce((sum, i) => sum + i.totalPrice, 0),
+    tps: takeoffItems.reduce((sum, i) => sum + i.totalPrice, 0) * 0.05,
+    tvq: takeoffItems.reduce((sum, i) => sum + i.totalPrice, 0) * 0.09975,
+    get total() { return this.sousTotal + this.tps + this.tvq; }
+  };
+  
+  // ============================================================================
+  // RENDER
+  // ============================================================================
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-            <Wand2 className="text-teal-500" />
-            AI Takeoff - Analyse automatique
-          </h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            Importez un plan PDF pour extraire automatiquement les quantités
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {takeoffItems.length > 0 && (
-            <button
-              onClick={() => exportTakeoffToExcel(takeoffItems, projectName)}
-              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-            >
-              <Download size={18} /> Exporter Excel
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Upload zone */}
-      {pages.length === 0 && (
-        <div
+    <div className="h-screen flex flex-col bg-gray-100 dark:bg-gray-900">
+      {/* Header Toolbar */}
+      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-2 flex items-center gap-2 flex-wrap">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".pdf"
+          onChange={handleFileUpload}
+          className="hidden"
+        />
+        <button
           onClick={() => fileInputRef.current?.click()}
-          className="border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-xl p-12 text-center cursor-pointer hover:border-teal-500 hover:bg-teal-50 dark:hover:bg-teal-900/20 transition"
+          className="px-3 py-2 bg-blue-600 text-white rounded-lg flex items-center gap-2 hover:bg-blue-700"
         >
-          <Upload size={48} className="mx-auto mb-4 text-gray-400" />
-          <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-            Importer un plan PDF
-          </h3>
-          <p className="text-gray-500 dark:text-gray-400 mb-4">
-            Glissez-déposez ou cliquez pour sélectionner
-          </p>
-          <p className="text-xs text-gray-400">
-            Formats supportés: PDF (plans architecturaux, dessins techniques)
-          </p>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".pdf"
-            onChange={handleFileUpload}
-            className="hidden"
-          />
+          <Upload size={18} />
+          Charger PDF
+        </button>
+        
+        <div className="w-px h-8 bg-gray-300 dark:bg-gray-600" />
+        
+        {/* Échelle */}
+        <div className={`px-3 py-2 rounded-lg flex items-center gap-2 ${
+          scale.isCalibrated 
+            ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' 
+            : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300'
+        }`}>
+          <Target size={18} />
+          {scale.isCalibrated ? `${scale.pixelsPerUnit.toFixed(1)} px/${scale.unit}` : 'Non calibré'}
         </div>
-      )}
-
-      {/* Visualisation et analyse */}
-      {pages.length > 0 && (
-        <div className="grid grid-cols-3 gap-6">
-          {/* Plan viewer */}
-          <div className="col-span-2 bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
-            {/* Toolbar */}
-            <div className="flex items-center justify-between p-3 border-b dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Page {currentPage + 1} / {pages.length}
-                </span>
+        
+        <div className="w-px h-8 bg-gray-300 dark:bg-gray-600" />
+        
+        {/* AI Analysis */}
+        <button
+          onClick={runAIAnalysis}
+          disabled={!pageImage || aiAnalyzing}
+          className="px-3 py-2 bg-purple-600 text-white rounded-lg flex items-center gap-2 hover:bg-purple-700 disabled:opacity-50"
+        >
+          {aiAnalyzing ? <Loader2 size={18} className="animate-spin" /> : <Wand2 size={18} />}
+          🤖 Analyse IA
+        </button>
+        
+        <button
+          onClick={convertToTakeoffItems}
+          disabled={detectedElements.length === 0}
+          className="px-3 py-2 bg-green-600 text-white rounded-lg flex items-center gap-2 hover:bg-green-700 disabled:opacity-50"
+        >
+          <Calculator size={18} />
+          Convertir en devis
+        </button>
+        
+        <div className="w-px h-8 bg-gray-300 dark:bg-gray-600" />
+        
+        {/* Zoom */}
+        <div className="flex items-center gap-1">
+          <button onClick={() => setZoom(z => Math.max(0.25, z - 0.25))} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
+            <ZoomOut size={18} />
+          </button>
+          <span className="w-16 text-center text-sm">{(zoom * 100).toFixed(0)}%</span>
+          <button onClick={() => setZoom(z => Math.min(4, z + 0.25))} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
+            <ZoomIn size={18} />
+          </button>
+        </div>
+        
+        <button 
+          onClick={() => setRotation(r => (r + 90) % 360)} 
+          className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+        >
+          <RotateCw size={18} />
+        </button>
+        
+        <div className="flex-1" />
+        
+        {/* Export */}
+        <button
+          onClick={handleExportExcel}
+          disabled={takeoffItems.length === 0}
+          className="px-3 py-2 bg-emerald-600 text-white rounded-lg flex items-center gap-2 hover:bg-emerald-700 disabled:opacity-50"
+        >
+          <Download size={18} />
+          Export Excel
+        </button>
+      </div>
+      
+      {/* Main Content */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Canvas Area */}
+        <div className="flex-1 overflow-auto bg-gray-200 dark:bg-gray-900 relative p-4">
+          {loading && (
+            <div className="absolute inset-0 flex items-center justify-center bg-white/80 dark:bg-black/80 z-50">
+              <Loader2 size={48} className="animate-spin text-blue-600" />
+            </div>
+          )}
+          
+          {error && (
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-red-100 text-red-700 px-4 py-2 rounded-lg flex items-center gap-2 z-50">
+              <AlertCircle size={18} />
+              {error}
+              <button onClick={() => setError(null)}><X size={18} /></button>
+            </div>
+          )}
+          
+          {!pdfDoc && !loading && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="text-center">
+                <Upload size={64} className="mx-auto text-gray-400 mb-4" />
+                <p className="text-gray-600 dark:text-gray-400 mb-4">Chargez un plan PDF pour commencer</p>
                 <button
-                  onClick={() => setCurrentPage(Math.max(0, currentPage - 1))}
-                  disabled={currentPage === 0}
-                  className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded disabled:opacity-50"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                 >
-                  <ChevronDown size={18} className="rotate-90" />
-                </button>
-                <button
-                  onClick={() => setCurrentPage(Math.min(pages.length - 1, currentPage + 1))}
-                  disabled={currentPage === pages.length - 1}
-                  className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded disabled:opacity-50"
-                >
-                  <ChevronDown size={18} className="-rotate-90" />
-                </button>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setShowElements(!showElements)}
-                  className={`flex items-center gap-1 px-3 py-1 rounded-lg text-sm ${
-                    showElements 
-                      ? 'bg-teal-100 text-teal-700 dark:bg-teal-900 dark:text-teal-300' 
-                      : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
-                  }`}
-                >
-                  {showElements ? <Eye size={16} /> : <EyeOff size={16} />}
-                  Détections
-                </button>
-
-                {!analyzing && (
-                  <button
-                    onClick={analyzeAllPages}
-                    className="flex items-center gap-2 px-4 py-1.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700"
-                  >
-                    <Cpu size={16} /> Analyser
-                  </button>
-                )}
-
-                <button
-                  onClick={() => { setPages([]); setPdfFile(null); setResults([]); setTakeoffItems([]) }}
-                  className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg"
-                  title="Nouveau fichier"
-                >
-                  <RefreshCw size={18} />
+                  Sélectionner un fichier
                 </button>
               </div>
             </div>
-
-            {/* Canvas */}
-            <div className="relative overflow-auto" style={{ maxHeight: '600px' }}>
-              {analyzing && (
-                <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-10">
-                  <div className="bg-white dark:bg-gray-800 rounded-xl p-6 text-center">
-                    <div className="w-12 h-12 border-4 border-teal-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-                    <p className="font-medium text-gray-900 dark:text-white mb-2">Analyse en cours...</p>
-                    <div className="w-48 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-teal-500 transition-all duration-300"
-                        style={{ width: `${analysisProgress}%` }}
-                      />
-                    </div>
-                    <p className="text-sm text-gray-500 mt-2">{Math.round(analysisProgress)}%</p>
-                  </div>
-                </div>
-              )}
-
+          )}
+          
+          {pageImage && (
+            <div 
+              className="relative inline-block"
+              style={{ transform: `scale(${zoom})`, transformOrigin: 'top left' }}
+            >
+              <canvas ref={canvasRef} className="block" />
               <canvas
-                ref={canvasRef}
-                className="max-w-full"
+                ref={overlayRef}
+                className="absolute top-0 left-0 pointer-events-auto cursor-pointer"
                 onClick={(e) => {
-                  if (!results[currentPage]) return
-                  const rect = canvasRef.current!.getBoundingClientRect()
-                  const x = (e.clientX - rect.left) * (canvasRef.current!.width / rect.width)
-                  const y = (e.clientY - rect.top) * (canvasRef.current!.height / rect.height)
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  const x = (e.clientX - rect.left) * (e.currentTarget.width / rect.width);
+                  const y = (e.clientY - rect.top) * (e.currentTarget.height / rect.height);
                   
-                  const clicked = results[currentPage].elements.find(el => 
-                    x >= el.boundingBox.x && 
-                    x <= el.boundingBox.x + el.boundingBox.width &&
-                    y >= el.boundingBox.y && 
-                    y <= el.boundingBox.y + el.boundingBox.height
-                  )
-                  setSelectedElement(clicked || null)
+                  const clicked = detectedElements.find(el => {
+                    const { x: ex, y: ey, width, height } = el.boundingBox;
+                    return x >= ex && x <= ex + width && y >= ey && y <= ey + height;
+                  });
+                  
+                  if (clicked) {
+                    setSelectedElements(prev => {
+                      const newSet = new Set(prev);
+                      if (newSet.has(clicked.id)) {
+                        newSet.delete(clicked.id);
+                      } else {
+                        newSet.add(clicked.id);
+                      }
+                      return newSet;
+                    });
+                  }
                 }}
               />
-
-              {/* Afficher l'image si pas de canvas */}
-              {pages[currentPage] && !results[currentPage] && (
-                <img src={pages[currentPage]} alt={`Page ${currentPage + 1}`} className="max-w-full" />
-              )}
             </div>
-
-            {/* Légende */}
-            {results[currentPage] && (
-              <div className="p-3 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
-                <div className="flex items-center gap-4 text-xs">
-                  <span className="flex items-center gap-1"><span className="w-3 h-3 bg-blue-500 rounded" /> Murs</span>
-                  <span className="flex items-center gap-1"><span className="w-3 h-3 bg-green-500 rounded" /> Portes</span>
-                  <span className="flex items-center gap-1"><span className="w-3 h-3 bg-yellow-500 rounded" /> Fenêtres</span>
-                  <span className="flex items-center gap-1"><span className="w-3 h-3 bg-purple-500 rounded" /> Pièces</span>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Panel de résultats */}
-          <div className="space-y-4">
-            {/* Résumé de l'analyse */}
-            {results.length > 0 && (
-              <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-4">
-                <h3 className="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
-                  <Target size={18} className="text-teal-500" />
-                  Résumé de l'analyse
+          )}
+        </div>
+        
+        {/* Right Panel - Items */}
+        {showItemsPanel && (
+          <div className="w-96 bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 flex flex-col">
+            {/* AI Results */}
+            {aiResult && (
+              <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                <h3 className="font-semibold mb-2 flex items-center gap-2">
+                  <Cpu size={18} />
+                  Analyse IA
                 </h3>
-                <div className="grid grid-cols-2 gap-3">
-                  {[
-                    { label: 'Murs', value: results.reduce((s, r) => s + r.summary.totalWalls, 0), color: 'blue' },
-                    { label: 'Portes', value: results.reduce((s, r) => s + r.summary.totalDoors, 0), color: 'green' },
-                    { label: 'Fenêtres', value: results.reduce((s, r) => s + r.summary.totalWindows, 0), color: 'yellow' },
-                    { label: 'Pièces', value: results.reduce((s, r) => s + r.summary.totalRooms, 0), color: 'purple' },
-                  ].map(stat => (
-                    <div key={stat.label} className="text-center p-2 bg-gray-50 dark:bg-gray-900 rounded-lg">
-                      <p className="text-2xl font-bold text-gray-900 dark:text-white">{stat.value}</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">{stat.label}</p>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Échelle détectée */}
-                <div className="mt-4 p-3 bg-teal-50 dark:bg-teal-900/30 rounded-lg">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-teal-700 dark:text-teal-300">Échelle:</span>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="number"
-                        value={scale.ratio}
-                        onChange={(e) => setScale({ ...scale, ratio: parseInt(e.target.value) || 48 })}
-                        className="w-16 px-2 py-1 text-sm border rounded dark:bg-gray-800 dark:border-gray-600"
-                      />
-                      <span className="text-sm text-gray-600 dark:text-gray-400">: 1 {scale.unit}</span>
-                    </div>
+                <div className="bg-purple-50 dark:bg-purple-900/30 rounded-lg p-3 text-sm">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>Murs: <strong>{aiResult.summary.totalWalls}</strong></div>
+                    <div>Portes: <strong>{aiResult.summary.totalDoors}</strong></div>
+                    <div>Fenêtres: <strong>{aiResult.summary.totalWindows}</strong></div>
+                    <div>Pièces: <strong>{aiResult.summary.totalRooms}</strong></div>
+                  </div>
+                  <div className="mt-2 text-purple-600 dark:text-purple-400">
+                    {detectedElements.length} éléments détectés
                   </div>
                 </div>
               </div>
             )}
-
-            {/* Élément sélectionné */}
-            {selectedElement && (
-              <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 p-4">
-                <h3 className="font-semibold text-gray-900 dark:text-white mb-3">
-                  Élément sélectionné
+            
+            {/* Items List */}
+            <div className="flex-1 overflow-y-auto p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-semibold flex items-center gap-2">
+                  <FileSpreadsheet size={18} />
+                  Items ({takeoffItems.length})
                 </h3>
-                <div className="space-y-2 text-sm">
-                  <p><span className="text-gray-500">Type:</span> {selectedElement.type}</p>
-                  <p><span className="text-gray-500">Label:</span> {selectedElement.label}</p>
-                  <p><span className="text-gray-500">Confiance:</span> {(selectedElement.confidence * 100).toFixed(0)}%</p>
-                  {selectedElement.measurements && (
-                    <>
-                      {selectedElement.measurements.length && (
-                        <p><span className="text-gray-500">Longueur:</span> {selectedElement.measurements.length} {selectedElement.measurements.unit}</p>
-                      )}
-                      {selectedElement.measurements.area && (
-                        <p><span className="text-gray-500">Superficie:</span> {selectedElement.measurements.area} {selectedElement.measurements.unit}</p>
-                      )}
-                    </>
-                  )}
-                </div>
+                <button
+                  onClick={addManualItem}
+                  className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+                >
+                  <Plus size={18} />
+                </button>
               </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Tableau des items de takeoff */}
-      {takeoffItems.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
-          <div className="flex items-center justify-between p-4 border-b dark:border-gray-700">
-            <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-              <Layers size={18} className="text-teal-500" />
-              Items de Takeoff générés
-            </h3>
-            <button
-              onClick={addManualItem}
-              className="flex items-center gap-1 px-3 py-1.5 text-sm bg-teal-100 text-teal-700 dark:bg-teal-900 dark:text-teal-300 rounded-lg hover:bg-teal-200"
-            >
-              <Plus size={16} /> Ajouter item
-            </button>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 dark:bg-gray-900">
-                <tr className="text-left text-sm text-gray-500 dark:text-gray-400">
-                  <th className="px-4 py-3">Catégorie</th>
-                  <th className="px-4 py-3">Description</th>
-                  <th className="px-4 py-3 text-right">Quantité</th>
-                  <th className="px-4 py-3">Unité</th>
-                  <th className="px-4 py-3 text-right">Prix unit.</th>
-                  <th className="px-4 py-3 text-right">Total</th>
-                  <th className="px-4 py-3 text-center">Source</th>
-                  <th className="px-4 py-3"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y dark:divide-gray-700">
-                {takeoffItems.map(item => (
-                  <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-900">
-                    <td className="px-4 py-3">
-                      {editingItem === item.id ? (
-                        <select
-                          value={item.category}
-                          onChange={(e) => updateItem(item.id, { category: e.target.value })}
-                          className="w-full px-2 py-1 border rounded dark:bg-gray-800 dark:border-gray-600"
-                        >
-                          {CSC_CATEGORIES.map(cat => (
-                            <option key={cat.code} value={cat.name}>{cat.name}</option>
-                          ))}
-                        </select>
-                      ) : (
-                        <span className="text-sm">{item.category}</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      {editingItem === item.id ? (
+              
+              {takeoffItems.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <Calculator size={32} className="mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">Utilisez l'analyse IA puis "Convertir en devis"</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {takeoffItems.map(item => (
+                    <div 
+                      key={item.id}
+                      className="border border-gray-200 dark:border-gray-700 rounded-lg p-3"
+                    >
+                      <div className="flex justify-between items-start mb-2">
                         <input
                           type="text"
                           value={item.description}
                           onChange={(e) => updateItem(item.id, { description: e.target.value })}
-                          className="w-full px-2 py-1 border rounded dark:bg-gray-800 dark:border-gray-600"
+                          className="font-medium text-sm bg-transparent border-b border-transparent hover:border-gray-300 focus:border-blue-500 outline-none flex-1"
                         />
-                      ) : (
-                        <span className="text-sm font-medium text-gray-900 dark:text-white">{item.description}</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      {editingItem === item.id ? (
-                        <input
-                          type="number"
-                          value={item.quantity}
-                          onChange={(e) => updateItem(item.id, { quantity: parseFloat(e.target.value) || 0 })}
-                          className="w-20 px-2 py-1 border rounded text-right dark:bg-gray-800 dark:border-gray-600"
-                        />
-                      ) : (
-                        <span>{item.quantity}</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      {editingItem === item.id ? (
-                        <input
-                          type="text"
-                          value={item.unit}
-                          onChange={(e) => updateItem(item.id, { unit: e.target.value })}
-                          className="w-16 px-2 py-1 border rounded dark:bg-gray-800 dark:border-gray-600"
-                        />
-                      ) : (
-                        <span className="text-sm text-gray-500">{item.unit}</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      {editingItem === item.id ? (
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={item.unitPrice}
-                          onChange={(e) => updateItem(item.id, { unitPrice: parseFloat(e.target.value) || 0 })}
-                          className="w-24 px-2 py-1 border rounded text-right dark:bg-gray-800 dark:border-gray-600"
-                        />
-                      ) : (
-                        <span>{item.unitPrice.toFixed(2)} $</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-right font-medium text-gray-900 dark:text-white">
-                      {item.total.toLocaleString('fr-CA', { style: 'currency', currency: 'CAD' })}
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs ${
-                        item.source === 'ai' 
-                          ? 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300' 
-                          : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
-                      }`}>
-                        {item.source === 'ai' ? <Cpu size={12} /> : <Edit2 size={12} />}
-                        {item.source === 'ai' ? 'IA' : 'Manuel'}
-                      </span>
-                      {item.confidence && (
-                        <p className="text-xs text-gray-400 mt-1">{(item.confidence * 100).toFixed(0)}%</p>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-1">
-                        {editingItem === item.id ? (
-                          <button
-                            onClick={() => setEditingItem(null)}
-                            className="p-1 text-green-600 hover:bg-green-100 dark:hover:bg-green-900 rounded"
-                          >
-                            <CheckCircle size={16} />
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => setEditingItem(item.id)}
-                            className="p-1 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-                          >
-                            <Edit2 size={16} />
-                          </button>
-                        )}
                         <button
-                          onClick={() => removeItem(item.id)}
-                          className="p-1 text-red-500 hover:bg-red-100 dark:hover:bg-red-900 rounded"
+                          onClick={() => deleteItem(item.id)}
+                          className="text-red-500 hover:text-red-700 ml-2"
                         >
-                          <Trash2 size={16} />
+                          <Trash2 size={14} />
                         </button>
                       </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot className="bg-gray-50 dark:bg-gray-900 font-bold">
-                <tr>
-                  <td colSpan={5} className="px-4 py-3 text-right">TOTAL:</td>
-                  <td className="px-4 py-3 text-right text-teal-600 dark:text-teal-400">
-                    {grandTotal.toLocaleString('fr-CA', { style: 'currency', currency: 'CAD' })}
-                  </td>
-                  <td colSpan={2}></td>
-                </tr>
-              </tfoot>
-            </table>
+                      
+                      <div className="grid grid-cols-3 gap-2 text-sm">
+                        <div>
+                          <label className="text-xs text-gray-500">Qté</label>
+                          <input
+                            type="number"
+                            value={item.quantity}
+                            onChange={(e) => updateItem(item.id, { quantity: parseFloat(e.target.value) || 0 })}
+                            className="w-full px-2 py-1 border rounded dark:bg-gray-700 dark:border-gray-600"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs text-gray-500">Unité</label>
+                          <input
+                            type="text"
+                            value={item.unit}
+                            onChange={(e) => updateItem(item.id, { unit: e.target.value })}
+                            className="w-full px-2 py-1 border rounded dark:bg-gray-700 dark:border-gray-600"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs text-gray-500">Prix/u</label>
+                          <input
+                            type="number"
+                            value={item.unitPrice}
+                            onChange={(e) => updateItem(item.id, { unitPrice: parseFloat(e.target.value) || 0 })}
+                            className="w-full px-2 py-1 border rounded dark:bg-gray-700 dark:border-gray-600"
+                          />
+                        </div>
+                      </div>
+                      
+                      <div className="flex justify-between mt-2 text-sm">
+                        <span className="text-gray-500">{item.source === 'ai' ? '🤖 AI' : '✋ Manuel'}</span>
+                        <span className="font-semibold">${item.totalPrice.toFixed(2)}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            
+            {/* Totals */}
+            {takeoffItems.length > 0 && (
+              <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+                <div className="space-y-1 text-sm">
+                  <div className="flex justify-between">
+                    <span>Sous-total</span>
+                    <span>${totals.sousTotal.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-gray-500">
+                    <span>TPS (5%)</span>
+                    <span>${totals.tps.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-gray-500">
+                    <span>TVQ (9.975%)</span>
+                    <span>${totals.tvq.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between font-bold text-lg pt-2 border-t">
+                    <span>Total</span>
+                    <span className="text-blue-600">${totals.total.toFixed(2)}</span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
+        )}
+      </div>
+      
+      {/* Page Navigation */}
+      {totalPages > 0 && (
+        <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-2 flex items-center justify-center gap-4">
+          <button
+            onClick={() => goToPage(currentPage - 1)}
+            disabled={currentPage <= 1}
+            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded disabled:opacity-50"
+          >
+            <ChevronLeft size={20} />
+          </button>
+          <span className="text-sm">Page {currentPage} / {totalPages}</span>
+          <button
+            onClick={() => goToPage(currentPage + 1)}
+            disabled={currentPage >= totalPages}
+            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded disabled:opacity-50"
+          >
+            <ChevronRight size={20} />
+          </button>
         </div>
       )}
     </div>
-  )
+  );
 }
