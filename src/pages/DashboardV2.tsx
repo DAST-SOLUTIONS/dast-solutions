@@ -26,7 +26,7 @@ import {
   WeatherWidget,
   NotificationsWidget,
   ProjectStatusWidget
-} from '@/components/dashboard/Widgets'
+} from '@/components/Dashboard/Widgets'
 
 // ============================================================================
 // WIDGET RENDERER
