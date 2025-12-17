@@ -9,7 +9,7 @@ import { useTakeoff, CSC_DIVISIONS, Point, TakeoffMeasure } from '@/hooks/useTak
 import * as XLSX from 'xlsx'
 import {
   Upload, FileText, Trash2, ZoomIn, ZoomOut, RotateCcw, Move,
-  Ruler, Square, Pentagon, Hash, MousePointer, Check, X,
+  Ruler, Square, Hexagon, Hash, MousePointer, Check, X,
   ChevronLeft, ChevronRight, Download, Send, Loader2,
   Crosshair, Settings, Layers, DollarSign, Plus, Minus
 } from 'lucide-react'
@@ -549,7 +549,7 @@ export default function TakeoffPage() {
                 <Square size={16} />
               </button>
               <button onClick={() => setTool('polygon')} className={`p-1.5 rounded ${tool === 'polygon' ? 'bg-teal-600 text-white' : 'text-gray-300 hover:bg-gray-600'}`} title="Polygone">
-                <Pentagon size={16} />
+                <Hexagon size={16} />
               </button>
               <button onClick={() => setTool('count')} className={`p-1.5 rounded ${tool === 'count' ? 'bg-teal-600 text-white' : 'text-gray-300 hover:bg-gray-600'}`} title="Comptage">
                 <Hash size={16} />
