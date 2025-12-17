@@ -189,8 +189,8 @@ export default function TakeoffV2() {
         </div>
         <div className="flex items-center gap-4">
           <div className="text-sm text-gray-600"><span className="font-medium">{measures.length}</span> mesure(s) | <span className="font-medium text-teal-600 ml-1">{grandTotal.toLocaleString('fr-CA', { style: 'currency', currency: 'CAD' })}</span></div>
-          <button onClick={exportToExcel} className="btn btn-secondary text-sm"><Download size={16} className="mr-1" />Excel</button>
-          <button onClick={createSoumission} className="btn btn-primary text-sm"><Send size={16} className="mr-1" />Soumission</button>
+          <button onClick={exportToExcel} className="px-3 py-1.5 border rounded-lg text-sm hover:bg-gray-50 flex items-center gap-1"><Download size={16} />Excel</button>
+          <button onClick={createSoumission} className="px-3 py-1.5 bg-teal-600 text-white rounded-lg text-sm hover:bg-teal-700 flex items-center gap-1"><Send size={16} />Soumission</button>
         </div>
       </div>
 

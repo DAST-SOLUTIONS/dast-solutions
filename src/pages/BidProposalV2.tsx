@@ -108,9 +108,9 @@ export default function BidProposalV2() {
           <div><h1 className="text-2xl font-bold">Nouvelle soumission</h1><p className="text-gray-500">{project?.name}</p></div>
         </div>
         <div className="flex gap-2">
-          <button onClick={() => openSoumissionPDF(getPDFData())} className="btn btn-secondary"><Eye size={16} className="mr-1" />Aperçu</button>
-          <button onClick={() => downloadSoumissionPDF(getPDFData())} className="btn btn-secondary"><Download size={16} className="mr-1" />PDF</button>
-          <button onClick={handleSave} disabled={saving} className="btn btn-primary">{saving ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}<span className="ml-1">Enregistrer</span></button>
+          <button onClick={() => openSoumissionPDF(getPDFData())} className="px-4 py-2 border rounded-lg hover:bg-gray-50 flex items-center gap-2"><Eye size={16} />Aperçu</button>
+          <button onClick={() => downloadSoumissionPDF(getPDFData())} className="px-4 py-2 border rounded-lg hover:bg-gray-50 flex items-center gap-2"><Download size={16} />PDF</button>
+          <button onClick={handleSave} disabled={saving} className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:opacity-50 flex items-center gap-2">{saving ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}Enregistrer</button>
         </div>
       </div>
 
@@ -129,7 +129,7 @@ export default function BidProposalV2() {
 
           {/* Items */}
           <div className="bg-white rounded-xl border p-6">
-            <div className="flex justify-between mb-4"><h2 className="font-semibold flex items-center gap-2"><Calculator size={18} />Items</h2><button onClick={addItem} className="btn btn-secondary text-sm"><Plus size={16} className="mr-1" />Ajouter</button></div>
+            <div className="flex justify-between mb-4"><h2 className="font-semibold flex items-center gap-2"><Calculator size={18} />Items</h2><button onClick={addItem} className="px-3 py-1.5 border rounded-lg text-sm hover:bg-gray-50 flex items-center gap-1"><Plus size={16} />Ajouter</button></div>
             {soumission.items.length === 0 ? <div className="text-center py-8 text-gray-500"><FileText className="mx-auto mb-2" size={32} /><p>Aucun item</p></div> : (
               <div className="space-y-3">
                 {soumission.items.map((item: LineItem) => (
@@ -151,7 +151,7 @@ export default function BidProposalV2() {
             <button onClick={() => setShowConditions(!showConditions)} className="w-full px-6 py-4 flex justify-between hover:bg-gray-50"><h2 className="font-semibold">Conditions ({soumission.conditions.length})</h2>{showConditions ? <ChevronUp size={20} /> : <ChevronDown size={20} />}</button>
             {showConditions && <div className="px-6 pb-4 space-y-2">
               {soumission.conditions.map((c: string, i: number) => <div key={i} className="flex items-center gap-2"><span className="flex-1 text-sm text-gray-600">• {c}</span><button onClick={() => setSoumission((p: any) => ({ ...p, conditions: p.conditions.filter((_: any, j: number) => j !== i) }))} className="text-red-500 text-xs">×</button></div>)}
-              <div className="flex gap-2 mt-2"><input type="text" value={newCondition} onChange={(e) => setNewCondition(e.target.value)} placeholder="Nouvelle condition..." className="flex-1 px-3 py-2 border rounded-lg text-sm" /><button onClick={() => { if (newCondition.trim()) { setSoumission((p: any) => ({ ...p, conditions: [...p.conditions, newCondition.trim()] })); setNewCondition('') } }} className="btn btn-secondary text-sm">Ajouter</button></div>
+              <div className="flex gap-2 mt-2"><input type="text" value={newCondition} onChange={(e) => setNewCondition(e.target.value)} placeholder="Nouvelle condition..." className="flex-1 px-3 py-2 border rounded-lg text-sm" /><button onClick={() => { if (newCondition.trim()) { setSoumission((p: any) => ({ ...p, conditions: [...p.conditions, newCondition.trim()] })); setNewCondition('') } }} className="px-3 py-2 border rounded-lg text-sm hover:bg-gray-50">Ajouter</button></div>
             </div>}
           </div>
 
@@ -160,7 +160,7 @@ export default function BidProposalV2() {
             <button onClick={() => setShowExclusions(!showExclusions)} className="w-full px-6 py-4 flex justify-between hover:bg-gray-50"><h2 className="font-semibold">Exclusions ({soumission.exclusions.length})</h2>{showExclusions ? <ChevronUp size={20} /> : <ChevronDown size={20} />}</button>
             {showExclusions && <div className="px-6 pb-4 space-y-2">
               {soumission.exclusions.map((e: string, i: number) => <div key={i} className="flex items-center gap-2"><span className="flex-1 text-sm text-gray-600">• {e}</span><button onClick={() => setSoumission((p: any) => ({ ...p, exclusions: p.exclusions.filter((_: any, j: number) => j !== i) }))} className="text-red-500 text-xs">×</button></div>)}
-              <div className="flex gap-2 mt-2"><input type="text" value={newExclusion} onChange={(e) => setNewExclusion(e.target.value)} placeholder="Nouvelle exclusion..." className="flex-1 px-3 py-2 border rounded-lg text-sm" /><button onClick={() => { if (newExclusion.trim()) { setSoumission((p: any) => ({ ...p, exclusions: [...p.exclusions, newExclusion.trim()] })); setNewExclusion('') } }} className="btn btn-secondary text-sm">Ajouter</button></div>
+              <div className="flex gap-2 mt-2"><input type="text" value={newExclusion} onChange={(e) => setNewExclusion(e.target.value)} placeholder="Nouvelle exclusion..." className="flex-1 px-3 py-2 border rounded-lg text-sm" /><button onClick={() => { if (newExclusion.trim()) { setSoumission((p: any) => ({ ...p, exclusions: [...p.exclusions, newExclusion.trim()] })); setNewExclusion('') } }} className="px-3 py-2 border rounded-lg text-sm hover:bg-gray-50">Ajouter</button></div>
             </div>}
           </div>
 
@@ -201,4 +201,12 @@ export default function BidProposalV2() {
           <div className="bg-gradient-to-br from-teal-500 to-teal-600 rounded-xl p-6 text-white">
             <h3 className="font-semibold mb-4">Actions rapides</h3>
             <div className="space-y-2">
-              <button onClick={() => openSoumissionPDF(getPDFData())} className="w-full py-2 bg-white/20 rounded-lg hover:bg-white/30 fl
+              <button onClick={() => openSoumissionPDF(getPDFData())} className="w-full py-2 bg-white/20 rounded-lg hover:bg-white/30 flex items-center justify-center gap-2"><Eye size={16} />Aperçu PDF</button>
+              <button onClick={() => downloadSoumissionPDF(getPDFData())} className="w-full py-2 bg-white/20 rounded-lg hover:bg-white/30 flex items-center justify-center gap-2"><Download size={16} />Télécharger PDF</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}

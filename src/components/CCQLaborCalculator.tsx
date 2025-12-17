@@ -2,7 +2,7 @@
  * DAST Solutions - Calculateur Main-d'œuvre CCQ - Taux 2024
  */
 import { useState, useEffect } from 'react'
-import { HardHat, Plus, X, Search, ChevronDown, ChevronUp, Check, AlertCircle } from 'lucide-react'
+import { HardHat, Plus, X, Search, ChevronDown, ChevronUp, AlertCircle } from 'lucide-react'
 
 export interface CCQTrade { id: string; code: string; name: string; sector: string; hourly_rate: number; benefits_rate: number; total_rate: number }
 export interface LaborItem { id: string; trade: CCQTrade; hours: number; quantity: number; total: number; notes?: string }

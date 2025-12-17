@@ -95,46 +95,67 @@ export default function ProjectDetails() {
           </div>
         </div>
         <div className="flex gap-2">
-          {!isNew && activeTab === 'overview' && <button onClick={() => setActiveTab('edit')} className="btn btn-secondary">Modifier</button>}
-          {(isNew || activeTab === 'edit') && <button onClick={handleSave} disabled={saving || !form.name} className="btn btn-primary">{saving ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}<span className="ml-1">{isNew ? 'Créer' : 'Enregistrer'}</span></button>}
+          {!isNew && activeTab === 'overview' && <button onClick={() => setActiveTab('edit')} className="px-4 py-2 border rounded-lg hover:bg-gray-50">Modifier</button>}
+          {(isNew || activeTab === 'edit') && <button onClick={handleSave} disabled={saving || !form.name} className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:opacity-50 flex items-center gap-2">{saving ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}<span>{isNew ? 'Créer' : 'Enregistrer'}</span></button>}
         </div>
       </div>
 
       {!isNew && activeTab === 'overview' && project && stats && (
         <>
           <div className="grid grid-cols-4 gap-4">
-            {[
-              { icon: FileText, color: 'blue', value: stats.soumissions, label: 'Soumissions', sub: stats.soumissionsAccepted > 0 ? `${stats.soumissionsAccepted} acceptée(s)` : null },
-              { icon: Receipt, color: 'teal', value: stats.factures, label: 'Factures', sub: stats.facturesUnpaid > 0 ? `${stats.facturesUnpaid} impayée(s)` : null },
-              { icon: Ruler, color: 'purple', value: stats.measures, label: 'Mesures', sub: null },
-              { icon: DollarSign, color: 'green', value: stats.totalRevenue.toLocaleString('fr-CA', { style: 'currency', currency: 'CAD', maximumFractionDigits: 0 }), label: 'Revenus', sub: null }
-            ].map((card, i) => (
-              <div key={i} className="bg-white rounded-xl p-5 border">
-                <div className="flex items-center gap-3">
-                  <div className={`w-12 h-12 rounded-xl bg-${card.color}-100 flex items-center justify-center`}><card.icon className={`text-${card.color}-600`} size={24} /></div>
-                  <div><p className="text-2xl font-bold">{card.value}</p><p className="text-sm text-gray-500">{card.label}</p></div>
-                </div>
-                {card.sub && <p className={`text-xs mt-2 ${card.color === 'blue' ? 'text-green-600' : 'text-amber-600'}`}>{card.sub}</p>}
+            <div className="bg-white rounded-xl p-5 border">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center"><FileText className="text-blue-600" size={24} /></div>
+                <div><p className="text-2xl font-bold">{stats.soumissions}</p><p className="text-sm text-gray-500">Soumissions</p></div>
               </div>
-            ))}
+              {stats.soumissionsAccepted > 0 && <p className="text-xs mt-2 text-green-600">{stats.soumissionsAccepted} acceptée(s)</p>}
+            </div>
+            <div className="bg-white rounded-xl p-5 border">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl bg-teal-100 flex items-center justify-center"><Receipt className="text-teal-600" size={24} /></div>
+                <div><p className="text-2xl font-bold">{stats.factures}</p><p className="text-sm text-gray-500">Factures</p></div>
+              </div>
+              {stats.facturesUnpaid > 0 && <p className="text-xs mt-2 text-amber-600">{stats.facturesUnpaid} impayée(s)</p>}
+            </div>
+            <div className="bg-white rounded-xl p-5 border">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center"><Ruler className="text-purple-600" size={24} /></div>
+                <div><p className="text-2xl font-bold">{stats.measures}</p><p className="text-sm text-gray-500">Mesures</p></div>
+              </div>
+            </div>
+            <div className="bg-white rounded-xl p-5 border">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center"><DollarSign className="text-green-600" size={24} /></div>
+                <div><p className="text-2xl font-bold">{stats.totalRevenue.toLocaleString('fr-CA', { style: 'currency', currency: 'CAD', maximumFractionDigits: 0 })}</p><p className="text-sm text-gray-500">Revenus</p></div>
+              </div>
+            </div>
           </div>
 
           <div className="grid grid-cols-4 gap-4">
-            {[
-              { path: `/takeoff/${projectId}`, icon: Ruler, color: 'purple', title: 'Takeoff', desc: 'Relevé de quantités' },
-              { path: `/bid-proposal/${projectId}`, icon: FileText, color: 'blue', title: 'Soumission', desc: 'Créer une soumission' },
-              { path: `/project-costs/${projectId}`, icon: Calculator, color: 'teal', title: 'Estimation', desc: 'Coûts et main-d\'œuvre' },
-              { path: `/cloud-storage/${projectId}`, icon: Cloud, color: 'orange', title: 'Documents', desc: 'Plans et fichiers' }
-            ].map((action, i) => (
-              <button key={i} onClick={() => navigate(action.path)} className="bg-white rounded-xl p-6 border hover:shadow-lg transition group text-left">
-                <div className={`w-14 h-14 rounded-xl bg-gradient-to-br from-${action.color}-500 to-${action.color}-600 flex items-center justify-center mb-4 group-hover:scale-110 transition`}>
-                  <action.icon className="text-white" size={28} />
-                </div>
-                <h3 className="font-semibold">{action.title}</h3>
-                <p className="text-sm text-gray-500 mt-1">{action.desc}</p>
-                <ChevronRight className="text-gray-400 mt-3" size={18} />
-              </button>
-            ))}
+            <button onClick={() => navigate(`/takeoff/${projectId}`)} className="bg-white rounded-xl p-6 border hover:shadow-lg transition group text-left">
+              <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center mb-4 group-hover:scale-110 transition"><Ruler className="text-white" size={28} /></div>
+              <h3 className="font-semibold">Takeoff</h3>
+              <p className="text-sm text-gray-500 mt-1">Relevé de quantités</p>
+              <ChevronRight className="text-gray-400 mt-3" size={18} />
+            </button>
+            <button onClick={() => navigate(`/bid-proposal/${projectId}`)} className="bg-white rounded-xl p-6 border hover:shadow-lg transition group text-left">
+              <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center mb-4 group-hover:scale-110 transition"><FileText className="text-white" size={28} /></div>
+              <h3 className="font-semibold">Soumission</h3>
+              <p className="text-sm text-gray-500 mt-1">Créer une soumission</p>
+              <ChevronRight className="text-gray-400 mt-3" size={18} />
+            </button>
+            <button onClick={() => navigate(`/project-costs/${projectId}`)} className="bg-white rounded-xl p-6 border hover:shadow-lg transition group text-left">
+              <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-teal-500 to-teal-600 flex items-center justify-center mb-4 group-hover:scale-110 transition"><Calculator className="text-white" size={28} /></div>
+              <h3 className="font-semibold">Estimation</h3>
+              <p className="text-sm text-gray-500 mt-1">Coûts et main-d'œuvre</p>
+              <ChevronRight className="text-gray-400 mt-3" size={18} />
+            </button>
+            <button onClick={() => navigate(`/cloud-storage/${projectId}`)} className="bg-white rounded-xl p-6 border hover:shadow-lg transition group text-left">
+              <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center mb-4 group-hover:scale-110 transition"><Cloud className="text-white" size={28} /></div>
+              <h3 className="font-semibold">Documents</h3>
+              <p className="text-sm text-gray-500 mt-1">Plans et fichiers</p>
+              <ChevronRight className="text-gray-400 mt-3" size={18} />
+            </button>
           </div>
 
           <div className="grid grid-cols-3 gap-6">
@@ -149,15 +170,14 @@ export default function ProjectDetails() {
             </div>
             <div className="bg-white rounded-xl border p-6">
               <h3 className="font-semibold mb-4">Progression</h3>
-              {[
-                { label: 'Soumissions acceptées', value: stats.soumissions > 0 ? Math.round((stats.soumissionsAccepted / stats.soumissions) * 100) : 0, color: 'blue' },
-                { label: 'Factures payées', value: stats.factures > 0 ? Math.round(((stats.factures - stats.facturesUnpaid) / stats.factures) * 100) : 0, color: 'teal' }
-              ].map((bar, i) => (
-                <div key={i} className="mb-4">
-                  <div className="flex justify-between text-sm mb-1"><span className="text-gray-600">{bar.label}</span><span className="font-medium">{bar.value}%</span></div>
-                  <div className="h-2 bg-gray-200 rounded-full overflow-hidden"><div className={`h-full bg-${bar.color}-500 rounded-full`} style={{ width: `${bar.value}%` }} /></div>
-                </div>
-              ))}
+              <div className="mb-4">
+                <div className="flex justify-between text-sm mb-1"><span className="text-gray-600">Soumissions acceptées</span><span className="font-medium">{stats.soumissions > 0 ? Math.round((stats.soumissionsAccepted / stats.soumissions) * 100) : 0}%</span></div>
+                <div className="h-2 bg-gray-200 rounded-full overflow-hidden"><div className="h-full bg-blue-500 rounded-full" style={{ width: `${stats.soumissions > 0 ? Math.round((stats.soumissionsAccepted / stats.soumissions) * 100) : 0}%` }} /></div>
+              </div>
+              <div className="mb-4">
+                <div className="flex justify-between text-sm mb-1"><span className="text-gray-600">Factures payées</span><span className="font-medium">{stats.factures > 0 ? Math.round(((stats.factures - stats.facturesUnpaid) / stats.factures) * 100) : 0}%</span></div>
+                <div className="h-2 bg-gray-200 rounded-full overflow-hidden"><div className="h-full bg-teal-500 rounded-full" style={{ width: `${stats.factures > 0 ? Math.round(((stats.factures - stats.facturesUnpaid) / stats.factures) * 100) : 0}%` }} /></div>
+              </div>
               <div className="mt-6 pt-4 border-t">
                 <button onClick={handleDelete} className="w-full py-2 text-red-600 hover:bg-red-50 rounded-lg text-sm flex items-center justify-center gap-2"><Trash2 size={16} />Supprimer le projet</button>
               </div>
