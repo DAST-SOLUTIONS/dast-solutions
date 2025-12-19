@@ -10,7 +10,7 @@ import * as pdfjsLib from 'pdfjs-dist'
 import * as XLSX from 'xlsx'
 import { Upload, FileText, Trash2, ZoomIn, ZoomOut, RotateCcw, Move, Ruler, Square, Hexagon, Hash, MousePointer, Check, X, ChevronLeft, ChevronRight, Download, Send, Loader2, Crosshair, RotateCw, HardHat, Eye, EyeOff, Minus } from 'lucide-react'
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`
 
 type Tool = 'select' | 'pan' | 'calibrate' | 'line' | 'rectangle' | 'polygon' | 'count'
 type Point = { x: number; y: number }

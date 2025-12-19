@@ -249,7 +249,7 @@ export function TakeoffViewer({
               const ctx = canvas.getContext('2d')
               
               if (ctx) {
-                await page.render({ canvasContext: ctx, viewport, canvas } as any).promise
+                await page.render({ canvasContext: ctx, viewport, canvas }).promise
                 thumbnail = canvas.toDataURL('image/jpeg', 0.6)
               }
             } catch (thumbErr) {
@@ -320,7 +320,7 @@ export function TakeoffViewer({
         canvas.width = viewport.width
         canvas.height = viewport.height
         
-        await page.render({ canvasContext: ctx, viewport, canvas } as any).promise
+        await page.render({ canvasContext: ctx, viewport, canvas }).promise
         
         // Synchroniser overlay après rendu PDF
         if (overlayCanvasRef.current) {

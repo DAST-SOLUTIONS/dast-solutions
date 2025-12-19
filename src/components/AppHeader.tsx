@@ -1,7 +1,6 @@
 /**
  * DAST Solutions - AppHeader COMPLET
  * Pleine largeur, icônes Lucide (sans emojis), chevrons élégants
- * MISE À JOUR: Ajout AI Takeoff, Takeoff Avancé, Estimation Avancée
  */
 import { NavLink, useNavigate } from "react-router-dom"
 import { useAuth } from "@/hooks/useAuth"
@@ -13,13 +12,10 @@ import {
   Link, TrendingUp, Flame, ShoppingCart,
   BookMarked, Scale, FileCheck, Users2,
   Smartphone, MessageSquare, MapPin, ClipboardCheck,
-  Package, DollarSign,
-  // NOUVEAUX IMPORTS POUR AI TAKEOFF
-  Brain, Ruler, Sparkles
+  Package, DollarSign
 } from "lucide-react"
 import { useState, useEffect, useRef } from "react"
 import { supabase } from "@/lib/supabase"
-import { useTheme } from "@/contexts/ThemeContext"
 
 // =====================================================
 // COMPOSANT NOTIFICATIONS INTÉGRÉ
@@ -156,23 +152,12 @@ function NotificationsDropdown() {
 }
 
 // =====================================================
-// BADGE NEW COMPONENT
-// =====================================================
-function NewBadge() {
-  return (
-    <span className="ml-auto px-1.5 py-0.5 bg-gradient-to-r from-purple-500 to-pink-500 text-white text-[10px] font-bold rounded-full animate-pulse">
-      NEW
-    </span>
-  )
-}
-
-// =====================================================
 // HEADER PRINCIPAL
 // =====================================================
 export default function AppHeader() {
   const navigate = useNavigate()
   const { userProfile, signOut } = useAuth()
-  const { isDark, toggleTheme } = useTheme()
+  const [darkMode, setDarkMode] = useState(false)
   const [showUserMenu, setShowUserMenu] = useState(false)
 
   const handleSignOut = async () => {
@@ -205,7 +190,7 @@ export default function AppHeader() {
               <button className={menuBtn}>
                 <FolderOpen size={16} /> Projets <ChevronDown size={14} className="opacity-60 ml-0.5" />
               </button>
-              <div className="hidden group-hover:block absolute left-0 mt-0 w-56 rounded-lg bg-white text-gray-800 shadow-xl p-2 z-50">
+              <div className="hidden group-hover:block absolute left-0 mt-0 w-52 rounded-lg bg-white text-gray-800 shadow-xl p-2 z-50">
                 <button onClick={() => navigate("/dashboard")} className={submenuLink}>
                   <ClipboardList size={16} className="text-teal-600" /> Tous les projets
                 </button>
@@ -222,29 +207,6 @@ export default function AppHeader() {
                 <button onClick={() => navigate("/projets/appels-offres")} className={submenuLink}>
                   <Megaphone size={16} className="text-orange-500" /> Appels d'offres
                 </button>
-                
-                {/* ============================================ */}
-                {/* NOUVEAUX LIENS - AI TAKEOFF & ESTIMATION */}
-                {/* ============================================ */}
-                <div className="border-t my-1.5"></div>
-                <div className="px-2 py-1">
-                  <span className="text-[10px] font-bold text-purple-600 uppercase tracking-wider flex items-center gap-1">
-                    <Sparkles size={10} /> Outils AI
-                  </span>
-                </div>
-                <button onClick={() => navigate("/ai-takeoff")} className={submenuLink}>
-                  <Brain size={16} className="text-purple-600" /> AI Takeoff
-                  <NewBadge />
-                </button>
-                <button onClick={() => navigate("/takeoff-advanced")} className={submenuLink}>
-                  <Ruler size={16} className="text-indigo-600" /> Takeoff Avancé
-                  <NewBadge />
-                </button>
-                <button onClick={() => navigate("/estimation-advanced")} className={submenuLink}>
-                  <DollarSign size={16} className="text-emerald-600" /> Estimation Avancée
-                  <NewBadge />
-                </button>
-                
                 <div className="border-t my-1.5"></div>
                 <button onClick={() => navigate("/factures")} className={submenuLink}>
                   <Receipt size={16} className="text-emerald-600" /> Factures
@@ -354,8 +316,8 @@ export default function AppHeader() {
             <NotificationsDropdown />
             
             {/* Dark Mode */}
-            <button onClick={toggleTheme} className="p-2 rounded-lg hover:bg-white/10 transition" title="Mode sombre">
-              {isDark ? <Sun size={18} /> : <Moon size={18} />}
+            <button onClick={() => setDarkMode(!darkMode)} className="p-2 rounded-lg hover:bg-white/10 transition" title="Mode sombre">
+              {darkMode ? <Sun size={18} /> : <Moon size={18} />}
             </button>
 
             {/* User Menu */}

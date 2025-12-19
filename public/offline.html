@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="fr-CA">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hors ligne - DAST Solutions</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    
+    .container {
+      background: white;
+      border-radius: 16px;
+      padding: 40px;
+      max-width: 400px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+    }
+    
+    .icon {
+      width: 80px;
+      height: 80px;
+      background: #f0fdfa;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 24px;
+    }
+    
+    .icon svg {
+      width: 40px;
+      height: 40px;
+      color: #0d9488;
+    }
+    
+    h1 {
+      color: #111827;
+      font-size: 24px;
+      margin-bottom: 12px;
+    }
+    
+    p {
+      color: #6b7280;
+      line-height: 1.6;
+      margin-bottom: 24px;
+    }
+    
+    .button {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: #0d9488;
+      color: white;
+      padding: 12px 24px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 500;
+      transition: background 0.2s;
+    }
+    
+    .button:hover {
+      background: #0f766e;
+    }
+    
+    .status {
+      margin-top: 24px;
+      padding: 12px;
+      background: #fef3c7;
+      border-radius: 8px;
+      color: #92400e;
+      font-size: 14px;
+    }
+    
+    .logo {
+      margin-top: 32px;
+      color: #9ca3af;
+      font-size: 14px;
+    }
+    
+    .logo strong {
+      color: #0d9488;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="icon">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 5.636a9 9 0 010 12.728m0 0l-2.829-2.829m2.829 2.829L21 21M15.536 8.464a5 5 0 010 7.072m0 0l-2.829-2.829m-4.243 2.829a4.978 4.978 0 01-1.414-2.83m-1.414 5.658a9 9 0 01-2.167-9.238m7.824 2.167a1 1 0 111.414 1.414m-1.414-1.414L3 3m8.293 8.293l1.414 1.414" />
+      </svg>
+    </div>
+    
+    <h1>Vous êtes hors ligne</h1>
+    
+    <p>
+      Il semble que vous n'ayez pas de connexion Internet. 
+      Vérifiez votre connexion et réessayez.
+    </p>
+    
+    <a href="/" class="button" onclick="location.reload(); return false;">
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+      </svg>
+      Réessayer
+    </a>
+    
+    <div class="status">
+      📱 Les rapports terrain enregistrés localement seront synchronisés automatiquement une fois la connexion rétablie.
+    </div>
+    
+    <div class="logo">
+      Propulsé par <strong>DAST Solutions</strong>
+    </div>
+  </div>
+
+  <script>
+    // Check connection status
+    window.addEventListener('online', () => {
+      location.reload();
+    });
+  </script>
+</body>
+</html>

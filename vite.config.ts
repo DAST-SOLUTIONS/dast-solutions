@@ -31,8 +31,6 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: true,
-    // Support top-level await pour pdfjs-dist v4.x
-    target: 'esnext',
     rollupOptions: {
       output: {
         manualChunks: {

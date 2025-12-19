@@ -1,379 +1,280 @@
-/**
- * DAST Solutions - Hook Versioning Documents
- * Gestion des versions et historique des modifications
- */
-import { useState, useCallback, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
+import { useEffect, useState } from 'react'
+import { supabase } from '@/lib/supabase'
+import { useAuth } from './useAuth'
 
-// ============================================================================
-// TYPES
-// ============================================================================
 export interface DocumentVersion {
-  id: string;
-  documentId: string;
-  version: number;
-  filename: string;
-  fileUrl: string;
-  fileSize: number;
-  mimeType: string;
-  checksum?: string;
-  createdAt: string;
-  createdBy: string;
-  createdByName?: string;
-  notes?: string;
-  changes?: string[];
-  isLatest: boolean;
+  id: string
+  document_id: string
+  version_number: number
+  file_name: string
+  file_type: string
+  file_size: number
+  storage_path: string
+  drawing_number?: string // Numéro de plan extrait par OCR
+  drawing_title?: string // Titre extrait par OCR
+  ocr_status: 'pending' | 'processing' | 'completed' | 'failed'
+  ocr_data?: any
+  uploaded_by: string
+  uploaded_at: string
+  is_latest: boolean
+  change_notes?: string
 }
 
 export interface Document {
-  id: string;
-  projectId: string;
-  name: string;
-  type: 'plan' | 'devis' | 'contrat' | 'rapport' | 'photo' | 'autre';
-  currentVersion: number;
-  latestVersionId: string;
-  createdAt: string;
-  updatedAt: string;
-  tags?: string[];
-  metadata?: Record<string, any>;
+  id: string
+  project_id: string
+  original_name: string
+  document_type: 'pdf' | 'dwg' | 'dxf' | 'rvt' | 'ifc' | 'docx' | 'xlsx'
+  category: 'plan' | 'model' | 'document' | 'spreadsheet'
+  current_version: number
+  created_at: string
+  updated_at: string
+  versions: DocumentVersion[]
 }
 
-export interface VersionCompare {
-  oldVersion: DocumentVersion;
-  newVersion: DocumentVersion;
-  differences: {
-    field: string;
-    oldValue: any;
-    newValue: any;
-  }[];
-}
+export function useDocumentVersioning(projectId: string | null) {
+  const { user } = useAuth()
+  const [documents, setDocuments] = useState<Document[]>([])
+  const [loading, setLoading] = useState(true)
+  const [uploading, setUploading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-// ============================================================================
-// HOOK
-// ============================================================================
-export function useDocumentVersioning(documentId?: string) {
-  const [document, setDocument] = useState<Document | null>(null);
-  const [versions, setVersions] = useState<DocumentVersion[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  
-  // Charger le document et ses versions
-  const loadDocument = useCallback(async (docId: string) => {
-    setLoading(true);
-    setError(null);
-    
+  const fetchDocuments = async () => {
+    if (!projectId) {
+      setLoading(false)
+      return
+    }
+
     try {
-      // Charger le document
-      const { data: doc, error: docError } = await supabase
+      setLoading(true)
+      
+      // Récupérer les documents avec leurs versions
+      const { data: docs, error: fetchError } = await supabase
         .from('documents')
-        .select('*')
-        .eq('id', docId)
-        .single();
-      
-      if (docError) throw docError;
-      setDocument(doc);
-      
-      // Charger les versions
-      const { data: vers, error: versError } = await supabase
-        .from('document_versions')
         .select(`
           *,
-          profiles:created_by (full_name)
+          versions:document_versions(*)
         `)
-        .eq('document_id', docId)
-        .order('version', { ascending: false });
+        .eq('project_id', projectId)
+        .order('created_at', { ascending: false })
+
+      if (fetchError) throw fetchError
       
-      if (versError) throw versError;
-      
-      setVersions(vers?.map(v => ({
-        ...v,
-        createdByName: v.profiles?.full_name
-      })) || []);
-      
+      setDocuments(docs || [])
     } catch (err) {
-      console.error('Erreur chargement document:', err);
-      setError(err instanceof Error ? err.message : 'Erreur inconnue');
+      const message = err instanceof Error ? err.message : 'Failed to fetch documents'
+      setError(message)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  }, []);
-  
-  // Charger au montage si documentId fourni
+  }
+
   useEffect(() => {
-    if (documentId) {
-      loadDocument(documentId);
-    }
-  }, [documentId, loadDocument]);
-  
-  // Créer une nouvelle version
-  const createVersion = useCallback(async (
+    fetchDocuments()
+  }, [projectId])
+
+  const uploadDocument = async (
     file: File,
-    notes?: string,
-    changes?: string[]
-  ): Promise<DocumentVersion | null> => {
-    if (!document) {
-      setError('Document non chargé');
-      return null;
-    }
-    
-    setLoading(true);
-    setError(null);
-    
+    category: Document['category'],
+    changeNotes?: string
+  ) => {
+    if (!projectId || !user) throw new Error('Project or user not found')
+
+    setUploading(true)
+    setError(null)
+
     try {
-      const newVersionNum = document.currentVersion + 1;
-      const timestamp = Date.now();
-      const fileName = `${document.id}/v${newVersionNum}_${timestamp}_${file.name}`;
-      
-      // Upload le fichier
+      const fileType = file.name.split('.').pop()?.toLowerCase() as Document['document_type']
+      const timestamp = Date.now()
+      const storagePath = `${projectId}/${timestamp}-${file.name}`
+
+      // 1. Upload vers Supabase Storage
       const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('project-documents')
+        .upload(storagePath, file, { upsert: false })
+
+      if (uploadError) throw uploadError
+
+      // 2. Vérifier si document existe déjà (même nom)
+      const { data: existingDoc } = await supabase
         .from('documents')
-        .upload(fileName, file);
-      
-      if (uploadError) throw uploadError;
-      
-      // Obtenir l'URL publique
-      const { data: { publicUrl } } = supabase.storage
-        .from('documents')
-        .getPublicUrl(fileName);
-      
-      // Obtenir l'utilisateur courant
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      // Marquer l'ancienne version comme non-latest
-      await supabase
-        .from('document_versions')
-        .update({ is_latest: false })
-        .eq('document_id', document.id)
-        .eq('is_latest', true);
-      
-      // Créer la nouvelle version
-      const { data: newVersion, error: versionError } = await supabase
-        .from('document_versions')
-        .insert({
-          document_id: document.id,
-          version: newVersionNum,
-          filename: file.name,
-          file_url: publicUrl,
-          file_size: file.size,
-          mime_type: file.type,
-          created_by: user?.id,
-          notes,
-          changes,
-          is_latest: true
-        })
-        .select()
-        .single();
-      
-      if (versionError) throw versionError;
-      
-      // Mettre à jour le document
-      const { error: docUpdateError } = await supabase
-        .from('documents')
-        .update({
-          current_version: newVersionNum,
-          latest_version_id: newVersion.id,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', document.id);
-      
-      if (docUpdateError) throw docUpdateError;
-      
-      // Recharger
-      await loadDocument(document.id);
-      
-      return newVersion;
-      
-    } catch (err) {
-      console.error('Erreur création version:', err);
-      setError(err instanceof Error ? err.message : 'Erreur inconnue');
-      return null;
-    } finally {
-      setLoading(false);
-    }
-  }, [document, loadDocument]);
-  
-  // Restaurer une version antérieure
-  const restoreVersion = useCallback(async (
-    versionId: string
-  ): Promise<boolean> => {
-    if (!document) {
-      setError('Document non chargé');
-      return false;
-    }
-    
-    setLoading(true);
-    setError(null);
-    
-    try {
-      const versionToRestore = versions.find(v => v.id === versionId);
-      if (!versionToRestore) throw new Error('Version non trouvée');
-      
-      const newVersionNum = document.currentVersion + 1;
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      // Marquer l'ancienne version comme non-latest
-      await supabase
-        .from('document_versions')
-        .update({ is_latest: false })
-        .eq('document_id', document.id)
-        .eq('is_latest', true);
-      
-      // Créer une nouvelle version à partir de l'ancienne
-      const { data: newVersion, error: versionError } = await supabase
-        .from('document_versions')
-        .insert({
-          document_id: document.id,
-          version: newVersionNum,
-          filename: versionToRestore.filename,
-          file_url: versionToRestore.fileUrl,
-          file_size: versionToRestore.fileSize,
-          mime_type: versionToRestore.mimeType,
-          created_by: user?.id,
-          notes: `Restauré depuis la version ${versionToRestore.version}`,
-          is_latest: true
-        })
-        .select()
-        .single();
-      
-      if (versionError) throw versionError;
-      
-      // Mettre à jour le document
-      await supabase
-        .from('documents')
-        .update({
-          current_version: newVersionNum,
-          latest_version_id: newVersion.id,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', document.id);
-      
-      await loadDocument(document.id);
-      return true;
-      
-    } catch (err) {
-      console.error('Erreur restauration version:', err);
-      setError(err instanceof Error ? err.message : 'Erreur inconnue');
-      return false;
-    } finally {
-      setLoading(false);
-    }
-  }, [document, versions, loadDocument]);
-  
-  // Supprimer une version (sauf la dernière)
-  const deleteVersion = useCallback(async (versionId: string): Promise<boolean> => {
-    const version = versions.find(v => v.id === versionId);
-    if (!version) {
-      setError('Version non trouvée');
-      return false;
-    }
-    
-    if (version.isLatest) {
-      setError('Impossible de supprimer la version courante');
-      return false;
-    }
-    
-    setLoading(true);
-    setError(null);
-    
-    try {
-      // Supprimer le fichier du storage
-      const filePath = new URL(version.fileUrl).pathname.split('/').pop();
-      if (filePath) {
-        await supabase.storage
+        .select('id, current_version')
+        .eq('project_id', projectId)
+        .eq('original_name', file.name)
+        .single()
+
+      let documentId: string
+      let versionNumber: number
+
+      if (existingDoc) {
+        // Document existe → nouvelle version
+        documentId = existingDoc.id
+        versionNumber = existingDoc.current_version + 1
+
+        // Mettre à jour le document parent
+        await supabase
           .from('documents')
-          .remove([`${document?.id}/${filePath}`]);
+          .update({ 
+            current_version: versionNumber,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', documentId)
+
+        // Marquer les anciennes versions comme non-latest
+        await supabase
+          .from('document_versions')
+          .update({ is_latest: false })
+          .eq('document_id', documentId)
+
+      } else {
+        // Nouveau document
+        versionNumber = 1
+        const { data: newDoc, error: docError } = await supabase
+          .from('documents')
+          .insert([{
+            project_id: projectId,
+            original_name: file.name,
+            document_type: fileType,
+            category,
+            current_version: 1,
+          }])
+          .select()
+          .single()
+
+        if (docError) throw docError
+        documentId = newDoc.id
       }
-      
-      // Supprimer la version
-      const { error } = await supabase
+
+      // 3. Créer la version
+      const { data: version, error: versionError } = await supabase
+        .from('document_versions')
+        .insert([{
+          document_id: documentId,
+          version_number: versionNumber,
+          file_name: file.name,
+          file_type: fileType,
+          file_size: file.size,
+          storage_path: uploadData.path,
+          uploaded_by: user.id,
+          is_latest: true,
+          change_notes: changeNotes,
+          ocr_status: category === 'plan' ? 'pending' : null,
+        }])
+        .select()
+        .single()
+
+      if (versionError) throw versionError
+
+      // 4. Déclencher OCR si c'est un plan
+      if (category === 'plan') {
+        triggerOCR(version.id, uploadData.path, fileType)
+      }
+
+      await fetchDocuments()
+      return version
+
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Upload failed'
+      setError(message)
+      throw err
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const triggerOCR = async (versionId: string, path: string, type: string) => {
+    try {
+      // Mettre à jour le statut
+      await supabase
+        .from('document_versions')
+        .update({ ocr_status: 'processing' })
+        .eq('id', versionId)
+
+      // Appeler l'Edge Function pour OCR
+      const { data, error } = await supabase.functions.invoke('extract-plan-metadata', {
+        body: { versionId, path, type }
+      })
+
+      if (error) throw error
+
+      // Mettre à jour avec les résultats OCR
+      await supabase
+        .from('document_versions')
+        .update({
+          ocr_status: 'completed',
+          drawing_number: data.drawingNumber,
+          drawing_title: data.drawingTitle,
+          ocr_data: data.fullData,
+        })
+        .eq('id', versionId)
+
+      await fetchDocuments()
+
+    } catch (err) {
+      console.error('OCR failed:', err)
+      await supabase
+        .from('document_versions')
+        .update({ ocr_status: 'failed' })
+        .eq('id', versionId)
+    }
+  }
+
+  const getDocumentUrl = (storagePath: string) => {
+    const { data } = supabase.storage
+      .from('project-documents')
+      .getPublicUrl(storagePath)
+    return data.publicUrl
+  }
+
+  const deleteVersion = async (versionId: string, storagePath: string) => {
+    try {
+      // Supprimer du storage
+      await supabase.storage
+        .from('project-documents')
+        .remove([storagePath])
+
+      // Supprimer de la BD
+      await supabase
         .from('document_versions')
         .delete()
-        .eq('id', versionId);
-      
-      if (error) throw error;
-      
-      setVersions(prev => prev.filter(v => v.id !== versionId));
-      return true;
-      
+        .eq('id', versionId)
+
+      await fetchDocuments()
     } catch (err) {
-      console.error('Erreur suppression version:', err);
-      setError(err instanceof Error ? err.message : 'Erreur inconnue');
-      return false;
-    } finally {
-      setLoading(false);
+      const message = err instanceof Error ? err.message : 'Delete failed'
+      setError(message)
+      throw err
     }
-  }, [document, versions]);
-  
-  // Comparer deux versions
-  const compareVersions = useCallback((
-    oldVersionId: string,
-    newVersionId: string
-  ): VersionCompare | null => {
-    const oldVersion = versions.find(v => v.id === oldVersionId);
-    const newVersion = versions.find(v => v.id === newVersionId);
-    
-    if (!oldVersion || !newVersion) return null;
-    
-    const differences: VersionCompare['differences'] = [];
-    
-    if (oldVersion.filename !== newVersion.filename) {
-      differences.push({
-        field: 'Nom du fichier',
-        oldValue: oldVersion.filename,
-        newValue: newVersion.filename
-      });
+  }
+
+  const updateDrawingMetadata = async (
+    versionId: string,
+    drawingNumber: string,
+    drawingTitle: string
+  ) => {
+    try {
+      await supabase
+        .from('document_versions')
+        .update({ drawing_number: drawingNumber, drawing_title: drawingTitle })
+        .eq('id', versionId)
+
+      await fetchDocuments()
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Update failed'
+      setError(message)
+      throw err
     }
-    
-    if (oldVersion.fileSize !== newVersion.fileSize) {
-      differences.push({
-        field: 'Taille',
-        oldValue: formatFileSize(oldVersion.fileSize),
-        newValue: formatFileSize(newVersion.fileSize)
-      });
-    }
-    
-    return {
-      oldVersion,
-      newVersion,
-      differences
-    };
-  }, [versions]);
-  
-  // Obtenir la version la plus récente
-  const getLatestVersion = useCallback((): DocumentVersion | null => {
-    return versions.find(v => v.isLatest) || versions[0] || null;
-  }, [versions]);
-  
-  // Obtenir une version spécifique
-  const getVersion = useCallback((versionNum: number): DocumentVersion | null => {
-    return versions.find(v => v.version === versionNum) || null;
-  }, [versions]);
-  
+  }
+
   return {
-    document,
-    versions,
+    documents,
     loading,
+    uploading,
     error,
-    loadDocument,
-    createVersion,
-    restoreVersion,
+    uploadDocument,
+    getDocumentUrl,
     deleteVersion,
-    compareVersions,
-    getLatestVersion,
-    getVersion,
-    refresh: () => document && loadDocument(document.id)
-  };
+    updateDrawingMetadata,
+    refetch: fetchDocuments,
+  }
 }
-
-// ============================================================================
-// HELPERS
-// ============================================================================
-function formatFileSize(bytes: number): string {
-  if (bytes === 0) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-}
-
-export default useDocumentVersioning;
