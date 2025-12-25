@@ -1,6 +1,7 @@
 /**
  * DAST Solutions - Layout Principal COMPLET
  * Sidebar avec tous les menus et sous-menus
+ * CORRIGÉ: Positionnement du profil utilisateur en bas
  */
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
 import { useState, useEffect, useRef } from 'react'
@@ -13,7 +14,7 @@ import {
   Contact, Link as LinkIcon, TrendingUp, Flame, ShoppingCart,
   BookOpen, BookMarked, Scale, FileCheck, Users2, Package,
   Wrench, Smartphone, MessageSquare, MapPin, Database,
-  FileSpreadsheet, Cloud, Import, PlusCircle
+  FileSpreadsheet, Cloud, Import, PlusCircle, Moon, Sun
 } from 'lucide-react'
 
 interface NavItem {
@@ -82,8 +83,7 @@ const navigation: NavItem[] = [
       { name: 'CCQ Navigator', href: '/ressources/ccq-navigator', icon: Scale },
       { name: 'Contrats ACC/CCDC', href: '/ressources/documents-acc-ccdc', icon: FileCheck },
       { name: 'Associations', href: '/ressources/associations', icon: Users2 },
-      { name: 'Prix matériaux', href: '/material-prices', icon: DollarSign },
-      { name: 'Base de données prix', href: '/materials', icon: Database },
+      { name: 'Matériaux & Prix', href: '/materials', icon: Package },
     ]
   },
 
@@ -197,6 +197,10 @@ export default function Layout() {
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set(['Projets', 'Ressources']))
   const [userProfile, setUserProfile] = useState<any>(null)
+  const [darkMode, setDarkMode] = useState(() => {
+    const saved = localStorage.getItem('dast_dark_mode')
+    return saved === 'true'
+  })
 
   useEffect(() => {
     const getUser = async () => {
@@ -211,9 +215,29 @@ export default function Layout() {
     getUser()
   }, [])
 
+  // Dark mode toggle
+  useEffect(() => {
+    localStorage.setItem('dast_dark_mode', darkMode.toString())
+    if (darkMode) {
+      document.documentElement.classList.add('dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+    }
+  }, [darkMode])
+
   const handleLogout = async () => {
     await supabase.auth.signOut()
     navigate('/login')
+  }
+
+  const isActive = (href?: string) => {
+    if (!href) return false
+    return location.pathname === href || location.pathname.startsWith(href + '/')
+  }
+
+  const isParentActive = (item: NavItem) => {
+    if (item.href) return isActive(item.href)
+    return item.children?.some(child => isActive(child.href)) || false
   }
 
   const toggleMenu = (name: string) => {
@@ -226,17 +250,6 @@ export default function Layout() {
       }
       return next
     })
-  }
-
-  const isActive = (href?: string) => {
-    if (!href) return false
-    return location.pathname === href || 
-           (href !== '/dashboard' && location.pathname.startsWith(href))
-  }
-
-  const isParentActive = (item: NavItem) => {
-    if (item.href) return isActive(item.href)
-    return item.children?.some(child => isActive(child.href)) || false
   }
 
   return (
@@ -253,10 +266,10 @@ export default function Layout() {
       <aside className={`
         fixed top-0 left-0 z-50 h-full w-72 bg-gray-900 transform transition-transform duration-200 ease-in-out
         lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-        overflow-y-auto
+        flex flex-col
       `}>
         {/* Logo */}
-        <div className="h-16 flex items-center justify-between px-4 border-b border-gray-800 sticky top-0 bg-gray-900 z-10">
+        <div className="h-16 flex items-center justify-between px-4 border-b border-gray-800 flex-shrink-0">
           <Link to="/dashboard" className="flex items-center gap-2">
             <div className="w-10 h-10 bg-teal-500 rounded-lg flex items-center justify-center">
               <Building2 className="text-white" size={24} />
@@ -274,8 +287,8 @@ export default function Layout() {
           </button>
         </div>
 
-        {/* Navigation */}
-        <nav className="p-3 space-y-1 pb-24">
+        {/* Navigation - scrollable */}
+        <nav className="flex-1 overflow-y-auto p-3 space-y-1">
           {navigation.map((item) => (
             <div key={item.name}>
               {item.children ? (
@@ -342,8 +355,8 @@ export default function Layout() {
           ))}
         </nav>
 
-        {/* User info & Logout */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-800 bg-gray-900">
+        {/* User info & Logout - FIXED at bottom */}
+        <div className="flex-shrink-0 p-4 border-t border-gray-800 bg-gray-900">
           {userProfile && (
             <div className="flex items-center gap-3 mb-3 px-2">
               <div className="w-10 h-10 bg-teal-500/20 rounded-full flex items-center justify-center">
@@ -400,6 +413,15 @@ export default function Layout() {
 
             {/* Right side */}
             <div className="flex items-center gap-2">
+              {/* Dark mode toggle */}
+              <button
+                onClick={() => setDarkMode(!darkMode)}
+                className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+                title={darkMode ? 'Mode clair' : 'Mode sombre'}
+              >
+                {darkMode ? <Sun size={20} /> : <Moon size={20} />}
+              </button>
+
               {/* Quick add */}
               <button 
                 onClick={() => navigate('/project/new')}
@@ -439,6 +461,14 @@ export default function Layout() {
                         <Settings size={16} />
                         Paramètres
                       </Link>
+                      <button
+                        onClick={() => setDarkMode(!darkMode)}
+                        className="flex items-center gap-2 w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                      >
+                        {darkMode ? <Sun size={16} /> : <Moon size={16} />}
+                        {darkMode ? 'Mode clair' : 'Mode sombre'}
+                      </button>
+                      <hr className="my-1" />
                       <button
                         onClick={handleLogout}
                         className="flex items-center gap-2 w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"

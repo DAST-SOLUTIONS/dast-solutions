@@ -149,9 +149,27 @@ export function WidgetWeather({ projectAddress = 'Montréal, QC', latitude, long
   }
 
   if (error) {
+    const isApiKeyError = error.includes('API key')
     return (
-      <div className="card p-4 bg-red-50 border border-red-200">
-        <p className="text-sm text-red-700">⚠️ {error}</p>
+      <div className={`p-4 rounded-lg border ${isApiKeyError ? 'bg-amber-50 border-amber-200' : 'bg-red-50 border-red-200'}`}>
+        <div className="flex items-start gap-3">
+          <AlertTriangle className={isApiKeyError ? 'text-amber-500' : 'text-red-500'} size={20} />
+          <div>
+            <p className={`text-sm font-medium ${isApiKeyError ? 'text-amber-800' : 'text-red-700'}`}>
+              {error}
+            </p>
+            {isApiKeyError && (
+              <div className="mt-2 text-xs text-amber-700 space-y-1">
+                <p>Pour activer la météo construction:</p>
+                <ol className="list-decimal list-inside space-y-0.5 ml-1">
+                  <li>Créer un compte sur <a href="https://openweathermap.org/api" target="_blank" rel="noopener" className="underline hover:text-amber-900">openweathermap.org</a></li>
+                  <li>Obtenir une API key gratuite (One Call API 3.0)</li>
+                  <li>Ajouter dans Vercel: <code className="bg-amber-100 px-1 rounded">VITE_OPENWEATHER_API_KEY</code></li>
+                </ol>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     )
   }

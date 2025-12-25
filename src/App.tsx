@@ -16,7 +16,6 @@ import TakeoffV2 from '@/pages/TakeoffV2'
 import BidProposalV2 from '@/pages/BidProposalV2'
 import Clients from '@/pages/Clients'
 import Factures from '@/pages/Factures'
-import MaterialPrices from '@/pages/MaterialPrices'
 import Analytics from '@/pages/Analytics'
 import Settings from '@/pages/Settings'
 
@@ -131,8 +130,9 @@ function App() {
           <Route path="ressources/ccq-navigator" element={<CCQNavigator />} />
           <Route path="ressources/documents-acc-ccdc" element={<DocumentsACCCCDC />} />
           <Route path="ressources/associations" element={<Associations />} />
-          <Route path="material-prices" element={<MaterialPrices />} />
+          {/* Matériaux & Prix - page unifiée */}
           <Route path="materials" element={<MaterialDatabase />} />
+          <Route path="material-prices" element={<Navigate to="/materials" />} />
           
           {/* ============ OUTILS AVANCÉS ============ */}
           <Route path="outils-avances/application-mobile" element={<ApplicationMobile />} />
