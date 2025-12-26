@@ -1,10 +1,10 @@
 /**
  * DAST Solutions - Hook Bottin Ressources
- * Gestion des individus, équipes et équipements
+ * NOTE: La DB utilise equipement_statut, ce hook mappe vers statut
  */
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import type { Individu, Equipement, Equipe, EquipeMembre, EquipeEquipement } from '@/types/modules'
+import type { Individu, Equipement, Equipe } from '@/types/modules'
 
 export function useBottin() {
   const [individus, setIndividus] = useState<Individu[]>([])
@@ -30,7 +30,11 @@ export function useBottin() {
       ])
 
       if (indRes.data) setIndividus(indRes.data)
-      if (equipRes.data) setEquipements(equipRes.data)
+      // Mapper equipement_statut vers statut
+      if (equipRes.data) {
+        const mapped = equipRes.data.map((eq: any) => ({ ...eq, statut: eq.equipement_statut }))
+        setEquipements(mapped)
+      }
       if (equipeRes.data) setEquipes(equipeRes.data)
     } catch (err: any) {
       setError(err.message)
@@ -45,11 +49,7 @@ export function useBottin() {
   const createIndividu = async (data: Partial<Individu>) => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return null
-    const { data: result, error } = await supabase
-      .from('bottin_individus')
-      .insert({ ...data, user_id: user.id })
-      .select()
-      .single()
+    const { data: result } = await supabase.from('bottin_individus').insert({ ...data, user_id: user.id }).select().single()
     if (result) setIndividus([...individus, result])
     return result
   }
@@ -70,18 +70,32 @@ export function useBottin() {
   const createEquipement = async (data: Partial<Equipement>) => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return null
-    const { data: result, error } = await supabase
-      .from('bottin_equipements')
-      .insert({ ...data, user_id: user.id })
-      .select()
-      .single()
-    if (result) setEquipements([...equipements, result])
-    return result
+    // Mapper statut vers equipement_statut pour la DB
+    const insertData: any = { ...data, user_id: user.id }
+    if (insertData.statut) {
+      insertData.equipement_statut = insertData.statut
+      delete insertData.statut
+    }
+    const { data: result } = await supabase.from('bottin_equipements').insert(insertData).select().single()
+    if (result) {
+      const mapped = { ...result, statut: result.equipement_statut }
+      setEquipements([...equipements, mapped])
+      return mapped
+    }
+    return null
   }
 
   const updateEquipement = async (id: string, data: Partial<Equipement>) => {
-    const { error } = await supabase.from('bottin_equipements').update(data).eq('id', id)
-    if (!error) setEquipements(equipements.map(e => e.id === id ? { ...e, ...data } : e))
+    // Mapper statut vers equipement_statut pour la DB
+    const updateData: any = { ...data }
+    if (updateData.statut) {
+      updateData.equipement_statut = updateData.statut
+      delete updateData.statut
+    }
+    const { error } = await supabase.from('bottin_equipements').update(updateData).eq('id', id)
+    if (!error) {
+      setEquipements(equipements.map(e => e.id === id ? { ...e, ...data } : e))
+    }
     return !error
   }
 
@@ -95,14 +109,8 @@ export function useBottin() {
   const createEquipe = async (data: Partial<Equipe>) => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return null
-    const { data: result, error } = await supabase
-      .from('bottin_equipes')
-      .insert({ ...data, user_id: user.id })
-      .select()
-      .single()
-    if (result) {
-      setEquipes([...equipes, { ...result, membres: [], equipements: [] }])
-    }
+    const { data: result } = await supabase.from('bottin_equipes').insert({ ...data, user_id: user.id }).select().single()
+    if (result) setEquipes([...equipes, { ...result, membres: [], equipements: [] }])
     return result
   }
 
@@ -120,59 +128,34 @@ export function useBottin() {
 
   // MEMBRES D'ÉQUIPE
   const addMembreEquipe = async (equipeId: string, individuId: string, role?: string) => {
-    const { data: result, error } = await supabase
-      .from('bottin_equipe_membres')
-      .insert({ equipe_id: equipeId, individu_id: individuId, role_equipe: role })
-      .select('*, individu:bottin_individus(*)')
-      .single()
-    if (result) {
-      await recalculerCoutsEquipe(equipeId)
-      fetchAll()
-    }
+    const { data: result } = await supabase.from('bottin_equipe_membres').insert({ equipe_id: equipeId, individu_id: individuId, role_equipe: role }).select('*, individu:bottin_individus(*)').single()
+    if (result) { await recalculerCoutsEquipe(equipeId); fetchAll() }
     return result
   }
 
   const removeMembreEquipe = async (membreId: string, equipeId: string) => {
     const { error } = await supabase.from('bottin_equipe_membres').delete().eq('id', membreId)
-    if (!error) {
-      await recalculerCoutsEquipe(equipeId)
-      fetchAll()
-    }
+    if (!error) { await recalculerCoutsEquipe(equipeId); fetchAll() }
     return !error
   }
 
   // ÉQUIPEMENTS D'ÉQUIPE
   const addEquipementEquipe = async (equipeId: string, equipementId: string, quantite: number = 1) => {
-    const { data: result, error } = await supabase
-      .from('bottin_equipe_equipements')
-      .insert({ equipe_id: equipeId, equipement_id: equipementId, quantite })
-      .select('*, equipement:bottin_equipements(*)')
-      .single()
-    if (result) {
-      await recalculerCoutsEquipe(equipeId)
-      fetchAll()
-    }
+    const { data: result } = await supabase.from('bottin_equipe_equipements').insert({ equipe_id: equipeId, equipement_id: equipementId, quantite }).select('*, equipement:bottin_equipements(*)').single()
+    if (result) { await recalculerCoutsEquipe(equipeId); fetchAll() }
     return result
   }
 
   const removeEquipementEquipe = async (equipEquipeId: string, equipeId: string) => {
     const { error } = await supabase.from('bottin_equipe_equipements').delete().eq('id', equipEquipeId)
-    if (!error) {
-      await recalculerCoutsEquipe(equipeId)
-      fetchAll()
-    }
+    if (!error) { await recalculerCoutsEquipe(equipeId); fetchAll() }
     return !error
   }
 
-  // RECALCUL DES COÛTS D'ÉQUIPE
   const recalculerCoutsEquipe = async (equipeId: string) => {
     const equipe = equipes.find(e => e.id === equipeId)
     if (!equipe) return
-
-    let coutHoraire = 0
-    let coutJournalier = 0
-
-    // Coûts des membres
+    let coutHoraire = 0, coutJournalier = 0
     if (equipe.membres) {
       for (const m of equipe.membres) {
         if (m.individu) {
@@ -181,8 +164,6 @@ export function useBottin() {
         }
       }
     }
-
-    // Coûts des équipements
     if (equipe.equipements) {
       for (const ee of equipe.equipements) {
         if (ee.equipement) {
@@ -191,30 +172,20 @@ export function useBottin() {
         }
       }
     }
-
-    await supabase.from('bottin_equipes').update({
-      cout_horaire_total: coutHoraire,
-      cout_journalier_total: coutJournalier
-    }).eq('id', equipeId)
+    await supabase.from('bottin_equipes').update({ cout_horaire_total: coutHoraire, cout_journalier_total: coutJournalier }).eq('id', equipeId)
   }
 
-  // Filtres
   const getIndividusByType = (type: string) => individus.filter(i => i.type === type)
   const getEquipementsByCategorie = (cat: string) => equipements.filter(e => e.categorie === cat)
-  const getEquipementsDisponibles = () => equipements.filter(e => e.equipement_equipement_statut === 'disponible' && e.actif)
+  const getEquipementsDisponibles = () => equipements.filter(e => e.statut === 'disponible' && e.actif)
 
   return {
     individus, equipements, equipes, loading, error,
     refetch: fetchAll,
-    // Individus
     createIndividu, updateIndividu, deleteIndividu, getIndividusByType,
-    // Équipements
     createEquipement, updateEquipement, deleteEquipement, getEquipementsByCategorie, getEquipementsDisponibles,
-    // Équipes
     createEquipe, updateEquipe, deleteEquipe,
-    addMembreEquipe, removeMembreEquipe,
-    addEquipementEquipe, removeEquipementEquipe,
-    recalculerCoutsEquipe
+    addMembreEquipe, removeMembreEquipe, addEquipementEquipe, removeEquipementEquipe, recalculerCoutsEquipe
   }
 }
 

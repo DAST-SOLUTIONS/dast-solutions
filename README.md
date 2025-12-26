@@ -103,3 +103,15 @@ Les colonnes `statut` ont été renommées pour éviter les conflits PostgreSQL:
 - `soumission_recue_statut` (appels_offres_soumissions)
 
 Les hooks font automatiquement le mapping vers `statut` dans l'interface.
+
+---
+
+## ⚠️ IMPORTANT - AVANT DE DÉPLOYER
+
+**Supprimer les anciens fichiers Soumissions:**
+
+```bash
+rm -rf src/pages/Soumissions/
+```
+
+Ces fichiers causent des erreurs TypeScript car ils utilisent l'ancien format.

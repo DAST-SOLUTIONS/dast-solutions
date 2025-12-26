@@ -1,5 +1,6 @@
 /**
  * DAST Solutions - Types pour les modules Phases 1-4
+ * NOTE: Les hooks font le mapping des colonnes DB vers ces interfaces
  */
 
 // ============================================================================

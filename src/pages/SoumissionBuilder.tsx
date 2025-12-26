@@ -3,9 +3,8 @@
  */
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { FileText, Plus, Trash2, Send, Copy, Download, ChevronDown, ChevronRight, DollarSign, Calculator } from 'lucide-react'
+import { FileText, Plus, Trash2, Send, Copy, Download, ChevronDown, ChevronRight } from 'lucide-react'
 import { useSoumissions, useSoumissionDetail } from '@/hooks/useSoumissions'
-import type { SoumissionV2 } from '@/types/modules'
 
 export default function SoumissionsPage() {
   const navigate = useNavigate()
@@ -41,23 +40,14 @@ export default function SoumissionsPage() {
 
       <div className="grid grid-cols-4 gap-4">
         <div className="bg-white p-4 rounded-lg border"><p className="text-2xl font-bold text-gray-900">{soumissions.length}</p><p className="text-sm text-gray-500">Total</p></div>
-        <div className="bg-white p-4 rounded-lg border"><p className="text-2xl font-bold text-blue-600">{soumissions.filter(s => s.soumission_statut === 'envoye').length}</p><p className="text-sm text-gray-500">En attente</p></div>
-        <div className="bg-white p-4 rounded-lg border"><p className="text-2xl font-bold text-green-600">{soumissions.filter(s => s.soumission_statut === 'accepte').length}</p><p className="text-sm text-gray-500">Acceptées</p></div>
+        <div className="bg-white p-4 rounded-lg border"><p className="text-2xl font-bold text-blue-600">{soumissions.filter(s => s.statut === 'envoye').length}</p><p className="text-sm text-gray-500">En attente</p></div>
+        <div className="bg-white p-4 rounded-lg border"><p className="text-2xl font-bold text-green-600">{soumissions.filter(s => s.statut === 'accepte').length}</p><p className="text-sm text-gray-500">Acceptées</p></div>
         <div className="bg-white p-4 rounded-lg border"><p className="text-2xl font-bold text-teal-600">{soumissions.reduce((sum, s) => sum + (s.total_avant_taxes || 0), 0).toLocaleString('fr-CA', { style: 'currency', currency: 'CAD', maximumFractionDigits: 0 })}</p><p className="text-sm text-gray-500">Valeur totale</p></div>
       </div>
 
       <div className="bg-white rounded-xl border overflow-hidden">
         <table className="w-full">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="text-left p-4 text-sm font-medium text-gray-600">Numéro</th>
-              <th className="text-left p-4 text-sm font-medium text-gray-600">Client / Projet</th>
-              <th className="text-left p-4 text-sm font-medium text-gray-600">Date</th>
-              <th className="text-right p-4 text-sm font-medium text-gray-600">Montant</th>
-              <th className="text-center p-4 text-sm font-medium text-gray-600">Statut</th>
-              <th className="text-center p-4 text-sm font-medium text-gray-600">Actions</th>
-            </tr>
-          </thead>
+          <thead className="bg-gray-50"><tr><th className="text-left p-4 text-sm font-medium text-gray-600">Numéro</th><th className="text-left p-4 text-sm font-medium text-gray-600">Client / Projet</th><th className="text-left p-4 text-sm font-medium text-gray-600">Date</th><th className="text-right p-4 text-sm font-medium text-gray-600">Montant</th><th className="text-center p-4 text-sm font-medium text-gray-600">Statut</th><th className="text-center p-4 text-sm font-medium text-gray-600">Actions</th></tr></thead>
           <tbody className="divide-y">
             {soumissions.map(soum => (
               <tr key={soum.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => navigate(`/soumissions-v2/${soum.id}`)}>
@@ -65,7 +55,7 @@ export default function SoumissionsPage() {
                 <td className="p-4"><p className="font-medium text-gray-900">{soum.client_nom || 'Sans client'}</p><p className="text-sm text-gray-500">{soum.projet_nom || 'Sans projet'}</p></td>
                 <td className="p-4 text-sm text-gray-600">{new Date(soum.date_soumission).toLocaleDateString('fr-CA')}</td>
                 <td className="p-4 text-right font-medium">{soum.total_avant_taxes?.toLocaleString('fr-CA', { style: 'currency', currency: 'CAD' }) || '0,00 $'}</td>
-                <td className="p-4 text-center"><span className={`px-2 py-1 rounded text-xs font-medium ${getStatutColor(soum.soumission_statut)}`}>{soum.soumission_statut}</span></td>
+                <td className="p-4 text-center"><span className={`px-2 py-1 rounded text-xs font-medium ${getStatutColor(soum.statut)}`}>{soum.statut}</span></td>
                 <td className="p-4" onClick={(e) => e.stopPropagation()}>
                   <div className="flex items-center justify-center gap-1">
                     <button onClick={() => dupliquerSoumission(soum.id)} className="p-1 text-gray-400 hover:text-blue-600" title="Dupliquer"><Copy size={16} /></button>
@@ -98,7 +88,7 @@ export default function SoumissionsPage() {
 export function SoumissionEditor() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { soumission, sections, items, loading, createSection, updateSection, deleteSection, createItem, updateItem, deleteItem, updateMarges, recalculerTotaux } = useSoumissionDetail(id || '')
+  const { soumission, sections, items, loading, createSection, deleteSection, createItem, updateItem, deleteItem, updateMarges } = useSoumissionDetail(id || '')
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set())
   const [editingMarges, setEditingMarges] = useState(false)
   const [marges, setMarges] = useState({ frais_generaux_pct: 0, administration_pct: 0, profit_pct: 0, contingence_pct: 0 })
@@ -122,7 +112,7 @@ export function SoumissionEditor() {
           <div className="flex items-center gap-3 mb-1">
             <button onClick={() => navigate('/soumissions-v2')} className="text-gray-400 hover:text-gray-600">←</button>
             <h1 className="text-2xl font-bold text-gray-900">{soumission.numero}</h1>
-            <span className={`px-2 py-0.5 rounded text-xs font-medium ${soumission.soumission_statut === 'brouillon' ? 'bg-gray-100 text-gray-700' : soumission.soumission_statut === 'accepte' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>{soumission.soumission_statut}</span>
+            <span className={`px-2 py-0.5 rounded text-xs font-medium ${soumission.statut === 'brouillon' ? 'bg-gray-100 text-gray-700' : soumission.statut === 'accepte' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>{soumission.statut}</span>
           </div>
           <p className="text-gray-600">{soumission.client_nom} - {soumission.projet_nom}</p>
         </div>
