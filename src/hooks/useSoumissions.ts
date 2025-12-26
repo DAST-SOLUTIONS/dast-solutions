@@ -1,359 +1,188 @@
+/**
+ * DAST Solutions - Hook Soumissions V2
+ * NOTE: Colonne renommée soumission_statut dans la DB
+ */
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import type { 
-  Soumission, 
-  SoumissionItem, 
-  SoumissionSummary, 
-  CreateSoumissionParams,
-  SoumissionStatus 
-} from '@/types/soumission-types'
-import { generateSoumissionNumber, calculateSoumissionTotals } from '@/types/soumission-types'
+import type { SoumissionV2, SoumissionSection, SoumissionItem } from '@/types/modules'
 
-export function useSoumissions(projectId?: string) {
-  const [soumissions, setSoumissions] = useState<SoumissionSummary[]>([])
+export function useSoumissions() {
+  const [soumissions, setSoumissions] = useState<SoumissionV2[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<string>('')
 
-  // Charger les soumissions
   const fetchSoumissions = async () => {
     try {
-      let query = supabase
-        .from('soumissions')
-        .select('id, soumission_number, client_name, client_company, project_name, total, status, date_created, date_valid_until')
+      setLoading(true)
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const { data, error } = await supabase
+        .from('soumissions_v2')
+        .select('*')
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false })
 
-      if (projectId) {
-        query = query.eq('project_id', projectId)
-      }
-
-      const { data, error } = await query
-
       if (error) throw error
-      setSoumissions(data || [])
-    } catch (err) {
-      console.error('Error fetching soumissions:', err)
-      setError(err instanceof Error ? err.message : 'Erreur de chargement')
-    }
-  }
-
-  // Obtenir une soumission avec ses items
-  const getSoumission = async (id: string): Promise<Soumission | null> => {
-    try {
-      const { data: soumission, error: soumissionError } = await supabase
-        .from('soumissions')
-        .select('*')
-        .eq('id', id)
-        .single()
-
-      if (soumissionError) throw soumissionError
-
-      const { data: items, error: itemsError } = await supabase
-        .from('soumission_items')
-        .select('*')
-        .eq('soumission_id', id)
-        .order('sort_order', { ascending: true })
-
-      if (itemsError) throw itemsError
-
-      return { ...soumission, items: items || [] }
-    } catch (err) {
-      console.error('Error fetching soumission:', err)
-      return null
-    }
-  }
-
-  // Créer une nouvelle soumission
-  const createSoumission = async (params: CreateSoumissionParams): Promise<Soumission | null> => {
-    try {
-      // Calculer les totaux
-      const totals = calculateSoumissionTotals(params.items)
-
-      // Générer le numéro de soumission
-      const soumissionNumber = generateSoumissionNumber()
-
-      // Créer la soumission
-      const { data: soumission, error: soumissionError } = await supabase
-        .from('soumissions')
-        .insert({
-          project_id: params.project_id,
-          soumission_number: soumissionNumber,
-          revision: 1,
-          
-          // Client
-          client_name: params.client.name,
-          client_company: params.client.company,
-          client_address: params.client.address,
-          client_city: params.client.city,
-          client_province: params.client.province || 'QC',
-          client_postal_code: params.client.postal_code,
-          client_phone: params.client.phone,
-          client_email: params.client.email,
-          
-          // Projet
-          project_name: params.project_name,
-          project_address: params.project_address,
-          project_description: params.project_description,
-          
-          // Montants
-          subtotal: totals.subtotal,
-          tps_amount: totals.tps_amount,
-          tvq_amount: totals.tvq_amount,
-          total: totals.total,
-          
-          // Dates
-          date_created: new Date().toISOString(),
-          date_valid_until: params.date_valid_until || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-          
-          // Statut
-          status: 'brouillon',
-          
-          // Conditions
-          conditions: params.conditions,
-          exclusions: params.exclusions,
-          notes_internes: params.notes_internes
-        })
-        .select()
-        .single()
-
-      if (soumissionError) throw soumissionError
-
-      // Créer les items
-      if (params.items.length > 0) {
-        const itemsToInsert = params.items.map((item, index) => ({
-          soumission_id: soumission.id,
-          description: item.description,
-          category: item.category,
-          quantity: item.quantity,
-          unit: item.unit,
-          unit_price: item.unit_price,
-          total_price: item.quantity * item.unit_price,
-          notes: item.notes,
-          sort_order: index,
-          takeoff_item_id: item.takeoff_item_id
-        }))
-
-        const { error: itemsError } = await supabase
-          .from('soumission_items')
-          .insert(itemsToInsert)
-
-        if (itemsError) throw itemsError
-      }
-
-      await fetchSoumissions()
-      return soumission
-    } catch (err) {
-      console.error('Error creating soumission:', err)
-      setError(err instanceof Error ? err.message : 'Erreur de création')
-      return null
-    }
-  }
-
-  // Mettre à jour une soumission
-  const updateSoumission = async (id: string, updates: Partial<Soumission>): Promise<boolean> => {
-    try {
-      const { error } = await supabase
-        .from('soumissions')
-        .update({
-          ...updates,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', id)
-
-      if (error) throw error
-
-      await fetchSoumissions()
-      return true
-    } catch (err) {
-      console.error('Error updating soumission:', err)
-      return false
-    }
-  }
-
-  // Changer le statut
-  const updateStatus = async (id: string, status: SoumissionStatus): Promise<boolean> => {
-    const updates: Partial<Soumission> = { status }
-    
-    if (status === 'envoyee') {
-      updates.date_sent = new Date().toISOString()
-    }
-    
-    return updateSoumission(id, updates)
-  }
-
-  // Supprimer une soumission
-  const deleteSoumission = async (id: string): Promise<boolean> => {
-    try {
-      // Supprimer d'abord les items
-      const { error: itemsError } = await supabase
-        .from('soumission_items')
-        .delete()
-        .eq('soumission_id', id)
-
-      if (itemsError) throw itemsError
-
-      // Puis la soumission
-      const { error } = await supabase
-        .from('soumissions')
-        .delete()
-        .eq('id', id)
-
-      if (error) throw error
-
-      await fetchSoumissions()
-      return true
-    } catch (err) {
-      console.error('Error deleting soumission:', err)
-      return false
-    }
-  }
-
-  // Dupliquer une soumission (nouvelle révision)
-  const duplicateSoumission = async (id: string): Promise<Soumission | null> => {
-    try {
-      const original = await getSoumission(id)
-      if (!original) return null
-
-      // Incrémenter la révision
-      const newRevision = (original.revision || 1) + 1
-
-      // Créer la copie
-      const { data: newSoumission, error: soumissionError } = await supabase
-        .from('soumissions')
-        .insert({
-          ...original,
-          id: undefined,
-          soumission_number: `${original.soumission_number}-R${newRevision}`,
-          revision: newRevision,
-          status: 'brouillon',
-          date_created: new Date().toISOString(),
-          date_sent: null,
-          created_at: undefined,
-          updated_at: undefined
-        })
-        .select()
-        .single()
-
-      if (soumissionError) throw soumissionError
-
-      // Copier les items
-      if (original.items && original.items.length > 0) {
-        const itemsToInsert = original.items.map(item => ({
-          soumission_id: newSoumission.id,
-          description: item.description,
-          category: item.category,
-          quantity: item.quantity,
-          unit: item.unit,
-          unit_price: item.unit_price,
-          total_price: item.total_price,
-          notes: item.notes,
-          sort_order: item.sort_order
-        }))
-
-        const { error: itemsError } = await supabase
-          .from('soumission_items')
-          .insert(itemsToInsert)
-
-        if (itemsError) throw itemsError
-      }
-
-      await fetchSoumissions()
-      return newSoumission
-    } catch (err) {
-      console.error('Error duplicating soumission:', err)
-      return null
-    }
-  }
-
-  // Ajouter un item
-  const addItem = async (soumissionId: string, item: Omit<SoumissionItem, 'id' | 'soumission_id' | 'created_at' | 'updated_at'>): Promise<boolean> => {
-    try {
-      const { error } = await supabase
-        .from('soumission_items')
-        .insert({
-          soumission_id: soumissionId,
-          ...item,
-          total_price: item.quantity * item.unit_price
-        })
-
-      if (error) throw error
-
-      // Recalculer les totaux
-      await recalculateTotals(soumissionId)
-      return true
-    } catch (err) {
-      console.error('Error adding item:', err)
-      return false
-    }
-  }
-
-  // Supprimer un item
-  const deleteItem = async (soumissionId: string, itemId: string): Promise<boolean> => {
-    try {
-      const { error } = await supabase
-        .from('soumission_items')
-        .delete()
-        .eq('id', itemId)
-
-      if (error) throw error
-
-      // Recalculer les totaux
-      await recalculateTotals(soumissionId)
-      return true
-    } catch (err) {
-      console.error('Error deleting item:', err)
-      return false
-    }
-  }
-
-  // Recalculer les totaux
-  const recalculateTotals = async (soumissionId: string): Promise<boolean> => {
-    try {
-      const { data: items, error: itemsError } = await supabase
-        .from('soumission_items')
-        .select('quantity, unit_price')
-        .eq('soumission_id', soumissionId)
-
-      if (itemsError) throw itemsError
-
-      const totals = calculateSoumissionTotals(items || [])
-
-      const { error } = await supabase
-        .from('soumissions')
-        .update(totals)
-        .eq('id', soumissionId)
-
-      if (error) throw error
-
-      return true
-    } catch (err) {
-      console.error('Error recalculating totals:', err)
-      return false
-    }
-  }
-
-  useEffect(() => {
-    const loadData = async () => {
-      setLoading(true)
-      await fetchSoumissions()
+      // Mapper soumission_statut vers statut pour l'interface
+      const mapped = (data || []).map(s => ({ ...s, statut: s.soumission_statut }))
+      setSoumissions(mapped)
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
       setLoading(false)
     }
-
-    loadData()
-  }, [projectId])
-
-  return {
-    soumissions,
-    loading,
-    error,
-    getSoumission,
-    createSoumission,
-    updateSoumission,
-    updateStatus,
-    deleteSoumission,
-    duplicateSoumission,
-    addItem,
-    deleteItem,
-    recalculateTotals,
-    refetch: fetchSoumissions
   }
+
+  useEffect(() => { fetchSoumissions() }, [])
+
+  const genererNumero = async (): Promise<string> => {
+    const annee = new Date().getFullYear()
+    const { count } = await supabase.from('soumissions_v2').select('*', { count: 'exact', head: true })
+    return `S${annee}-${String((count || 0) + 1).padStart(4, '0')}`
+  }
+
+  const createSoumission = async (data: Partial<SoumissionV2>) => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return null
+    const numero = await genererNumero()
+    const insertData = { ...data, user_id: user.id, numero, soumission_statut: data.statut || 'brouillon' }
+    delete (insertData as any).statut
+    const { data: result, error } = await supabase.from('soumissions_v2').insert(insertData).select().single()
+    if (result) {
+      const mapped = { ...result, statut: result.soumission_statut }
+      setSoumissions([mapped, ...soumissions])
+      return mapped
+    }
+    return null
+  }
+
+  const updateSoumission = async (id: string, data: Partial<SoumissionV2>) => {
+    const updateData = { ...data }
+    if (updateData.statut) { (updateData as any).soumission_statut = updateData.statut; delete updateData.statut }
+    const { error } = await supabase.from('soumissions_v2').update(updateData).eq('id', id)
+    if (!error) fetchSoumissions()
+    return !error
+  }
+
+  const deleteSoumission = async (id: string) => {
+    const { error } = await supabase.from('soumissions_v2').delete().eq('id', id)
+    if (!error) setSoumissions(soumissions.filter(s => s.id !== id))
+    return !error
+  }
+
+  const dupliquerSoumission = async (id: string) => {
+    const original = soumissions.find(s => s.id === id)
+    if (!original) return null
+    const { id: _, numero, created_at, updated_at, ...rest } = original
+    return createSoumission({ ...rest, statut: 'brouillon' })
+  }
+
+  const getByProject = (projectId: string) => soumissions.filter(s => s.project_id === projectId)
+
+  return { soumissions, loading, error, refetch: fetchSoumissions, genererNumero, createSoumission, updateSoumission, deleteSoumission, dupliquerSoumission, getByProject }
 }
+
+export function useSoumissionDetail(soumissionId: string) {
+  const [soumission, setSoumission] = useState<SoumissionV2 | null>(null)
+  const [sections, setSections] = useState<SoumissionSection[]>([])
+  const [items, setItems] = useState<SoumissionItem[]>([])
+  const [loading, setLoading] = useState(true)
+
+  const fetchDetail = async () => {
+    if (!soumissionId) return
+    try {
+      setLoading(true)
+      const { data: soumData } = await supabase.from('soumissions_v2').select('*').eq('id', soumissionId).single()
+      const { data: sectionsData } = await supabase.from('soumissions_sections').select('*').eq('soumission_id', soumissionId).order('ordre')
+      const sectionIds = sectionsData?.map(s => s.id) || []
+      const { data: itemsData } = sectionIds.length > 0 
+        ? await supabase.from('soumissions_items').select('*').in('section_id', sectionIds).order('ordre')
+        : { data: [] }
+
+      if (soumData) setSoumission({ ...soumData, statut: soumData.soumission_statut })
+      setSections(sectionsData || [])
+      setItems(itemsData || [])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => { fetchDetail() }, [soumissionId])
+
+  const createSection = async (data: Partial<SoumissionSection>) => {
+    const ordre = sections.length
+    const { data: result } = await supabase.from('soumissions_sections').insert({ ...data, soumission_id: soumissionId, ordre }).select().single()
+    if (result) setSections([...sections, result])
+    return result
+  }
+
+  const updateSection = async (id: string, data: Partial<SoumissionSection>) => {
+    const { error } = await supabase.from('soumissions_sections').update(data).eq('id', id)
+    if (!error) setSections(sections.map(s => s.id === id ? { ...s, ...data } : s))
+    return !error
+  }
+
+  const deleteSection = async (id: string) => {
+    const { error } = await supabase.from('soumissions_sections').delete().eq('id', id)
+    if (!error) { setSections(sections.filter(s => s.id !== id)); setItems(items.filter(i => i.section_id !== id)) }
+    return !error
+  }
+
+  const createItem = async (data: Partial<SoumissionItem>) => {
+    const ordre = items.filter(i => i.section_id === data.section_id).length
+    const { data: result } = await supabase.from('soumissions_items').insert({ ...data, ordre }).select().single()
+    if (result) { setItems([...items, result]); await recalculerTotaux() }
+    return result
+  }
+
+  const updateItem = async (id: string, data: Partial<SoumissionItem>) => {
+    const { error } = await supabase.from('soumissions_items').update(data).eq('id', id)
+    if (!error) { setItems(items.map(i => i.id === id ? { ...i, ...data } : i)); await recalculerTotaux() }
+    return !error
+  }
+
+  const deleteItem = async (id: string) => {
+    const { error } = await supabase.from('soumissions_items').delete().eq('id', id)
+    if (!error) { setItems(items.filter(i => i.id !== id)); await recalculerTotaux() }
+    return !error
+  }
+
+  const recalculerTotaux = async () => {
+    if (!soumission) return
+    for (const section of sections) {
+      const sectionItems = items.filter(i => i.section_id === section.id)
+      const sousTotalMo = sectionItems.reduce((sum, i) => sum + (i.mo_cout_total || 0), 0)
+      const sousTotalMat = sectionItems.reduce((sum, i) => sum + (i.mat_cout_total || 0), 0)
+      const sousTotal = sectionItems.reduce((sum, i) => sum + (i.cout_total || 0), 0)
+      await supabase.from('soumissions_sections').update({ sous_total_mo: sousTotalMo, sous_total_materiaux: sousTotalMat, sous_total: sousTotal }).eq('id', section.id)
+    }
+    const totalMo = items.reduce((sum, i) => sum + (i.mo_cout_total || 0), 0)
+    const totalMat = items.reduce((sum, i) => sum + (i.mat_cout_total || 0), 0)
+    const totalEquip = items.reduce((sum, i) => sum + (i.equip_cout_total || 0), 0)
+    const totalST = items.reduce((sum, i) => sum + (i.st_cout_total || 0), 0)
+    const soustotalDirect = totalMo + totalMat + totalEquip + totalST
+    const fgMontant = soustotalDirect * (soumission.frais_generaux_pct / 100)
+    const adminMontant = soustotalDirect * (soumission.administration_pct / 100)
+    const profitMontant = soustotalDirect * (soumission.profit_pct / 100)
+    const contingenceMontant = soustotalDirect * (soumission.contingence_pct / 100)
+    const totalAvantTaxes = soustotalDirect + fgMontant + adminMontant + profitMontant + contingenceMontant
+    const tps = totalAvantTaxes * 0.05
+    const tvq = totalAvantTaxes * 0.09975
+    const totalAvecTaxes = totalAvantTaxes + tps + tvq
+    const updates = { sous_total_mo: totalMo, sous_total_materiaux: totalMat, sous_total_equipements: totalEquip, sous_total_sous_traitants: totalST, sous_total_direct: soustotalDirect, frais_generaux_montant: fgMontant, administration_montant: adminMontant, profit_montant: profitMontant, contingence_montant: contingenceMontant, total_avant_taxes: totalAvantTaxes, tps, tvq, total_avec_taxes: totalAvecTaxes }
+    await supabase.from('soumissions_v2').update(updates).eq('id', soumissionId)
+    setSoumission({ ...soumission, ...updates })
+    fetchDetail()
+  }
+
+  const updateMarges = async (marges: { frais_generaux_pct?: number; administration_pct?: number; profit_pct?: number; contingence_pct?: number }) => {
+    await supabase.from('soumissions_v2').update(marges).eq('id', soumissionId)
+    if (soumission) setSoumission({ ...soumission, ...marges })
+    await recalculerTotaux()
+  }
+
+  return { soumission, sections, items, loading, refetch: fetchDetail, createSection, updateSection, deleteSection, createItem, updateItem, deleteItem, recalculerTotaux, updateMarges }
+}
+
+export default useSoumissions

@@ -1,210 +1,105 @@
-# DAST Solutions 🏗️
+# DAST Solutions - Modules Phases 1-4
 
-Application moderne de gestion de projets de construction avec module Takeoff intégré pour l'estimation des coûts et relevés de quantités.
+## 📁 Structure des dossiers (prêt à copier-coller)
 
-## 🌟 Fonctionnalités
-
-- **📊 Tableau de bord** - Vue d'ensemble des projets et statistiques
-- **🏗️ Gestion de projets** - Suivi complet des projets de construction
-- **📝 Module Estimation** - Création d'estimations détaillées
-- **📐 Module Takeoff** - Relevé de quantités interactif et fonctionnel
-- **📈 Rapports** - Analyse des performances et budgets
-- **💡 Interface moderne** - Design responsive avec Tailwind CSS
-
-## 🛠️ Technologies utilisées
-
-- **React 18** avec TypeScript
-- **Vite** pour le build rapide
-- **Tailwind CSS** pour le styling
-- **Lucide React** pour les icônes
-- **ESLint** pour la qualité du code
-
-## 📋 Prérequis
-
-- Node.js 16.0.0 ou plus récent
-- npm 8.0.0 ou plus récent
+```
+dast-ready/
+├── src/
+│   ├── types/
+│   │   └── modules.ts          → Copier vers src/types/
+│   ├── hooks/
+│   │   ├── useBottin.ts        → Copier vers src/hooks/
+│   │   ├── useMateriauxPrix.ts → Copier vers src/hooks/
+│   │   ├── useSoumissions.ts   → Copier vers src/hooks/
+│   │   └── useAppelsOffres.ts  → Copier vers src/hooks/
+│   └── pages/
+│       ├── BottinRessources.tsx    → Copier vers src/pages/
+│       ├── MateriauxPrix.tsx       → Copier vers src/pages/
+│       ├── SoumissionBuilder.tsx   → Copier vers src/pages/
+│       └── AppelsOffres.tsx        → Copier vers src/pages/
+└── supabase/
+    └── migrations/
+        └── 001_modules_complets.sql → Exécuter dans Supabase SQL Editor
+```
 
 ## 🚀 Installation
 
-1. **Clonez ou extrayez le projet**
-   ```bash
-   # Si vous avez un repository git
-   git clone <repository-url>
-   cd dast-solutions
-   
-   # Ou extrayez simplement l'archive ZIP
-   ```
+### Étape 1: Base de données (Supabase)
 
-2. **Installez les dépendances**
-   ```bash
-   npm install
-   ```
+1. Ouvrir Supabase Dashboard → SQL Editor
+2. Copier le contenu de `supabase/migrations/001_modules_complets.sql`
+3. Cliquer "Run" pour exécuter
 
-3. **Lancez le serveur de développement**
-   ```bash
-   npm run dev
-   ```
+### Étape 2: Fichiers TypeScript
 
-4. **Ouvrez votre navigateur**
-   ```
-   http://localhost:5173
-   ```
-
-## 🎯 Scripts disponibles
+Copier les fichiers dans votre projet DAST existant:
 
 ```bash
-# Développement avec hot reload
-npm run dev
+# Types
+cp src/types/modules.ts [VOTRE_PROJET]/src/types/
 
-# Build de production
-npm run build
+# Hooks
+cp src/hooks/*.ts [VOTRE_PROJET]/src/hooks/
 
-# Aperçu du build de production
-npm run preview
-
-# Vérification TypeScript
-npm run type-check
-
-# Linting du code
-npm run lint
+# Pages
+cp src/pages/*.tsx [VOTRE_PROJET]/src/pages/
 ```
 
-## 📁 Structure du projet
+### Étape 3: Routes (App.tsx)
 
-```
-dast-solutions/
-├── src/
-│   ├── components/        # Composants React réutilisables
-│   ├── types/            # Types TypeScript
-│   ├── utils/            # Fonctions utilitaires
-│   ├── App.tsx           # Composant principal
-│   └── main.tsx          # Point d'entrée
-├── public/               # Fichiers statiques
-├── index.html           # Template HTML
-├── package.json         # Dépendances et scripts
-├── tsconfig.json        # Configuration TypeScript
-├── tailwind.config.js   # Configuration Tailwind
-├── vite.config.ts       # Configuration Vite
-└── README.md           # Ce fichier
-```
+Ajouter ces imports et routes dans votre App.tsx:
 
-## 🎮 Guide d'utilisation
+```tsx
+// Imports
+import BottinRessources from '@/pages/BottinRessources'
+import MateriauxPrixPage from '@/pages/MateriauxPrix'
+import SoumissionsPage, { SoumissionEditor } from '@/pages/SoumissionBuilder'
+import AppelsOffresPage, { AppelOffreDetail } from '@/pages/AppelsOffres'
 
-### Module Takeoff (Relevé de quantités)
-
-1. **Accès au module**
-   - Cliquez sur "Takeoff" dans la sidebar ou le header
-
-2. **Ajouter un élément**
-   - Sélectionnez une catégorie (Fondations, Charpente, etc.)
-   - Entrez le nom de l'élément
-   - Choisissez l'unité de mesure
-   - Saisissez la quantité et le prix unitaire
-   - Ajoutez des notes si nécessaire
-   - Cliquez sur le bouton "+"
-
-3. **Modifier les quantités**
-   - Cliquez directement dans les champs du tableau
-   - Les totaux se recalculent automatiquement
-
-4. **Supprimer un élément**
-   - Cliquez sur l'icône de corbeille dans la colonne Actions
-
-### Navigation
-
-- **Tableau de bord** : Vue d'ensemble et statistiques
-- **Projets** : Gestion complète des projets
-- **Estimation** : Module d'estimation (en développement)
-- **Takeoff** : Relevé de quantités fonctionnel
-- **Rapports** : Analyses et métriques
-
-## 🏗️ Données d'exemple
-
-L'application inclut des données réalistes pour le marché québécois :
-
-- **Béton de fondation** : 185 $/m³
-- **Brique d'argile** : 25 $/m²
-- **Bois d'œuvre 2x8** : 4,25 $/pmp
-- **Bardeaux d'asphalte** : 18 $/m²
-
-## 🎨 Personnalisation
-
-### Couleurs et thème
-Les couleurs principales sont définies dans `tailwind.config.js` et utilisent un dégradé teal-orange-rouge.
-
-### Ajout de nouvelles catégories
-Modifiez le composant Takeoff dans `src/App.tsx` pour ajouter de nouvelles catégories d'éléments.
-
-### Unités de mesure
-Les unités disponibles sont : m², m³, m, pmp, unité, kg, L
-
-## 🐛 Résolution de problèmes
-
-### Port déjà utilisé
-```bash
-# Utilisez un port différent
-npm run dev -- --port 3000
+// Routes (dans le Router)
+<Route path="/bottin" element={<BottinRessources />} />
+<Route path="/materiaux-prix" element={<MateriauxPrixPage />} />
+<Route path="/soumissions-v2" element={<SoumissionsPage />} />
+<Route path="/soumissions-v2/:id" element={<SoumissionEditor />} />
+<Route path="/appels-offres" element={<AppelsOffresPage />} />
+<Route path="/appels-offres/:id" element={<AppelOffreDetail />} />
 ```
 
-### Erreurs TypeScript
-```bash
-# Vérifiez les types
-npm run type-check
-```
+## 📋 Modules inclus
 
-### Problèmes de dépendances
-```bash
-# Nettoyez et réinstallez
-rm -rf node_modules package-lock.json
-npm install
-```
+| Module | Description | Route |
+|--------|-------------|-------|
+| **Bottin Ressources** | Individus, équipes, équipements | `/bottin` |
+| **Matériaux & Prix** | Catalogue + productivités M.O. | `/materiaux-prix` |
+| **Soumissions V2** | Builder avec calculs auto | `/soumissions-v2` |
+| **Appels d'Offres** | Invitations + comparatif | `/appels-offres` |
 
-## 🚀 Déploiement
+## 🗄️ Tables créées
 
-### Build de production
-```bash
-npm run build
-```
+- `bottin_individus` - Employés, sous-traitants, contacts, fournisseurs
+- `bottin_equipements` - Inventaire équipements
+- `bottin_equipes` - Équipes avec coûts calculés
+- `bottin_equipe_membres` - Liaison équipe-individu
+- `bottin_equipe_equipements` - Liaison équipe-équipement
+- `materiaux_categories` - Catégories CSC MasterFormat (23 pré-chargées)
+- `materiaux_catalogue` - Catalogue matériaux utilisateur
+- `materiaux_prix_historique` - Historique des prix
+- `materiaux_productivites` - Taux de productivité
+- `soumissions_v2` - En-têtes soumissions
+- `soumissions_sections` - Sections (DÉMOLITION, MAÇONNERIE, etc.)
+- `soumissions_items` - Lignes de soumission
+- `appels_offres` - En-têtes appels d'offres
+- `appels_offres_invitations` - Invitations envoyées
+- `appels_offres_soumissions` - Soumissions reçues
+- `appels_offres_comparatifs` - Tableaux comparatifs
 
-Les fichiers optimisés seront dans le dossier `dist/`.
+## ⚠️ Note importante
 
-### Serveur statique
-```bash
-npm run preview
-```
+Les colonnes `statut` ont été renommées pour éviter les conflits PostgreSQL:
+- `equipement_statut` (bottin_equipements)
+- `soumission_statut` (soumissions_v2)
+- `ao_statut` (appels_offres)
+- `invitation_statut` (appels_offres_invitations)
+- `soumission_recue_statut` (appels_offres_soumissions)
 
-## 📝 Développement
-
-### Ajout de nouvelles fonctionnalités
-1. Créez des composants dans `src/components/`
-2. Définissez les types dans `src/types/`
-3. Utilisez TypeScript pour la sécurité des types
-4. Suivez les conventions de nommage existantes
-
-### Standards de code
-- Utilisez TypeScript pour tous les nouveaux fichiers
-- Suivez les règles ESLint configurées
-- Utilisez Tailwind CSS pour le styling
-- Commentez le code complexe
-
-## 🤝 Contribution
-
-1. Fork le projet
-2. Créez une branche feature (`git checkout -b feature/AmazingFeature`)
-3. Commitez vos changements (`git commit -m 'Add some AmazingFeature'`)
-4. Push sur la branche (`git push origin feature/AmazingFeature`)
-5. Ouvrez une Pull Request
-
-## 📄 Licence
-
-Ce projet est sous licence MIT. Voir le fichier `LICENSE` pour plus de détails.
-
-## 📞 Support
-
-Pour toute question ou problème :
-- Ouvrez une issue sur GitHub
-- Contactez l'équipe DAST Solutions
-
----
-
-**Développé avec ❤️ par l'équipe DAST Solutions**
+Les hooks font automatiquement le mapping vers `statut` dans l'interface.
