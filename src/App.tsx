@@ -29,7 +29,7 @@ import AppelOffres from '@/pages/Projets/AppelOffres'
 import RBQ from '@/pages/Entrepreneurs/RBQ'
 import Personnel from '@/pages/Entrepreneurs/Personnel'
 
-// Appels d'offre sous-menus
+// Appels d'offre sous-menus (SEAO, MERX, etc.)
 import SEAO from '@/pages/AppelsOffre/SEAO'
 import MERX from '@/pages/AppelsOffre/MERX'
 import BuyGC from '@/pages/AppelsOffre/BuyGC'
@@ -51,11 +51,15 @@ import ImportData from '@/pages/ImportData'
 
 // Options A-D: Nouvelles fonctionnalités
 import MaterialDatabase from '@/pages/MaterialDatabase'
-import SoumissionBuilder from '@/pages/SoumissionBuilder'
 import MobileRapportTerrain from '@/pages/MobileRapportTerrain'
 
-// Soumissions
-import Soumissions from '@/pages/Soumissions'
+// ============================================================================
+// NOUVEAUX MODULES PHASES 1-4
+// ============================================================================
+import BottinRessources from '@/pages/BottinRessources'
+import MateriauxPrix from '@/pages/MateriauxPrix'
+import SoumissionBuilder from '@/pages/SoumissionBuilder'
+import AppelsOffres from '@/pages/AppelsOffres'
 
 function App() {
   const [session, setSession] = useState<any>(null)
@@ -86,14 +90,14 @@ function App() {
   return (
     <Router>
       <Routes>
-        {/* Login */}
+        {/* Login public */}
         <Route path="/login" element={!session ? <Login /> : <Navigate to="/dashboard" />} />
-        
+
         {/* Routes protégées avec Layout */}
         <Route path="/" element={session ? <Layout /> : <Navigate to="/login" />}>
           <Route index element={<Navigate to="/dashboard" />} />
           
-          {/* Dashboard */}
+          {/* ============ DASHBOARD ============ */}
           <Route path="dashboard" element={<Dashboard />} />
           
           {/* ============ PROJETS ============ */}
@@ -102,7 +106,7 @@ function App() {
           <Route path="project/:projectId" element={<ProjectDetails />} />
           <Route path="takeoff/:projectId" element={<TakeoffV2 />} />
           <Route path="bid-proposal/:projectId" element={<BidProposalV2 />} />
-          {/* Sous-menus Projets */}
+
           <Route path="projets/conception" element={<Conception />} />
           <Route path="projets/estimation" element={<Estimation />} />
           <Route path="projets/gestion" element={<Gestion />} />
@@ -113,27 +117,33 @@ function App() {
           <Route path="entrepreneurs/rbq" element={<RBQ />} />
           <Route path="entrepreneurs/personnel" element={<Personnel />} />
           <Route path="clients" element={<Clients />} />
-          
-          {/* ============ APPELS D'OFFRE ============ */}
+
+          {/* ============ APPELS D'OFFRE (plateformes) ============ */}
           <Route path="appels-offre/seao" element={<SEAO />} />
           <Route path="appels-offre/merx" element={<MERX />} />
           <Route path="appels-offre/buy-gc" element={<BuyGC />} />
           <Route path="appels-offre/bonfire" element={<Bonfire />} />
-          
-          {/* ============ SOUMISSIONS ============ */}
-          <Route path="soumissions" element={<Soumissions />} />
+
+          {/* ============ SOUMISSIONS V2 ============ */}
+          <Route path="soumissions" element={<SoumissionBuilder />} />
+          <Route path="soumissions-v2" element={<SoumissionBuilder />} />
           <Route path="soumission/new" element={<SoumissionBuilder />} />
           <Route path="soumission/:id" element={<SoumissionBuilder />} />
-          
+
           {/* ============ RESSOURCES ============ */}
           <Route path="ressources/code-navigator" element={<CodeNavigator />} />
           <Route path="ressources/ccq-navigator" element={<CCQNavigator />} />
           <Route path="ressources/documents-acc-ccdc" element={<DocumentsACCCCDC />} />
           <Route path="ressources/associations" element={<Associations />} />
-          {/* Matériaux & Prix - page unifiée */}
+
+          {/* ============ NOUVEAUX MODULES PHASES 1-4 ============ */}
+          <Route path="bottin" element={<BottinRessources />} />
+          <Route path="bottin-ressources" element={<BottinRessources />} />
+          <Route path="materiaux" element={<MateriauxPrix />} />
+          <Route path="materiaux-prix" element={<MateriauxPrix />} />
           <Route path="materials" element={<MaterialDatabase />} />
-          <Route path="material-prices" element={<Navigate to="/materials" />} />
-          
+          <Route path="appels-offres" element={<AppelsOffres />} />
+
           {/* ============ OUTILS AVANCÉS ============ */}
           <Route path="outils-avances/application-mobile" element={<ApplicationMobile />} />
           <Route path="outils-avances/messagerie" element={<Messagerie />} />
@@ -141,20 +151,21 @@ function App() {
           <Route path="rapports-terrain" element={<RapportsTerrain />} />
           <Route path="cloud-storage" element={<CloudStorage />} />
           <Route path="import-data" element={<ImportData />} />
-          
+
           {/* ============ ANALYTICS & SETTINGS ============ */}
           <Route path="analytics" element={<Analytics />} />
           <Route path="settings" element={<Settings />} />
-          
-          {/* ============ PRICING ============ */}
-          <Route path="pricing" element={<Settings />} /> {/* Redirect to settings abonnement tab */}
+
+          {/* Legacy redirects */}
+          <Route path="material-prices" element={<Navigate to="/materiaux" />} />
+          <Route path="pricing" element={<Settings />} />
         </Route>
-        
-        {/* ============ PWA MOBILE (Layout séparé) ============ */}
+
+        {/* Routes mobiles hors layout */}
         <Route path="/mobile/rapport/:projectId" element={session ? <MobileRapportTerrain /> : <Navigate to="/login" />} />
         <Route path="/mobile/rapport/:projectId/:rapportId" element={session ? <MobileRapportTerrain /> : <Navigate to="/login" />} />
-        
-        {/* 404 - Redirect to dashboard */}
+
+        {/* Catch-all redirect */}
         <Route path="*" element={<Navigate to="/dashboard" />} />
       </Routes>
     </Router>
