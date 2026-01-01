@@ -1,6 +1,6 @@
 /**
  * DAST Solutions - Hook Takeoff CORRIGÉ
- * Upload fonctionnel avec gestion des erreurs
+ * 100% Compatible avec TakeoffV2.tsx
  */
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -9,9 +9,9 @@ import { supabase } from '@/lib/supabase'
 export interface TakeoffPlan {
   id: string
   project_id: string
-  user_id: string
+  user_id?: string
   filename: string
-  original_name: string
+  original_name?: string
   storage_path: string
   file_url?: string
   file_size?: number
@@ -58,6 +58,14 @@ export interface TakeoffMeasure {
 export interface Point {
   x: number
   y: number
+}
+
+export interface TakeoffStats {
+  totalMeasures: number
+  totalValue: number
+  totalItems: number
+  totalPrice: number
+  byCategory: Record<string, { count: number; total: number }>
 }
 
 // Catégories CSC MasterFormat
@@ -117,20 +125,17 @@ export function useTakeoff(projectId: string) {
 
       if (fetchError) throw fetchError
 
-      // Générer les URLs publiques
       const plansWithUrls = await Promise.all((data || []).map(async (plan) => {
         if (plan.storage_path) {
           const { data: urlData } = supabase.storage
             .from('takeoff-plans')
             .getPublicUrl(plan.storage_path)
-          
           return { ...plan, file_url: urlData?.publicUrl }
         }
         return plan
       }))
 
       setPlans(plansWithUrls)
-      
       if (plansWithUrls.length > 0 && !activePlan) {
         setActivePlan(plansWithUrls[0])
       }
@@ -142,18 +147,15 @@ export function useTakeoff(projectId: string) {
     }
   }, [projectId, activePlan])
 
-  // Charger la calibration active
+  // Charger la calibration
   const loadCalibration = useCallback(async () => {
-    if (!activePlan) {
-      setCalibration(null)
-      return
-    }
+    if (!activePlan) { setCalibration(null); return }
 
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
-      const { data, error: fetchError } = await supabase
+      const { data } = await supabase
         .from('takeoff_calibrations')
         .select('*')
         .eq('plan_id', activePlan.id)
@@ -161,7 +163,6 @@ export function useTakeoff(projectId: string) {
         .eq('user_id', user.id)
         .maybeSingle()
 
-      if (fetchError) throw fetchError
       setCalibration(data || null)
     } catch (err) {
       console.error('Erreur chargement calibration:', err)
@@ -183,64 +184,35 @@ export function useTakeoff(projectId: string) {
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
 
-      if (activePlan) {
-        query = query.eq('plan_id', activePlan.id)
-      }
+      if (activePlan) query = query.eq('plan_id', activePlan.id)
 
-      const { data, error: fetchError } = await query
-
-      if (fetchError) throw fetchError
+      const { data } = await query
       setMeasures(data || [])
     } catch (err) {
       console.error('Erreur chargement mesures:', err)
     }
   }, [projectId, activePlan])
 
-  // Upload d'un plan
-  const uploadPlan = async (file: File, name?: string, numero?: string): Promise<TakeoffPlan | null> => {
+  // Upload plan
+  const uploadPlan = async (file: File): Promise<TakeoffPlan | null> => {
     try {
       setError(null)
-      
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('Non authentifié')
 
-      // Validation du fichier
-      const maxSize = 50 * 1024 * 1024 // 50MB
-      if (file.size > maxSize) {
-        throw new Error('Le fichier est trop volumineux (max 50MB)')
-      }
+      if (file.size > 50 * 1024 * 1024) throw new Error('Fichier trop volumineux (max 50MB)')
 
-      const allowedTypes = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg', 'image/tiff']
-      if (!allowedTypes.includes(file.type)) {
-        throw new Error('Type de fichier non supporté. Utilisez PDF, PNG, JPEG ou TIFF.')
-      }
-
-      // Générer un nom unique
       const timestamp = Date.now()
       const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_')
       const storagePath = `${user.id}/${projectId}/${timestamp}_${sanitizedName}`
 
-      console.log('Uploading to:', storagePath)
-
-      // Upload vers Supabase Storage
-      const { data: uploadData, error: uploadError } = await supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from('takeoff-plans')
-        .upload(storagePath, file, {
-          cacheControl: '3600',
-          upsert: false
-        })
+        .upload(storagePath, file, { cacheControl: '3600', upsert: false })
 
-      if (uploadError) {
-        console.error('Upload error:', uploadError)
-        throw new Error(`Erreur upload: ${uploadError.message}`)
-      }
+      if (uploadError) throw new Error(`Erreur upload: ${uploadError.message}`)
 
-      // Obtenir l'URL publique
-      const { data: urlData } = supabase.storage
-        .from('takeoff-plans')
-        .getPublicUrl(storagePath)
-
-      // Créer l'entrée dans la base de données
+      const { data: urlData } = supabase.storage.from('takeoff-plans').getPublicUrl(storagePath)
       const nextOrder = plans.length > 0 ? Math.max(...plans.map(p => p.sort_order)) + 1 : 1
 
       const { data: planData, error: insertError } = await supabase
@@ -252,16 +224,15 @@ export function useTakeoff(projectId: string) {
           original_name: file.name,
           storage_path: storagePath,
           file_size: file.size,
-          page_count: 1, // Sera mis à jour après le parsing PDF
-          name: name || file.name.replace(/\.[^/.]+$/, ''),
-          numero: numero || `P-${String(nextOrder).padStart(3, '0')}`,
+          page_count: 1,
+          name: file.name.replace(/\.[^/.]+$/, ''),
+          numero: `P-${String(nextOrder).padStart(3, '0')}`,
           sort_order: nextOrder
         })
         .select()
         .single()
 
       if (insertError) {
-        // Nettoyer le fichier uploadé en cas d'erreur
         await supabase.storage.from('takeoff-plans').remove([storagePath])
         throw insertError
       }
@@ -269,81 +240,59 @@ export function useTakeoff(projectId: string) {
       const newPlan = { ...planData, file_url: urlData?.publicUrl }
       setPlans([...plans, newPlan])
       setActivePlan(newPlan)
-
       return newPlan
     } catch (err: any) {
-      console.error('Erreur upload plan:', err)
+      console.error('Erreur upload:', err)
       setError(err.message)
       return null
     }
   }
 
-  // Supprimer un plan
+  // Supprimer plan
   const deletePlan = async (planId: string) => {
     try {
       const plan = plans.find(p => p.id === planId)
-      if (!plan) return
-
-      // Supprimer du storage
-      if (plan.storage_path) {
+      if (plan?.storage_path) {
         await supabase.storage.from('takeoff-plans').remove([plan.storage_path])
       }
-
-      // Supprimer de la base de données
-      const { error: deleteError } = await supabase
-        .from('takeoff_plans')
-        .delete()
-        .eq('id', planId)
-
-      if (deleteError) throw deleteError
-
-      const updatedPlans = plans.filter(p => p.id !== planId)
-      setPlans(updatedPlans)
-
-      if (activePlan?.id === planId) {
-        setActivePlan(updatedPlans[0] || null)
-      }
+      await supabase.from('takeoff_plans').delete().eq('id', planId)
+      const updated = plans.filter(p => p.id !== planId)
+      setPlans(updated)
+      if (activePlan?.id === planId) setActivePlan(updated[0] || null)
     } catch (err: any) {
-      console.error('Erreur suppression plan:', err)
       setError(err.message)
     }
   }
 
-  // Mettre à jour un plan (nom, numéro)
-  const updatePlan = async (planId: string, updates: { name?: string; numero?: string }) => {
-    try {
-      const { data, error: updateError } = await supabase
-        .from('takeoff_plans')
-        .update(updates)
-        .eq('id', planId)
-        .select()
-        .single()
-
-      if (updateError) throw updateError
-
-      setPlans(plans.map(p => p.id === planId ? { ...p, ...data } : p))
-      if (activePlan?.id === planId) {
-        setActivePlan({ ...activePlan, ...data })
-      }
-    } catch (err: any) {
-      console.error('Erreur mise à jour plan:', err)
-      setError(err.message)
-    }
-  }
-
-  // Sauvegarder la calibration
-  const saveCalibration = async (calibrationData: Partial<TakeoffCalibration>) => {
+  // Sauvegarder calibration - SIGNATURE COMPATIBLE TakeoffV2
+  // Appel: saveCalibration(point1, point2, distance, unit)
+  const saveCalibration = async (
+    point1: Point,
+    point2: Point,
+    distance: number,
+    unit: string
+  ): Promise<TakeoffCalibration | null> => {
     if (!activePlan) return null
 
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return null
 
+      const pixelDistance = Math.sqrt(
+        Math.pow(point2.x - point1.x, 2) + Math.pow(point2.y - point1.y, 2)
+      )
+
       const payload = {
-        ...calibrationData,
         plan_id: activePlan.id,
         page_number: activePage,
-        user_id: user.id
+        user_id: user.id,
+        point1_x: point1.x,
+        point1_y: point1.y,
+        point2_x: point2.x,
+        point2_y: point2.y,
+        real_distance: distance,
+        real_unit: unit,
+        pixels_per_unit: pixelDistance / distance
       }
 
       let result
@@ -369,60 +318,106 @@ export function useTakeoff(projectId: string) {
       setCalibration(result)
       return result
     } catch (err: any) {
-      console.error('Erreur sauvegarde calibration:', err)
       setError(err.message)
       return null
     }
   }
 
-  // Ajouter une mesure
-  const addMeasure = async (measureData: Partial<TakeoffMeasure>) => {
+  // Ajouter mesure - SIGNATURE COMPATIBLE TakeoffV2
+  // Appel: addMeasure(type, points, label, category, color, unitPrice)
+  const addMeasure = async (
+    type: string,
+    points: Point[],
+    label: string,
+    category?: string,
+    color?: string,
+    unitPrice?: number
+  ): Promise<TakeoffMeasure | null> => {
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return null
 
-      const { data, error: insertError } = await supabase
+      let value = 0
+      let unit = 'unité'
+
+      if (calibration) {
+        const ppu = calibration.pixels_per_unit
+
+        if (type === 'line' && points.length >= 2) {
+          let totalDist = 0
+          for (let i = 0; i < points.length - 1; i++) {
+            totalDist += Math.sqrt(
+              Math.pow(points[i + 1].x - points[i].x, 2) +
+              Math.pow(points[i + 1].y - points[i].y, 2)
+            )
+          }
+          value = totalDist / ppu
+          unit = calibration.real_unit
+        } else if (type === 'rectangle' && points.length >= 2) {
+          const width = Math.abs(points[1].x - points[0].x) / ppu
+          const height = Math.abs(points[1].y - points[0].y) / ppu
+          value = width * height
+          unit = `${calibration.real_unit}²`
+        } else if (type === 'polygon' && points.length >= 3) {
+          let area = 0
+          for (let i = 0; i < points.length; i++) {
+            const j = (i + 1) % points.length
+            area += points[i].x * points[j].y
+            area -= points[j].x * points[i].y
+          }
+          value = Math.abs(area / 2) / (ppu * ppu)
+          unit = `${calibration.real_unit}²`
+        } else if (type === 'count') {
+          value = points.length
+          unit = 'unité'
+        }
+      } else if (type === 'count') {
+        value = points.length
+        unit = 'unité'
+      }
+
+      const price = unitPrice || 0
+      const { data, error } = await supabase
         .from('takeoff_measures')
         .insert({
-          ...measureData,
           project_id: projectId,
           plan_id: activePlan?.id,
           page_number: activePage,
-          user_id: user.id
+          user_id: user.id,
+          type,
+          points,
+          value,
+          unit,
+          label: label || `Mesure ${measures.length + 1}`,
+          category: category || 'Autre',
+          color: color || '#3B82F6',
+          unit_price: price,
+          total_price: value * price
         })
         .select()
         .single()
 
-      if (insertError) throw insertError
-
+      if (error) throw error
       setMeasures([data, ...measures])
       return data
     } catch (err: any) {
-      console.error('Erreur ajout mesure:', err)
       setError(err.message)
       return null
     }
   }
 
-  // Supprimer une mesure
+  // Supprimer mesure
   const deleteMeasure = async (measureId: string) => {
     try {
-      const { error: deleteError } = await supabase
-        .from('takeoff_measures')
-        .delete()
-        .eq('id', measureId)
-
-      if (deleteError) throw deleteError
-
+      await supabase.from('takeoff_measures').delete().eq('id', measureId)
       setMeasures(measures.filter(m => m.id !== measureId))
     } catch (err: any) {
-      console.error('Erreur suppression mesure:', err)
       setError(err.message)
     }
   }
 
-  // Obtenir les statistiques
-  const getStats = () => {
+  // Stats - COMPATIBLE TakeoffV2 (totalItems, totalPrice)
+  const getStats = (): TakeoffStats => {
     const totalMeasures = measures.length
     const totalValue = measures.reduce((sum, m) => sum + (m.total_price || 0), 0)
     const byCategory = measures.reduce((acc, m) => {
@@ -433,21 +428,18 @@ export function useTakeoff(projectId: string) {
       return acc
     }, {} as Record<string, { count: number; total: number }>)
 
-    return { totalMeasures, totalValue, byCategory }
+    return {
+      totalMeasures,
+      totalValue,
+      totalItems: totalMeasures,
+      totalPrice: totalValue,
+      byCategory
+    }
   }
 
-  // Effets
-  useEffect(() => {
-    loadPlans()
-  }, [loadPlans])
-
-  useEffect(() => {
-    loadCalibration()
-  }, [loadCalibration])
-
-  useEffect(() => {
-    loadMeasures()
-  }, [loadMeasures])
+  useEffect(() => { loadPlans() }, [loadPlans])
+  useEffect(() => { loadCalibration() }, [loadCalibration])
+  useEffect(() => { loadMeasures() }, [loadMeasures])
 
   return {
     plans,
@@ -461,7 +453,6 @@ export function useTakeoff(projectId: string) {
     error,
     uploadPlan,
     deletePlan,
-    updatePlan,
     saveCalibration,
     addMeasure,
     deleteMeasure,
