@@ -1,14 +1,15 @@
 /**
- * DAST Solutions - Liste des Projets
+ * DAST Solutions - Liste des Projets CORRIGÉ
+ * Items cliquables avec navigation
  */
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { PageTitle } from '@/components/PageTitle'
 import {
   Plus, Search, FolderKanban, Calendar, DollarSign,
   MapPin, MoreVertical, Eye, Edit, Trash2, Loader2, Building2,
-  CheckCircle, Clock, PauseCircle, XCircle
+  CheckCircle, Clock, PauseCircle, XCircle, ChevronRight
 } from 'lucide-react'
 
 interface Project {
@@ -17,10 +18,13 @@ interface Project {
   client_name?: string
   address?: string
   city?: string
+  province?: string
   status: 'draft' | 'planning' | 'active' | 'on_hold' | 'completed' | 'cancelled'
-  budget_estimate?: number
+  budget?: number
   start_date?: string
   end_date?: string
+  building_type?: string
+  project_type?: string
   created_at: string
 }
 
@@ -34,6 +38,7 @@ const STATUS_CONFIG = {
 }
 
 export default function Projects() {
+  const navigate = useNavigate()
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
@@ -47,9 +52,13 @@ export default function Projects() {
   const loadProjects = async () => {
     try {
       setLoading(true)
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
       const { data, error } = await supabase
         .from('projects')
         .select('*')
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false })
       
       if (error) throw error
@@ -61,12 +70,14 @@ export default function Projects() {
     }
   }
 
-  const deleteProject = async (id: string) => {
+  const deleteProject = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation()
     if (!confirm('Supprimer ce projet ?')) return
     try {
       const { error } = await supabase.from('projects').delete().eq('id', id)
       if (error) throw error
       setProjects(projects.filter(p => p.id !== id))
+      setMenuOpen(null)
     } catch (err) {
       console.error('Erreur suppression:', err)
     }
@@ -76,7 +87,8 @@ export default function Projects() {
     const matchesSearch = !searchQuery || 
       p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       p.client_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.address?.toLowerCase().includes(searchQuery.toLowerCase())
+      p.address?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.city?.toLowerCase().includes(searchQuery.toLowerCase())
     const matchesStatus = statusFilter === 'all' || p.status === statusFilter
     return matchesSearch && matchesStatus
   })
@@ -148,7 +160,7 @@ export default function Projects() {
           <p className="mt-1 text-gray-500">
             {searchQuery || statusFilter !== 'all' 
               ? 'Aucun projet ne correspond à vos critères'
-              : 'Commencez par créer votre premier projet'}
+              : 'Créez votre premier projet pour commencer'}
           </p>
           {!searchQuery && statusFilter === 'all' && (
             <Link
@@ -156,116 +168,128 @@ export default function Projects() {
               className="inline-flex items-center gap-2 mt-4 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700"
             >
               <Plus size={20} />
-              Créer un projet
+              Nouveau projet
             </Link>
           )}
         </div>
       ) : (
-        <div className="grid gap-4">
+        <div className="bg-white rounded-xl border divide-y">
           {filteredProjects.map((project) => {
-            const statusConfig = STATUS_CONFIG[project.status] || STATUS_CONFIG.draft
-            const StatusIcon = statusConfig.icon
+            const statusInfo = STATUS_CONFIG[project.status] || STATUS_CONFIG.draft
+            const StatusIcon = statusInfo.icon
+
             return (
               <div
                 key={project.id}
-                className="bg-white rounded-xl border p-4 hover:shadow-md transition-shadow"
+                onClick={() => navigate(`/project/${project.id}`)}
+                className="p-4 hover:bg-gray-50 cursor-pointer transition-colors group"
               >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3">
-                      <Link
-                        to={`/project/${project.id}`}
-                        className="text-lg font-semibold text-gray-900 hover:text-teal-600"
-                      >
-                        {project.name}
-                      </Link>
-                      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${statusConfig.color}`}>
-                        <StatusIcon size={12} />
-                        {statusConfig.label}
-                      </span>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4 flex-1 min-w-0">
+                    {/* Icon */}
+                    <div className="w-10 h-10 rounded-lg bg-teal-100 flex items-center justify-center flex-shrink-0">
+                      <Building2 className="text-teal-600" size={20} />
                     </div>
 
-                    {project.client_name && (
-                      <div className="flex items-center gap-2 mt-1 text-sm text-gray-600">
-                        <Building2 size={14} />
-                        {project.client_name}
+                    {/* Project info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-3">
+                        <h3 className="font-medium text-gray-900 truncate">{project.name}</h3>
+                        <span className={`px-2 py-0.5 text-xs rounded-full flex items-center gap-1 ${statusInfo.color}`}>
+                          <StatusIcon size={12} />
+                          {statusInfo.label}
+                        </span>
                       </div>
-                    )}
-
-                    <div className="flex flex-wrap gap-4 mt-3 text-sm text-gray-500">
-                      {project.address && (
-                        <div className="flex items-center gap-1">
-                          <MapPin size={14} />
-                          {project.address}{project.city && `, ${project.city}`}
-                        </div>
-                      )}
-                      {project.budget_estimate && (
-                        <div className="flex items-center gap-1">
-                          <DollarSign size={14} />
-                          {formatCurrency(project.budget_estimate)}
-                        </div>
-                      )}
-                      {project.start_date && (
-                        <div className="flex items-center gap-1">
-                          <Calendar size={14} />
-                          {formatDate(project.start_date)}
-                          {project.end_date && ` → ${formatDate(project.end_date)}`}
-                        </div>
-                      )}
+                      <div className="flex items-center gap-4 mt-1 text-sm text-gray-500">
+                        {project.client_name && (
+                          <span className="truncate">{project.client_name}</span>
+                        )}
+                        {project.city && (
+                          <span className="flex items-center gap-1 truncate">
+                            <MapPin size={14} />
+                            {project.city}
+                          </span>
+                        )}
+                        {project.budget && (
+                          <span className="flex items-center gap-1">
+                            <DollarSign size={14} />
+                            {formatCurrency(project.budget)}
+                          </span>
+                        )}
+                        {project.start_date && (
+                          <span className="flex items-center gap-1">
+                            <Calendar size={14} />
+                            {formatDate(project.start_date)}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
 
-                  {/* Actions menu */}
-                  <div className="relative">
-                    <button
-                      onClick={() => setMenuOpen(menuOpen === project.id ? null : project.id)}
-                      className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
-                    >
-                      <MoreVertical size={20} />
-                    </button>
+                  {/* Actions */}
+                  <div className="flex items-center gap-2">
+                    <ChevronRight className="text-gray-400 group-hover:text-teal-600 transition-colors" size={20} />
+                    
+                    <div className="relative">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setMenuOpen(menuOpen === project.id ? null : project.id)
+                        }}
+                        className="p-2 hover:bg-gray-100 rounded-lg"
+                      >
+                        <MoreVertical size={16} className="text-gray-400" />
+                      </button>
 
-                    {menuOpen === project.id && (
-                      <>
-                        <div 
-                          className="fixed inset-0 z-40"
-                          onClick={() => setMenuOpen(null)}
-                        />
-                        <div className="absolute right-0 mt-1 w-48 bg-white rounded-lg shadow-lg border z-50">
-                          <Link
-                            to={`/project/${project.id}`}
-                            className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                            onClick={() => setMenuOpen(null)}
+                      {menuOpen === project.id && (
+                        <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border py-1 z-10">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              navigate(`/project/${project.id}`)
+                              setMenuOpen(null)
+                            }}
+                            className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
                           >
                             <Eye size={16} />
-                            Voir détails
-                          </Link>
-                          <Link
-                            to={`/takeoff/${project.id}`}
-                            className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                            onClick={() => setMenuOpen(null)}
-                          >
-                            <Edit size={16} />
-                            Takeoff
-                          </Link>
+                            Voir le projet
+                          </button>
                           <button
-                            onClick={() => {
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              navigate(`/takeoff/${project.id}`)
                               setMenuOpen(null)
-                              deleteProject(project.id)
                             }}
-                            className="flex items-center gap-2 w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                            className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
+                          >
+                            <FolderKanban size={16} />
+                            Takeoff
+                          </button>
+                          <hr className="my-1" />
+                          <button
+                            onClick={(e) => deleteProject(project.id, e)}
+                            className="w-full px-4 py-2 text-left text-sm hover:bg-red-50 text-red-600 flex items-center gap-2"
                           >
                             <Trash2 size={16} />
                             Supprimer
                           </button>
                         </div>
-                      </>
-                    )}
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
             )
           })}
         </div>
+      )}
+
+      {/* Click outside to close menu */}
+      {menuOpen && (
+        <div 
+          className="fixed inset-0 z-0" 
+          onClick={() => setMenuOpen(null)}
+        />
       )}
     </div>
   )

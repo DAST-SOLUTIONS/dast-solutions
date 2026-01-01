@@ -1,6 +1,6 @@
 /**
- * DAST Solutions - Hook Takeoff Complet
- * Gestion des plans, calibrations et mesures
+ * DAST Solutions - Hook Takeoff CORRIGÉ
+ * Upload fonctionnel avec gestion des erreurs
  */
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -9,12 +9,15 @@ import { supabase } from '@/lib/supabase'
 export interface TakeoffPlan {
   id: string
   project_id: string
+  user_id: string
   filename: string
+  original_name: string
   storage_path: string
   file_url?: string
   file_size?: number
   page_count: number
   name?: string
+  numero?: string
   sort_order: number
   created_at: string
 }
@@ -89,28 +92,53 @@ export function useTakeoff(projectId: string) {
   const [calibration, setCalibration] = useState<TakeoffCalibration | null>(null)
   const [measures, setMeasures] = useState<TakeoffMeasure[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   // Charger les plans
   const loadPlans = useCallback(async () => {
+    if (!projectId) return
+    
     try {
+      setLoading(true)
+      setError(null)
+      
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      if (!user) {
+        setError('Non authentifié')
+        return
+      }
 
-      const { data, error } = await supabase
+      const { data, error: fetchError } = await supabase
         .from('takeoff_plans')
         .select('*')
         .eq('project_id', projectId)
         .eq('user_id', user.id)
         .order('sort_order')
 
-      if (error) throw error
-      setPlans(data || [])
+      if (fetchError) throw fetchError
+
+      // Générer les URLs publiques
+      const plansWithUrls = await Promise.all((data || []).map(async (plan) => {
+        if (plan.storage_path) {
+          const { data: urlData } = supabase.storage
+            .from('takeoff-plans')
+            .getPublicUrl(plan.storage_path)
+          
+          return { ...plan, file_url: urlData?.publicUrl }
+        }
+        return plan
+      }))
+
+      setPlans(plansWithUrls)
       
-      if (data && data.length > 0 && !activePlan) {
-        setActivePlan(data[0])
+      if (plansWithUrls.length > 0 && !activePlan) {
+        setActivePlan(plansWithUrls[0])
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Erreur chargement plans:', err)
+      setError(err.message)
+    } finally {
+      setLoading(false)
     }
   }, [projectId, activePlan])
 
@@ -125,15 +153,15 @@ export function useTakeoff(projectId: string) {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
-      const { data, error } = await supabase
+      const { data, error: fetchError } = await supabase
         .from('takeoff_calibrations')
         .select('*')
         .eq('plan_id', activePlan.id)
         .eq('page_number', activePage)
         .eq('user_id', user.id)
-        .single()
+        .maybeSingle()
 
-      if (error && error.code !== 'PGRST116') throw error
+      if (fetchError) throw fetchError
       setCalibration(data || null)
     } catch (err) {
       console.error('Erreur chargement calibration:', err)
@@ -142,6 +170,8 @@ export function useTakeoff(projectId: string) {
 
   // Charger les mesures
   const loadMeasures = useCallback(async () => {
+    if (!projectId) return
+
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
@@ -154,440 +184,288 @@ export function useTakeoff(projectId: string) {
         .order('created_at', { ascending: false })
 
       if (activePlan) {
-        query = query.eq('plan_id', activePlan.id).eq('page_number', activePage)
+        query = query.eq('plan_id', activePlan.id)
       }
 
-      const { data, error } = await query
-      if (error) throw error
-      
-      setMeasures((data || []).map(m => ({
-        ...m,
-        points: typeof m.points === 'string' ? JSON.parse(m.points) : m.points
-      })))
+      const { data, error: fetchError } = await query
+
+      if (fetchError) throw fetchError
+      setMeasures(data || [])
     } catch (err) {
       console.error('Erreur chargement mesures:', err)
-    } finally {
-      setLoading(false)
     }
-  }, [projectId, activePlan, activePage])
+  }, [projectId, activePlan])
 
-  // Chargement initial
-  useEffect(() => {
-    if (projectId) {
-      loadPlans()
-    }
-  }, [projectId, loadPlans])
-
-  useEffect(() => {
-    loadCalibration()
-    loadMeasures()
-  }, [activePlan, activePage, loadCalibration, loadMeasures])
-
-  // Upload un plan PDF
-  const uploadPlan = async (file: File): Promise<TakeoffPlan | null> => {
+  // Upload d'un plan
+  const uploadPlan = async (file: File, name?: string, numero?: string): Promise<TakeoffPlan | null> => {
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return null
-
-      const fileName = `${user.id}/${projectId}/${Date.now()}_${file.name}`
+      setError(null)
       
-      // Upload vers Storage
-      const { error: uploadError } = await supabase.storage
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('Non authentifié')
+
+      // Validation du fichier
+      const maxSize = 50 * 1024 * 1024 // 50MB
+      if (file.size > maxSize) {
+        throw new Error('Le fichier est trop volumineux (max 50MB)')
+      }
+
+      const allowedTypes = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg', 'image/tiff']
+      if (!allowedTypes.includes(file.type)) {
+        throw new Error('Type de fichier non supporté. Utilisez PDF, PNG, JPEG ou TIFF.')
+      }
+
+      // Générer un nom unique
+      const timestamp = Date.now()
+      const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_')
+      const storagePath = `${user.id}/${projectId}/${timestamp}_${sanitizedName}`
+
+      console.log('Uploading to:', storagePath)
+
+      // Upload vers Supabase Storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
         .from('takeoff-plans')
-        .upload(fileName, file)
+        .upload(storagePath, file, {
+          cacheControl: '3600',
+          upsert: false
+        })
 
-      if (uploadError) throw uploadError
+      if (uploadError) {
+        console.error('Upload error:', uploadError)
+        throw new Error(`Erreur upload: ${uploadError.message}`)
+      }
 
-      // Obtenir URL signée
-      const { data: urlData } = await supabase.storage
+      // Obtenir l'URL publique
+      const { data: urlData } = supabase.storage
         .from('takeoff-plans')
-        .createSignedUrl(fileName, 60 * 60 * 24 * 365) // 1 an
+        .getPublicUrl(storagePath)
 
-      // Créer l'entrée dans la BD
-      const { data, error } = await supabase
+      // Créer l'entrée dans la base de données
+      const nextOrder = plans.length > 0 ? Math.max(...plans.map(p => p.sort_order)) + 1 : 1
+
+      const { data: planData, error: insertError } = await supabase
         .from('takeoff_plans')
         .insert({
-          user_id: user.id,
           project_id: projectId,
-          filename: file.name,
-          storage_path: fileName,
-          file_url: urlData?.signedUrl,
+          user_id: user.id,
+          filename: sanitizedName,
+          original_name: file.name,
+          storage_path: storagePath,
           file_size: file.size,
-          name: file.name.replace('.pdf', ''),
-          page_count: 1, // À améliorer avec pdf.js
-          sort_order: plans.length
+          page_count: 1, // Sera mis à jour après le parsing PDF
+          name: name || file.name.replace(/\.[^/.]+$/, ''),
+          numero: numero || `P-${String(nextOrder).padStart(3, '0')}`,
+          sort_order: nextOrder
         })
         .select()
         .single()
 
-      if (error) throw error
-      
-      await loadPlans()
-      return data
-    } catch (err) {
+      if (insertError) {
+        // Nettoyer le fichier uploadé en cas d'erreur
+        await supabase.storage.from('takeoff-plans').remove([storagePath])
+        throw insertError
+      }
+
+      const newPlan = { ...planData, file_url: urlData?.publicUrl }
+      setPlans([...plans, newPlan])
+      setActivePlan(newPlan)
+
+      return newPlan
+    } catch (err: any) {
       console.error('Erreur upload plan:', err)
+      setError(err.message)
       return null
     }
   }
 
   // Supprimer un plan
-  const deletePlan = async (planId: string): Promise<boolean> => {
+  const deletePlan = async (planId: string) => {
     try {
       const plan = plans.find(p => p.id === planId)
-      if (plan) {
+      if (!plan) return
+
+      // Supprimer du storage
+      if (plan.storage_path) {
         await supabase.storage.from('takeoff-plans').remove([plan.storage_path])
       }
 
-      const { error } = await supabase
+      // Supprimer de la base de données
+      const { error: deleteError } = await supabase
         .from('takeoff_plans')
         .delete()
         .eq('id', planId)
 
-      if (error) throw error
-      
+      if (deleteError) throw deleteError
+
+      const updatedPlans = plans.filter(p => p.id !== planId)
+      setPlans(updatedPlans)
+
       if (activePlan?.id === planId) {
-        setActivePlan(null)
+        setActivePlan(updatedPlans[0] || null)
       }
-      
-      await loadPlans()
-      return true
-    } catch (err) {
+    } catch (err: any) {
       console.error('Erreur suppression plan:', err)
-      return false
+      setError(err.message)
     }
   }
 
-  // Sauvegarder une calibration
-  const saveCalibration = async (
-    point1: Point,
-    point2: Point,
-    realDistance: number,
-    realUnit: string = 'pi',
-    scaleRatio?: string
-  ): Promise<TakeoffCalibration | null> => {
+  // Mettre à jour un plan (nom, numéro)
+  const updatePlan = async (planId: string, updates: { name?: string; numero?: string }) => {
+    try {
+      const { data, error: updateError } = await supabase
+        .from('takeoff_plans')
+        .update(updates)
+        .eq('id', planId)
+        .select()
+        .single()
+
+      if (updateError) throw updateError
+
+      setPlans(plans.map(p => p.id === planId ? { ...p, ...data } : p))
+      if (activePlan?.id === planId) {
+        setActivePlan({ ...activePlan, ...data })
+      }
+    } catch (err: any) {
+      console.error('Erreur mise à jour plan:', err)
+      setError(err.message)
+    }
+  }
+
+  // Sauvegarder la calibration
+  const saveCalibration = async (calibrationData: Partial<TakeoffCalibration>) => {
     if (!activePlan) return null
 
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return null
 
-      // Calculer pixels par unité
-      const pixelDistance = Math.sqrt(
-        Math.pow(point2.x - point1.x, 2) + Math.pow(point2.y - point1.y, 2)
-      )
-      const pixelsPerUnit = pixelDistance / realDistance
-
-      // Supprimer l'ancienne calibration si existe
-      if (calibration) {
-        await supabase.from('takeoff_calibrations').delete().eq('id', calibration.id)
+      const payload = {
+        ...calibrationData,
+        plan_id: activePlan.id,
+        page_number: activePage,
+        user_id: user.id
       }
 
-      const { data, error } = await supabase
-        .from('takeoff_calibrations')
-        .insert({
-          user_id: user.id,
-          plan_id: activePlan.id,
-          page_number: activePage,
-          point1_x: point1.x,
-          point1_y: point1.y,
-          point2_x: point2.x,
-          point2_y: point2.y,
-          real_distance: realDistance,
-          real_unit: realUnit,
-          pixels_per_unit: pixelsPerUnit,
-          scale_ratio: scaleRatio
-        })
-        .select()
-        .single()
+      let result
+      if (calibration?.id) {
+        const { data, error } = await supabase
+          .from('takeoff_calibrations')
+          .update(payload)
+          .eq('id', calibration.id)
+          .select()
+          .single()
+        if (error) throw error
+        result = data
+      } else {
+        const { data, error } = await supabase
+          .from('takeoff_calibrations')
+          .insert(payload)
+          .select()
+          .single()
+        if (error) throw error
+        result = data
+      }
 
-      if (error) throw error
-      
-      setCalibration(data)
-      return data
-    } catch (err) {
+      setCalibration(result)
+      return result
+    } catch (err: any) {
       console.error('Erreur sauvegarde calibration:', err)
+      setError(err.message)
       return null
-    }
-  }
-
-  // Calculer une mesure basée sur la calibration
-  const calculateMeasure = (points: Point[], type: TakeoffMeasure['type']): number => {
-    if (!calibration || points.length < 2) return 0
-
-    const ppu = calibration.pixels_per_unit
-
-    switch (type) {
-      case 'line': {
-        let total = 0
-        for (let i = 1; i < points.length; i++) {
-          const dx = points[i].x - points[i - 1].x
-          const dy = points[i].y - points[i - 1].y
-          total += Math.sqrt(dx * dx + dy * dy)
-        }
-        return total / ppu
-      }
-      case 'rectangle': {
-        if (points.length < 2) return 0
-        const width = Math.abs(points[1].x - points[0].x) / ppu
-        const height = Math.abs(points[1].y - points[0].y) / ppu
-        return width * height
-      }
-      case 'polygon':
-      case 'area': {
-        if (points.length < 3) return 0
-        // Formule du lacet (Shoelace formula)
-        let area = 0
-        const n = points.length
-        for (let i = 0; i < n; i++) {
-          const j = (i + 1) % n
-          area += points[i].x * points[j].y
-          area -= points[j].x * points[i].y
-        }
-        return Math.abs(area / 2) / (ppu * ppu)
-      }
-      case 'count':
-        return points.length
-      default:
-        return 0
     }
   }
 
   // Ajouter une mesure
-  const addMeasure = async (
-    type: TakeoffMeasure['type'],
-    points: Point[],
-    label: string,
-    category?: string,
-    color: string = '#14b8a6',
-    unitPrice: number = 0
-  ): Promise<TakeoffMeasure | null> => {
+  const addMeasure = async (measureData: Partial<TakeoffMeasure>) => {
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return null
 
-      const value = calculateMeasure(points, type)
-      const unit = type === 'count' ? 'unité' : 
-                   (type === 'line' ? calibration?.real_unit || 'pi' : 
-                   `${calibration?.real_unit || 'pi'}²`)
-
-      const { data, error } = await supabase
+      const { data, error: insertError } = await supabase
         .from('takeoff_measures')
         .insert({
-          user_id: user.id,
+          ...measureData,
           project_id: projectId,
           plan_id: activePlan?.id,
           page_number: activePage,
-          type,
-          points: JSON.stringify(points),
-          value,
-          unit,
-          label,
-          category,
-          color,
-          unit_price: unitPrice,
-          total_price: value * unitPrice
+          user_id: user.id
         })
         .select()
         .single()
 
-      if (error) throw error
-      
-      const newMeasure = { ...data, points }
-      setMeasures(prev => [newMeasure, ...prev])
-      return newMeasure
-    } catch (err) {
+      if (insertError) throw insertError
+
+      setMeasures([data, ...measures])
+      return data
+    } catch (err: any) {
       console.error('Erreur ajout mesure:', err)
+      setError(err.message)
       return null
-    }
-  }
-
-  // Mettre à jour une mesure
-  const updateMeasure = async (
-    measureId: string,
-    updates: Partial<Pick<TakeoffMeasure, 'label' | 'category' | 'color' | 'unit_price' | 'notes'>>
-  ): Promise<boolean> => {
-    try {
-      const measure = measures.find(m => m.id === measureId)
-      if (!measure) return false
-
-      const total_price = updates.unit_price !== undefined 
-        ? measure.value * updates.unit_price 
-        : measure.total_price
-
-      const { error } = await supabase
-        .from('takeoff_measures')
-        .update({ ...updates, total_price, updated_at: new Date().toISOString() })
-        .eq('id', measureId)
-
-      if (error) throw error
-      
-      setMeasures(prev => prev.map(m => 
-        m.id === measureId ? { ...m, ...updates, total_price } : m
-      ))
-      return true
-    } catch (err) {
-      console.error('Erreur mise à jour mesure:', err)
-      return false
     }
   }
 
   // Supprimer une mesure
-  const deleteMeasure = async (measureId: string): Promise<boolean> => {
+  const deleteMeasure = async (measureId: string) => {
     try {
-      const { error } = await supabase
+      const { error: deleteError } = await supabase
         .from('takeoff_measures')
         .delete()
         .eq('id', measureId)
 
-      if (error) throw error
-      
-      setMeasures(prev => prev.filter(m => m.id !== measureId))
-      return true
-    } catch (err) {
+      if (deleteError) throw deleteError
+
+      setMeasures(measures.filter(m => m.id !== measureId))
+    } catch (err: any) {
       console.error('Erreur suppression mesure:', err)
-      return false
+      setError(err.message)
     }
   }
 
-  // Statistiques
+  // Obtenir les statistiques
   const getStats = () => {
-    const totalItems = measures.length
-    const totalValue = measures.reduce((sum, m) => sum + m.value, 0)
-    const totalPrice = measures.reduce((sum, m) => sum + m.total_price, 0)
-    
+    const totalMeasures = measures.length
+    const totalValue = measures.reduce((sum, m) => sum + (m.total_price || 0), 0)
     const byCategory = measures.reduce((acc, m) => {
-      const cat = m.category || 'Non classé'
-      if (!acc[cat]) acc[cat] = { count: 0, value: 0, price: 0 }
+      const cat = m.category || 'Non catégorisé'
+      if (!acc[cat]) acc[cat] = { count: 0, total: 0 }
       acc[cat].count++
-      acc[cat].value += m.value
-      acc[cat].price += m.total_price
+      acc[cat].total += m.total_price || 0
       return acc
-    }, {} as Record<string, { count: number; value: number; price: number }>)
+    }, {} as Record<string, { count: number; total: number }>)
 
-    return { totalItems, totalValue, totalPrice, byCategory }
+    return { totalMeasures, totalValue, byCategory }
   }
 
-  // ============== ITEMS D'ESTIMATION ==============
-  const [items, setItems] = useState<any[]>([])
-  
-  // Charger les items
-  const loadItems = useCallback(async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-
-      const { data, error } = await supabase
-        .from('takeoff_items')
-        .select('*')
-        .eq('project_id', projectId)
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-
-      if (error) throw error
-      setItems(data || [])
-    } catch (err) {
-      console.error('Erreur chargement items:', err)
-    }
-  }, [projectId])
-
-  // Créer un item
-  const createItem = async (item: any): Promise<any> => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return null
-
-      const { data, error } = await supabase
-        .from('takeoff_items')
-        .insert({
-          ...item,
-          user_id: user.id,
-          project_id: projectId
-        })
-        .select()
-        .single()
-
-      if (error) throw error
-      await loadItems()
-      return data
-    } catch (err) {
-      console.error('Erreur création item:', err)
-      return null
-    }
-  }
-
-  // Mettre à jour un item
-  const updateItem = async (id: string, updates: any): Promise<boolean> => {
-    try {
-      const { error } = await supabase
-        .from('takeoff_items')
-        .update({ ...updates, updated_at: new Date().toISOString() })
-        .eq('id', id)
-
-      if (error) throw error
-      await loadItems()
-      return true
-    } catch (err) {
-      console.error('Erreur mise à jour item:', err)
-      return false
-    }
-  }
-
-  // Supprimer un item
-  const deleteItem = async (id: string): Promise<boolean> => {
-    try {
-      const { error } = await supabase
-        .from('takeoff_items')
-        .delete()
-        .eq('id', id)
-
-      if (error) throw error
-      await loadItems()
-      return true
-    } catch (err) {
-      console.error('Erreur suppression item:', err)
-      return false
-    }
-  }
-
-  // Charger items au démarrage
+  // Effets
   useEffect(() => {
-    if (projectId) {
-      loadItems()
-    }
-  }, [projectId, loadItems])
+    loadPlans()
+  }, [loadPlans])
+
+  useEffect(() => {
+    loadCalibration()
+  }, [loadCalibration])
+
+  useEffect(() => {
+    loadMeasures()
+  }, [loadMeasures])
 
   return {
-    // Plans
     plans,
     activePlan,
     setActivePlan,
     activePage,
     setActivePage,
+    calibration,
+    measures,
+    loading,
+    error,
     uploadPlan,
     deletePlan,
-    
-    // Calibration
-    calibration,
+    updatePlan,
     saveCalibration,
-    
-    // Mesures
-    measures,
-    calculateMeasure,
     addMeasure,
-    updateMeasure,
     deleteMeasure,
-    
-    // Items d'estimation
-    items,
-    createItem,
-    updateItem,
-    deleteItem,
-    
-    // Utils
-    loading,
     getStats,
-    refetch: loadMeasures
+    refetch: loadPlans
   }
 }
-
-export default useTakeoff
