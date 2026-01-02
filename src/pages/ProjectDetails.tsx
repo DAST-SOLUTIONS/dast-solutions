@@ -2,14 +2,14 @@
  * DAST Solutions - Project Details COMPLET
  * Avec onglets: Aperçu, Documents, Estimation, Gestion, Finances
  */
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { 
   ArrowLeft, Save, Loader2, MapPin, Calendar, DollarSign, User, FileText, 
   Ruler, Receipt, ChevronRight, Calculator, Building2, Users,
   FolderOpen, TrendingUp, Clock, Upload, Image, Plus,
-  AlertTriangle, CheckCircle, PauseCircle, Edit, Eye,
+  AlertTriangle, CheckCircle, PauseCircle, Edit, Eye, Trash2,
   ClipboardList, Wrench, FileCheck, Target, Layers
 } from 'lucide-react'
 
@@ -318,8 +318,144 @@ function TabApercu({ project, stats, navigate, projectId }: {
 // ============================================================================
 
 function TabDocuments({ projectId, navigate }: { projectId: string; navigate: (path: string) => void }) {
+  const [documents, setDocuments] = useState<any[]>([])
+  const [uploading, setUploading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
+  const [dragOver, setDragOver] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Charger les documents
+  useEffect(() => {
+    loadDocuments()
+  }, [projectId])
+
+  const loadDocuments = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const { data, error } = await supabase
+        .from('project_documents')
+        .select('*')
+        .eq('project_id', projectId)
+        .eq('user_id', user.id)
+        .order('uploaded_at', { ascending: false })
+
+      if (!error && data) {
+        // Ajouter URLs
+        const docsWithUrls = data.map(doc => ({
+          ...doc,
+          file_url: doc.storage_path ? 
+            supabase.storage.from('project-documents').getPublicUrl(doc.storage_path).data?.publicUrl 
+            : null
+        }))
+        setDocuments(docsWithUrls)
+      }
+    } catch (err) {
+      console.error('Erreur chargement:', err)
+    }
+  }
+
+  const handleUpload = async (files: FileList | null, category: string = 'general') => {
+    if (!files?.length) return
+
+    setUploading(true)
+    setError(null)
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('Non authentifié')
+
+      for (const file of Array.from(files)) {
+        if (file.size > 50 * 1024 * 1024) {
+          setError(`${file.name}: Fichier trop volumineux (max 50MB)`)
+          continue
+        }
+
+        const timestamp = Date.now()
+        const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_')
+        const storagePath = `${user.id}/${projectId}/${timestamp}_${sanitizedName}`
+
+        // Upload
+        const { error: uploadError } = await supabase.storage
+          .from('project-documents')
+          .upload(storagePath, file, { cacheControl: '3600', upsert: false })
+
+        if (uploadError) {
+          if (uploadError.message.includes('bucket') || uploadError.message.includes('Bucket')) {
+            setError('Bucket "project-documents" non créé. Allez dans Supabase > Storage > New bucket.')
+          } else {
+            setError(`Erreur: ${uploadError.message}`)
+          }
+          continue
+        }
+
+        // Insérer en DB
+        const { error: insertError } = await supabase
+          .from('project_documents')
+          .insert({
+            project_id: projectId,
+            user_id: user.id,
+            filename: sanitizedName,
+            original_name: file.name,
+            storage_path: storagePath,
+            file_size: file.size,
+            mime_type: file.type,
+            category
+          })
+
+        if (insertError) {
+          await supabase.storage.from('project-documents').remove([storagePath])
+          if (insertError.code === '42P01') {
+            setError('Table "project_documents" non créée. Exécutez la migration SQL.')
+          } else {
+            setError(`Erreur DB: ${insertError.message}`)
+          }
+        }
+      }
+
+      loadDocuments()
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const handleDelete = async (docId: string, storagePath: string) => {
+    if (!confirm('Supprimer ce document?')) return
+
+    try {
+      await supabase.storage.from('project-documents').remove([storagePath])
+      await supabase.from('project_documents').delete().eq('id', docId)
+      loadDocuments()
+    } catch (err) {
+      console.error('Erreur suppression:', err)
+    }
+  }
+
+  const getStats = () => ({
+    plans: documents.filter(d => d.category === 'plans').length,
+    devis: documents.filter(d => d.category === 'devis').length,
+    contrats: documents.filter(d => d.category === 'contrats').length,
+    photos: documents.filter(d => d.category === 'photos').length,
+  })
+
+  const stats = getStats()
+  const filteredDocs = selectedCategory 
+    ? documents.filter(d => d.category === selectedCategory)
+    : documents
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  }
+
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex justify-between items-center">
         <h3 className="font-semibold text-lg">Documents du projet</h3>
         <div className="flex gap-2">
@@ -330,24 +466,49 @@ function TabDocuments({ projectId, navigate }: { projectId: string; navigate: (p
             <Ruler size={16} />
             Importer plans (Takeoff)
           </button>
-          <button className="px-4 py-2 border rounded-lg hover:bg-gray-50 flex items-center gap-2">
-            <Upload size={16} />
+          <input 
+            ref={fileInputRef}
+            type="file" 
+            multiple 
+            accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif"
+            onChange={(e) => handleUpload(e.target.files, selectedCategory || 'general')}
+            className="hidden" 
+          />
+          <button 
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+            className="px-4 py-2 border rounded-lg hover:bg-gray-50 flex items-center gap-2 disabled:opacity-50"
+          >
+            {uploading ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
             Upload document
           </button>
         </div>
       </div>
 
+      {/* Erreur */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 flex items-start gap-3">
+          <AlertTriangle size={20} className="flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="font-medium">Erreur</p>
+            <p className="text-sm">{error}</p>
+          </div>
+          <button onClick={() => setError(null)} className="ml-auto text-red-500 hover:text-red-700">×</button>
+        </div>
+      )}
+
       {/* Structure de dossiers */}
       <div className="grid grid-cols-4 gap-4">
         {[
-          { name: 'Plans', icon: Layers, color: 'bg-purple-100 text-purple-600', count: 0 },
-          { name: 'Devis', icon: FileText, color: 'bg-blue-100 text-blue-600', count: 0 },
-          { name: 'Contrats', icon: FileCheck, color: 'bg-green-100 text-green-600', count: 0 },
-          { name: 'Photos', icon: Image, color: 'bg-amber-100 text-amber-600', count: 0 },
+          { key: 'plans', name: 'Plans', icon: Layers, color: 'bg-purple-100 text-purple-600', count: stats.plans },
+          { key: 'devis', name: 'Devis', icon: FileText, color: 'bg-blue-100 text-blue-600', count: stats.devis },
+          { key: 'contrats', name: 'Contrats', icon: FileCheck, color: 'bg-green-100 text-green-600', count: stats.contrats },
+          { key: 'photos', name: 'Photos', icon: Image, color: 'bg-amber-100 text-amber-600', count: stats.photos },
         ].map(folder => (
           <button 
-            key={folder.name}
-            className="bg-white rounded-xl p-6 border hover:shadow-md transition text-left"
+            key={folder.key}
+            onClick={() => setSelectedCategory(selectedCategory === folder.key ? null : folder.key)}
+            className={`bg-white rounded-xl p-6 border hover:shadow-md transition text-left ${selectedCategory === folder.key ? 'ring-2 ring-teal-500' : ''}`}
           >
             <div className={`w-12 h-12 rounded-xl ${folder.color} flex items-center justify-center mb-3`}>
               <folder.icon size={24} />
@@ -358,12 +519,71 @@ function TabDocuments({ projectId, navigate }: { projectId: string; navigate: (p
         ))}
       </div>
 
-      {/* Message vide */}
-      <div className="bg-white rounded-xl border p-8 text-center text-gray-500">
-        <FolderOpen className="mx-auto mb-3 text-gray-300" size={48} />
-        <p>Aucun document</p>
-        <p className="text-sm mt-1">Importez des plans via Takeoff ou uploadez des documents</p>
+      {/* Zone de drop */}
+      <div 
+        className={`border-2 border-dashed rounded-xl p-8 text-center transition ${dragOver ? 'border-teal-500 bg-teal-50' : 'border-gray-300'}`}
+        onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={(e) => { e.preventDefault(); setDragOver(false); handleUpload(e.dataTransfer.files, selectedCategory || 'general') }}
+      >
+        <Upload className="mx-auto mb-3 text-gray-400" size={32} />
+        <p className="text-gray-600">Glissez des fichiers ici ou</p>
+        <button 
+          onClick={() => fileInputRef.current?.click()}
+          className="mt-2 text-teal-600 hover:text-teal-700 font-medium"
+        >
+          cliquez pour sélectionner
+        </button>
+        {selectedCategory && <p className="text-sm text-gray-500 mt-2">Catégorie: {selectedCategory}</p>}
       </div>
+
+      {/* Liste des documents */}
+      {filteredDocs.length > 0 ? (
+        <div className="bg-white rounded-xl border divide-y">
+          {filteredDocs.map(doc => (
+            <div key={doc.id} className="p-4 flex items-center gap-4 hover:bg-gray-50">
+              <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                doc.mime_type?.includes('pdf') ? 'bg-red-100 text-red-600' :
+                doc.mime_type?.includes('image') ? 'bg-amber-100 text-amber-600' :
+                doc.mime_type?.includes('word') || doc.mime_type?.includes('document') ? 'bg-blue-100 text-blue-600' :
+                'bg-gray-100 text-gray-600'
+              }`}>
+                <FileText size={20} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-medium truncate">{doc.original_name || doc.filename}</p>
+                <p className="text-sm text-gray-500">
+                  {doc.category} • {formatFileSize(doc.file_size || 0)} • {new Date(doc.uploaded_at || doc.created_at).toLocaleDateString('fr-CA')}
+                </p>
+              </div>
+              <div className="flex gap-2">
+                {doc.file_url && (
+                  <a 
+                    href={doc.file_url} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="p-2 text-gray-500 hover:text-teal-600 hover:bg-teal-50 rounded-lg"
+                  >
+                    <Eye size={18} />
+                  </a>
+                )}
+                <button 
+                  onClick={() => handleDelete(doc.id, doc.storage_path)}
+                  className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                >
+                  <Trash2 size={18} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="bg-white rounded-xl border p-8 text-center text-gray-500">
+          <FolderOpen className="mx-auto mb-3 text-gray-300" size={48} />
+          <p>Aucun document{selectedCategory ? ` dans "${selectedCategory}"` : ''}</p>
+          <p className="text-sm mt-1">Glissez des fichiers ou cliquez sur "Upload document"</p>
+        </div>
+      )}
     </div>
   )
 }

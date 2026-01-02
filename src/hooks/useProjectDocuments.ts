@@ -1,136 +1,214 @@
-import { useEffect, useState } from 'react'
+/**
+ * DAST Solutions - Hook pour Documents de Projet
+ * Upload, liste, suppression de documents
+ */
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
-import { useAuth } from './useAuth'
 
 export interface ProjectDocument {
   id: string
   project_id: string
-  file_name: string
-  file_type: string
-  file_size: number
+  user_id: string
+  filename: string
+  original_name?: string
   storage_path: string
+  file_url?: string
+  file_size?: number
+  mime_type?: string
+  category: 'plans' | 'devis' | 'contrats' | 'photos' | 'general'
+  description?: string
+  version: number
+  is_active: boolean
   uploaded_at: string
+  created_at: string
 }
 
-export function useProjectDocuments(projectId: string | null) {
-  const { user } = useAuth()
+export function useProjectDocuments(projectId: string) {
   const [documents, setDocuments] = useState<ProjectDocument[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
 
-  const fetchDocuments = async () => {
-    if (!projectId) {
-      setLoading(false)
-      return
-    }
+  // Charger les documents
+  const loadDocuments = useCallback(async () => {
+    if (!projectId) return
 
     try {
       setLoading(true)
+      setError(null)
+
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        setError('Non authentifié')
+        return
+      }
+
       const { data, error: fetchError } = await supabase
         .from('project_documents')
         .select('*')
         .eq('project_id', projectId)
+        .eq('user_id', user.id)
+        .eq('is_active', true)
         .order('uploaded_at', { ascending: false })
 
-      if (fetchError) throw fetchError
-      setDocuments(data || [])
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to fetch documents'
-      setError(message)
+      if (fetchError) {
+        // Table n'existe pas encore
+        if (fetchError.code === '42P01') {
+          console.warn('Table project_documents non créée')
+          setDocuments([])
+          return
+        }
+        throw fetchError
+      }
+
+      // Générer les URLs publiques
+      const docsWithUrls = await Promise.all((data || []).map(async (doc) => {
+        if (doc.storage_path) {
+          const { data: urlData } = supabase.storage
+            .from('project-documents')
+            .getPublicUrl(doc.storage_path)
+          return { ...doc, file_url: urlData?.publicUrl }
+        }
+        return doc
+      }))
+
+      setDocuments(docsWithUrls)
+    } catch (err: any) {
+      console.error('Erreur chargement documents:', err)
+      setError(err.message)
     } finally {
       setLoading(false)
     }
-  }
-
-  useEffect(() => {
-    fetchDocuments()
   }, [projectId])
 
-  const uploadDocument = async (file: File) => {
-    if (!projectId || !user) throw new Error('Project or user not found')
-
-    setUploading(true)
-    setError(null)
-
+  // Upload document
+  const uploadDocument = async (
+    file: File, 
+    category: ProjectDocument['category'] = 'general',
+    description?: string
+  ): Promise<ProjectDocument | null> => {
     try {
-      // Créer un chemin unique
-      const timestamp = Date.now()
-      const fileName = `${projectId}/${timestamp}-${file.name}`
+      setUploading(true)
+      setError(null)
 
-      // Uploader le fichier
-      const { data: uploadData, error: uploadError } = await supabase.storage
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('Non authentifié')
+
+      // Vérifier la taille (max 50MB)
+      if (file.size > 50 * 1024 * 1024) {
+        throw new Error('Fichier trop volumineux (max 50MB)')
+      }
+
+      // Chemin de stockage: user_id/project_id/timestamp_filename
+      const timestamp = Date.now()
+      const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_')
+      const storagePath = `${user.id}/${projectId}/${timestamp}_${sanitizedName}`
+
+      // Upload vers Supabase Storage
+      const { error: uploadError } = await supabase.storage
         .from('project-documents')
-        .upload(fileName, file, {
-          upsert: false,
+        .upload(storagePath, file, {
+          cacheControl: '3600',
+          upsert: false
         })
 
-      if (uploadError) throw uploadError
+      if (uploadError) {
+        // Si bucket n'existe pas, message clair
+        if (uploadError.message.includes('Bucket not found') || uploadError.message.includes('bucket')) {
+          throw new Error('Le bucket "project-documents" n\'existe pas. Créez-le dans Supabase Dashboard > Storage.')
+        }
+        throw new Error(`Erreur upload: ${uploadError.message}`)
+      }
 
-      // Enregistrer dans la BD
-      const { data: dbData, error: dbError } = await supabase
+      // Obtenir URL publique
+      const { data: urlData } = supabase.storage
+        .from('project-documents')
+        .getPublicUrl(storagePath)
+
+      // Insérer dans la base de données
+      const { data: docData, error: insertError } = await supabase
         .from('project_documents')
-        .insert([
-          {
-            project_id: projectId,
-            file_name: file.name,
-            file_type: file.type,
-            file_size: file.size,
-            storage_path: uploadData.path,
-            uploaded_by: user.id,
-          },
-        ])
+        .insert({
+          project_id: projectId,
+          user_id: user.id,
+          filename: sanitizedName,
+          original_name: file.name,
+          storage_path: storagePath,
+          file_size: file.size,
+          mime_type: file.type,
+          category,
+          description
+        })
         .select()
         .single()
 
-      if (dbError) throw dbError
+      if (insertError) {
+        // Nettoyer le fichier uploadé si l'insert échoue
+        await supabase.storage.from('project-documents').remove([storagePath])
+        
+        if (insertError.code === '42P01') {
+          throw new Error('Table "project_documents" non créée. Exécutez la migration SQL.')
+        }
+        throw insertError
+      }
 
-      // Actualiser la liste
-      await fetchDocuments()
+      const newDoc = { ...docData, file_url: urlData?.publicUrl }
+      setDocuments(prev => [newDoc, ...prev])
+      return newDoc
 
-      return dbData
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to upload document'
-      setError(message)
-      throw err
+    } catch (err: any) {
+      console.error('Erreur upload document:', err)
+      setError(err.message)
+      return null
     } finally {
       setUploading(false)
     }
   }
 
-  const deleteDocument = async (documentId: string, storagePath: string) => {
+  // Supprimer document
+  const deleteDocument = async (documentId: string): Promise<boolean> => {
     try {
-      // Supprimer du storage
-      const { error: storageError } = await supabase.storage
-        .from('project-documents')
-        .remove([storagePath])
+      const doc = documents.find(d => d.id === documentId)
+      
+      // Supprimer le fichier du storage
+      if (doc?.storage_path) {
+        await supabase.storage
+          .from('project-documents')
+          .remove([doc.storage_path])
+      }
 
-      if (storageError) throw storageError
-
-      // Supprimer de la BD
-      const { error: dbError } = await supabase
+      // Supprimer de la base de données
+      const { error } = await supabase
         .from('project_documents')
         .delete()
         .eq('id', documentId)
 
-      if (dbError) throw dbError
+      if (error) throw error
 
-      // Actualiser la liste
-      await fetchDocuments()
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to delete document'
-      setError(message)
-      throw err
+      setDocuments(prev => prev.filter(d => d.id !== documentId))
+      return true
+    } catch (err: any) {
+      console.error('Erreur suppression:', err)
+      setError(err.message)
+      return false
     }
   }
 
-  const getDocumentUrl = (storagePath: string) => {
-    const { data } = supabase.storage
-      .from('project-documents')
-      .getPublicUrl(storagePath)
-
-    return data.publicUrl
+  // Stats par catégorie
+  const getStats = () => {
+    return {
+      plans: documents.filter(d => d.category === 'plans').length,
+      devis: documents.filter(d => d.category === 'devis').length,
+      contrats: documents.filter(d => d.category === 'contrats').length,
+      photos: documents.filter(d => d.category === 'photos').length,
+      general: documents.filter(d => d.category === 'general').length,
+      total: documents.length
+    }
   }
+
+  useEffect(() => {
+    loadDocuments()
+  }, [loadDocuments])
 
   return {
     documents,
@@ -139,7 +217,7 @@ export function useProjectDocuments(projectId: string | null) {
     uploading,
     uploadDocument,
     deleteDocument,
-    getDocumentUrl,
-    refetch: fetchDocuments,
+    getStats,
+    refetch: loadDocuments
   }
 }
