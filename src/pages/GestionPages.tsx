@@ -7,7 +7,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import {
   Plus, Search, Filter, FileCheck, Clock, CheckCircle, XCircle,
-  AlertTriangle, DollarSign, Calendar, User, ChevronRight, ChevronLeft,
+  AlertTriangle, AlertCircle, DollarSign, Calendar, User, ChevronRight, ChevronLeft,
   MoreVertical, Eye, Edit2, Trash2, X, Save, Upload, FileText,
   ArrowUpRight, ArrowDownRight, Minus, Cloud, Sun, CloudRain, CloudSnow,
   Users, Loader2, Download, Camera, MessageSquare, Send, Video,
