@@ -1,6 +1,7 @@
 /**
  * DAST Solutions - App.tsx COMPLET
- * Toutes les routes pour tous les sous-menus
+ * TOUTES les routes pour TOUS les modules
+ * Mis à jour: 2 janvier 2026
  */
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
@@ -61,6 +62,44 @@ import MateriauxPrix from '@/pages/MateriauxPrix'
 import SoumissionBuilder from '@/pages/SoumissionBuilder'
 import AppelsOffres from '@/pages/AppelsOffres'
 
+// ============================================================================
+// MODULE GESTION DE PROJET (23 pages)
+// ============================================================================
+import {
+  ProjectBudget,
+  ProjectChangeOrders,
+  ProjectJournal,
+  ProjectCouts,
+  ProjectPrevisions,
+  ProjectPlans,
+  ProjectSpecifications,
+  ProjectDocuments,
+  ProjectPhotos,
+  ProjectEcheancier,
+  ProjectProblemes,
+  ProjectRFI,
+  ProjectSoumissionsST,
+  ProjectCorrespondance,
+  ProjectReunions,
+  ProjectFormulaires,
+  ProjectEquipe,
+  ProjectEquipements,
+  ProjectMateriaux,
+  ProjectRapports,
+  ProjectParametres
+} from '@/pages/GestionPages'
+
+// ============================================================================
+// MODULE ESTIMATION (Base de données ProEst)
+// ============================================================================
+import CostDatabase from '@/pages/CostDatabase'
+import EstimationPage from '@/pages/EstimationPage'
+
+// ============================================================================
+// PROJETS PAR PHASE (listes filtrées)
+// ============================================================================
+import { ProjetsConception, ProjetsEstimation, ProjetsGestion } from '@/pages/ProjetsParPhase'
+
 function App() {
   const [session, setSession] = useState<any>(null)
   const [loading, setLoading] = useState(true)
@@ -100,17 +139,63 @@ function App() {
           {/* ============ DASHBOARD ============ */}
           <Route path="dashboard" element={<Dashboard />} />
           
-          {/* ============ PROJETS ============ */}
+          {/* ============ PROJETS - LISTE ============ */}
           <Route path="projects" element={<Projects />} />
           <Route path="project/new" element={<ProjectDetails />} />
           <Route path="project/:projectId" element={<ProjectDetails />} />
           <Route path="takeoff/:projectId" element={<TakeoffV2 />} />
           <Route path="bid-proposal/:projectId" element={<BidProposalV2 />} />
 
-          <Route path="projets/conception" element={<Conception />} />
-          <Route path="projets/estimation" element={<Estimation />} />
-          <Route path="projets/gestion" element={<Gestion />} />
+          {/* ============ PROJETS PAR PHASE (Sidebar) ============ */}
+          <Route path="projets/conception" element={<ProjetsConception />} />
+          <Route path="projets/estimation" element={<ProjetsEstimation />} />
+          <Route path="projets/gestion" element={<ProjetsGestion />} />
           <Route path="projets/appels-offres" element={<AppelOffres />} />
+          
+          {/* Legacy routes pour compatibilité */}
+          <Route path="conception" element={<Conception />} />
+          <Route path="estimation" element={<Estimation />} />
+          <Route path="gestion" element={<Gestion />} />
+
+          {/* ============ MODULE GESTION PROJET (23 routes) ============ */}
+          {/* Finances */}
+          <Route path="project/:projectId/budget" element={<ProjectBudget />} />
+          <Route path="project/:projectId/couts" element={<ProjectCouts />} />
+          <Route path="project/:projectId/change-orders" element={<ProjectChangeOrders />} />
+          <Route path="project/:projectId/previsions" element={<ProjectPrevisions />} />
+          
+          {/* Documents */}
+          <Route path="project/:projectId/plans" element={<ProjectPlans />} />
+          <Route path="project/:projectId/specifications" element={<ProjectSpecifications />} />
+          <Route path="project/:projectId/documents" element={<ProjectDocuments />} />
+          <Route path="project/:projectId/photos" element={<ProjectPhotos />} />
+          
+          {/* Suivi */}
+          <Route path="project/:projectId/echeancier" element={<ProjectEcheancier />} />
+          <Route path="project/:projectId/journal" element={<ProjectJournal />} />
+          <Route path="project/:projectId/problemes" element={<ProjectProblemes />} />
+          
+          {/* Communication */}
+          <Route path="project/:projectId/rfi" element={<ProjectRFI />} />
+          <Route path="project/:projectId/soumissions-st" element={<ProjectSoumissionsST />} />
+          <Route path="project/:projectId/correspondance" element={<ProjectCorrespondance />} />
+          <Route path="project/:projectId/reunions" element={<ProjectReunions />} />
+          <Route path="project/:projectId/formulaires" element={<ProjectFormulaires />} />
+          
+          {/* Ressources */}
+          <Route path="project/:projectId/equipe" element={<ProjectEquipe />} />
+          <Route path="project/:projectId/equipements" element={<ProjectEquipements />} />
+          <Route path="project/:projectId/materiaux" element={<ProjectMateriaux />} />
+          
+          {/* Rapports & Config */}
+          <Route path="project/:projectId/rapports" element={<ProjectRapports />} />
+          <Route path="project/:projectId/parametres" element={<ProjectParametres />} />
+
+          {/* ============ MODULE ESTIMATION (ProEst) ============ */}
+          <Route path="database" element={<CostDatabase />} />
+          <Route path="estimation/:projectId" element={<EstimationPage />} />
+          
+          {/* ============ FACTURES ============ */}
           <Route path="factures" element={<Factures />} />
           
           {/* ============ ENTREPRENEURS ============ */}
