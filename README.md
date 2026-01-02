@@ -1,199 +1,154 @@
-# DAST Solutions - Package Unifié Gestion Complète
+# DAST Solutions - Module Estimation (Style ProEst)
 
-## 🐛 FIX BUG: "new row violates row-level security policy for table bid_configuration"
+## 📊 Aperçu
 
-Ce package corrige l'erreur RLS qui empêche la création de nouveaux projets.
+Module d'estimation complet inspiré de ProEst avec:
+- **Base de données d'items** (cost_items) - Structure CSC MasterFormat
+- **Assemblages avec formules** (assemblies) - Calculs automatiques
+- **Estimations de projet** (estimates) - Lignes avec matériaux, M-O, S-T
 
-## 📦 Contenu du Package
+## 🏗️ Structure des données
 
+### Codes CSC MasterFormat
 ```
-src/
-├── components/
-│   └── Sidebar.tsx              # Sidebar UNIFIÉE avec tous les modules
-├── pages/
-│   ├── GestionPages.tsx         # TOUTES les pages de gestion (20+ pages)
-│   └── ProjetsParPhase.tsx      # Listes par phase (Conception, Estimation, Gestion)
-└── routes-unified.tsx           # Routes à ajouter dans App.tsx
-
-supabase/
-├── fix_bid_configuration_rls.sql   # Fix RLS (exécuter en premier si erreur)
-└── 004_gestion_complete.sql        # Migration complète (tables gestion)
+04.2000.1000
+│   │     └── Code item (1000, 1010, 1020...)
+│   └── Subdivision (2000 Unit Masonry, 0500 Common Work...)
+└── Division (04 Masonry)
 ```
 
-## 🚀 Installation
+### Formules d'assemblage
+```javascript
+// Variables disponibles
+Wall_Length, Wall_Height, Wall_Area, Floor_Area, Perimeter, Volume,
+Opening_Count, Bond_Beam_Rows, Bond_Beam_Rebar, Quantity, Length, Width, Height, Depth
 
-### Étape 1: CORRIGER L'ERREUR RLS (URGENT)
+// Exemple de formule pour blocs de béton
+(Wall_Length * Wall_Height * 1.125) - (Wall_Length / 1.333 * Bond_Beam_Rows)
+```
 
-Dans **Supabase Dashboard → SQL Editor**, exécutez:
+## 📦 Installation
+
+### 1. Migration SQL
+
+Exécuter dans **Supabase Dashboard → SQL Editor**:
 
 ```sql
--- Fix bid_configuration RLS
-ALTER TABLE public.bid_configuration DISABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Users can manage own bid configurations" ON public.bid_configuration;
-ALTER TABLE public.bid_configuration ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Users can manage own bid configurations" ON public.bid_configuration
-  FOR ALL 
-  USING (auth.uid() IS NOT NULL)
-  WITH CHECK (auth.uid() IS NOT NULL);
+-- Copier le contenu de: supabase/005_estimation_module.sql
 ```
 
-Ou exécutez le fichier complet: `supabase/004_gestion_complete.sql`
+**Tables créées:**
+- `cost_divisions` - 24 divisions CSC
+- `cost_items` - Items avec coûts unitaires
+- `assemblies` - Assemblages avec variables
+- `assembly_items` - Items dans assemblages + formules
+- `estimates` - Estimations par projet
+- `estimate_items` - Lignes d'estimation
 
-### Étape 2: Copier les fichiers
+### 2. Copier les fichiers
 
 ```bash
-# Copier les nouveaux fichiers
-cp src/components/Sidebar.tsx your-project/src/components/
-cp src/pages/GestionPages.tsx your-project/src/pages/
-cp src/pages/ProjetsParPhase.tsx your-project/src/pages/
+# Pages
+cp src/pages/CostDatabase.tsx your-project/src/pages/
+cp src/pages/EstimationPage.tsx your-project/src/pages/
+
+# Routes à ajouter dans App.tsx
 ```
 
-### Étape 3: Ajouter les routes dans App.tsx
+### 3. Ajouter les routes
 
 ```tsx
-// IMPORTS À AJOUTER
-import {
-  ProjectBudget, ProjectChangeOrders, ProjectJournal,
-  ProjectCouts, ProjectPrevisions, ProjectPlans,
-  ProjectSpecifications, ProjectDocuments, ProjectPhotos,
-  ProjectEcheancier, ProjectProblemes, ProjectRFI,
-  ProjectSoumissionsST, ProjectCorrespondance, ProjectReunions,
-  ProjectFormulaires, ProjectEquipe, ProjectEquipements,
-  ProjectMateriaux, ProjectRapports, ProjectParametres
-} from '@/pages/GestionPages'
+import CostDatabase from '@/pages/CostDatabase'
+import EstimationPage from '@/pages/EstimationPage'
 
-import {
-  ProjetsConception, ProjetsEstimation, ProjetsGestion
-} from '@/pages/ProjetsParPhase'
-
-// ROUTES À AJOUTER
-<Route path="/projets/conception" element={<ProjetsConception />} />
-<Route path="/projets/estimation" element={<ProjetsEstimation />} />
-<Route path="/projets/gestion" element={<ProjetsGestion />} />
-
-<Route path="/project/:projectId/budget" element={<ProjectBudget />} />
-<Route path="/project/:projectId/couts" element={<ProjectCouts />} />
-<Route path="/project/:projectId/change-orders" element={<ProjectChangeOrders />} />
-<Route path="/project/:projectId/previsions" element={<ProjectPrevisions />} />
-<Route path="/project/:projectId/plans" element={<ProjectPlans />} />
-<Route path="/project/:projectId/specifications" element={<ProjectSpecifications />} />
-<Route path="/project/:projectId/documents" element={<ProjectDocuments />} />
-<Route path="/project/:projectId/photos" element={<ProjectPhotos />} />
-<Route path="/project/:projectId/echeancier" element={<ProjectEcheancier />} />
-<Route path="/project/:projectId/journal" element={<ProjectJournal />} />
-<Route path="/project/:projectId/problemes" element={<ProjectProblemes />} />
-<Route path="/project/:projectId/rfi" element={<ProjectRFI />} />
-<Route path="/project/:projectId/soumissions-st" element={<ProjectSoumissionsST />} />
-<Route path="/project/:projectId/correspondance" element={<ProjectCorrespondance />} />
-<Route path="/project/:projectId/reunions" element={<ProjectReunions />} />
-<Route path="/project/:projectId/formulaires" element={<ProjectFormulaires />} />
-<Route path="/project/:projectId/equipe" element={<ProjectEquipe />} />
-<Route path="/project/:projectId/equipements" element={<ProjectEquipements />} />
-<Route path="/project/:projectId/materiaux" element={<ProjectMateriaux />} />
-<Route path="/project/:projectId/rapports" element={<ProjectRapports />} />
-<Route path="/project/:projectId/parametres" element={<ProjectParametres />} />
+// Dans <Routes>
+<Route path="/database" element={<CostDatabase />} />
+<Route path="/estimation/:projectId" element={<EstimationPage />} />
 ```
 
-### Étape 4: Déployer
+### 4. Ajouter dans la Sidebar
 
-```bash
-git add .
-git commit -m "feat: gestion projet complète + fix RLS bid_configuration"
-git push
+```tsx
+// Dans la section Ressources
+<NavLink to="/database">
+  <Database size={16} />
+  Base de données
+</NavLink>
 ```
 
-## 📊 Modules Inclus (Style ACC)
+## 🎯 Fonctionnalités
 
-| Module | Route | Statut |
-|--------|-------|--------|
-| **Accueil projet** | /project/:id | ✅ Existant |
-| **Budget** | /project/:id/budget | ✅ Complet |
-| **Coûts** | /project/:id/couts | 🔧 Placeholder |
-| **Ordres de changement** | /project/:id/change-orders | ✅ Complet |
-| **Prévisions** | /project/:id/previsions | 🔧 Placeholder |
-| **Takeoff** | /takeoff/:id | ✅ Existant |
-| **Plans** | /project/:id/plans | 🔧 Placeholder |
-| **Devis techniques** | /project/:id/specifications | 🔧 Placeholder |
-| **Documents** | /project/:id/documents | 🔧 Placeholder |
-| **Photos** | /project/:id/photos | 🔧 Placeholder |
-| **Échéancier** | /project/:id/echeancier | 🔧 Placeholder |
-| **Journal chantier** | /project/:id/journal | ✅ Complet |
-| **Problèmes** | /project/:id/problemes | 🔧 Placeholder |
-| **RFIs** | /project/:id/rfi | 🔧 Placeholder |
-| **Soum. sous-traitants** | /project/:id/soumissions-st | 🔧 Placeholder |
-| **Correspondance** | /project/:id/correspondance | 🔧 Placeholder |
-| **Réunions** | /project/:id/reunions | 🔧 Placeholder |
-| **Formulaires** | /project/:id/formulaires | 🔧 Placeholder |
-| **Équipe** | /project/:id/equipe | 🔧 Placeholder |
-| **Équipements** | /project/:id/equipements | 🔧 Placeholder |
-| **Matériaux** | /project/:id/materiaux | 🔧 Placeholder |
-| **Rapports** | /project/:id/rapports | 🔧 Placeholder |
-| **Paramètres** | /project/:id/parametres | 🔧 Placeholder |
+### Base de données (CostDatabase.tsx)
 
-## 🔗 Navigation Unifiée
+| Onglet | Description |
+|--------|-------------|
+| **Items** | Liste hiérarchique des items CSC |
+| **Assemblages** | Groupes d'items avec formules |
+| **Maintenance** | Mise à jour des prix |
+| **Sources** | RSMeans, imports CSV |
 
-```
-SIDEBAR
-├── Tableau de bord
-├── Projets
-│   ├── Tous les projets
-│   ├── Conception (draft)
-│   ├── Estimation (draft, planning)
-│   ├── Gestion (active, on_hold) ← PROJETS EN EXÉCUTION
-│   └── Appels d'offres
-│
-├── [PROJET ACTIF EN GESTION] ← Apparaît quand projet actif
-│   ├── Finances
-│   │   ├── Budget
-│   │   ├── Coûts
-│   │   ├── Ordres de changement
-│   │   └── Prévisions
-│   ├── Documents
-│   │   ├── Takeoff
-│   │   ├── Plans
-│   │   ├── Devis techniques
-│   │   ├── Documents
-│   │   └── Photos
-│   ├── Suivi
-│   │   ├── Échéancier
-│   │   ├── Journal chantier
-│   │   └── Problèmes
-│   ├── Communication
-│   │   ├── RFIs
-│   │   ├── Soum. sous-traitants
-│   │   ├── Correspondance
-│   │   ├── Réunions
-│   │   └── Formulaires
-│   ├── Ressources
-│   │   ├── Équipe
-│   │   ├── Équipements
-│   │   └── Matériaux
-│   └── Rapports
-│       ├── Rapports
-│       └── Paramètres
-│
-├── Soumissions
-├── Factures
-├── Entrepreneurs
-├── Appels d'offre
-└── Ressources
+**Features:**
+- ✅ Arbre navigable par division
+- ✅ Recherche globale
+- ✅ CRUD items
+- ✅ CRUD assemblages
+- ✅ Variables et formules
+- ✅ Coûts ventilés (Mat., M-O, Équip.)
+
+### Estimation (EstimationPage.tsx)
+
+| Onglet | Description |
+|--------|-------------|
+| **Documents** | Lien vers documents projet |
+| **Estimation** | Tableau des lignes |
+| **Takeoff** | Lien vers takeoff |
+| **Tri** | Organisation personnalisée |
+| **Tâches** | Suivi des tâches |
+| **Bid Leveling** | Comparaison soumissions |
+| **Sommaire** | Graphiques et totaux |
+
+**Features:**
+- ✅ Ajout items depuis base de données
+- ✅ Édition quantités inline
+- ✅ Colonnes: Matériaux, M-O, Sous-traitants
+- ✅ Totaux automatiques
+- ✅ Marges: Frais généraux, Profit, Contingence
+- ✅ Filtrer par division
+- ✅ Grouper par division
+- ✅ Export (à venir)
+
+## 📐 Intégration Takeoff → Estimation
+
+Le module est conçu pour s'intégrer avec le Takeoff:
+
+```typescript
+// estimate_items a un champ takeoff_measurement_id
+// Permet de lier une ligne d'estimation à une mesure du takeoff
+
+// Workflow:
+// 1. Mesurer dans Takeoff (ex: 150 Pi² de mur)
+// 2. Sélectionner assemblage "4" Concrete Block Wall"
+// 3. Calculer automatiquement: blocs, mortier, armature, M-O
+// 4. Ajouter à l'estimation avec quantité du takeoff
 ```
 
-## ✅ Cohérence garantie
+## 🔮 Prochaines étapes
 
-- **UN SEUL CHEMIN** vers chaque fonctionnalité
-- **MÊME STRUCTURE** peu importe d'où on accède
-- La sidebar s'adapte au contexte (projet actif ou non)
-- Toutes les routes projet sont sous `/project/:projectId/[module]`
-- Takeoff reste à `/takeoff/:projectId` pour compatibilité
+1. **Import RSMeans** - Données de coûts standardisées
+2. **Import CSV** - Importer vos propres données
+3. **Lien Takeoff** - Auto-population depuis mesures
+4. **Export Excel** - Rapports formatés
+5. **Comparaison versions** - Historique des changements
+6. **Bid Leveling** - Comparaison soumissions S-T
 
-## 📋 Checklist post-installation
+## 📋 Exemple de données
 
-- [ ] Migration SQL exécutée (fix RLS + tables gestion)
-- [ ] Fichiers copiés (Sidebar, GestionPages, ProjetsParPhase)
-- [ ] Routes ajoutées dans App.tsx
-- [ ] Imports ajoutés
-- [ ] Build passe (`npm run build`)
-- [ ] Test création projet → PLUS D'ERREUR bid_configuration
-- [ ] Test navigation sidebar → menus cohérents
+```sql
+-- Ajouter quelques items de démonstration
+INSERT INTO cost_items (user_id, division_code, subdivision_code, item_code, description, description_fr, unit, material_cost, labor_cost, unit_cost)
+VALUES
+  (auth.uid(), '04', '2000', '1000', '4" X 8" X 16" Concrete Block', 'Bloc de béton 4" X 8" X 16"', 'U', 1.00, 0.20, 1.20),
+  (auth.uid(), '04', '2000', '1010', '6" X 8" X 16" Concrete Block', 'Bloc de béton 6" X 8" X 16"', 'U', 1.28, 0.20, 1.48),
+  (auth.uid(), '04', '2000', '1020', '8" X 8" X 16" Concrete Block', 'Bloc de béton 8" X 8" X 16"', 'U', 2.75, 0.25, 3.00),
+  (auth.uid(), '03', '3000', '1000', 'Concrete 25 MPa', 'Béton 25 MPa', 'M3', 150.00, 25.00, 175.00);
+```
