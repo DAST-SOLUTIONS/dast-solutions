@@ -1,146 +1,166 @@
-# 🔧 DAST Solutions - Corrections Bugs Janvier 2026
+# DAST Solutions - Module Gestion Complet
 
-## 📋 BUGS CORRIGÉS
+## 📦 Contenu du Package
 
-| # | Bug | Fichier | Solution |
-|---|-----|---------|----------|
-| 1 | Création projet échoue | `ProjectDetails.tsx` + SQL | Colonnes manquantes ajoutées |
-| 2 | Liste projets non cliquable | `Projects.tsx` | Navigation onClick ajoutée |
-| 3 | Estimation → Dashboard | `Estimation.tsx` | Route corrigée vers `/takeoff/:id` |
-| 4 | Upload plans ne fonctionne pas | `useTakeoff.ts` + SQL | Hook corrigé + Storage bucket |
-| 5 | RLS désactivé (alertes Supabase) | SQL | Policies ajoutées sur toutes les tables |
+Ce package ajoute un module de gestion de projet complet inspiré d'Autodesk Construction Cloud (ACC).
 
-## 🆕 NOUVELLES FONCTIONNALITÉS
-
-### Formulaire Projet amélioré:
-- **Client CRM**: Sélection depuis la liste des clients ou saisie manuelle
-- **Contacts**: Association de contacts au projet
-- **Type projet**: Privé / Public
-- **Portée**: Neuf, Rénovation, Agrandissement, etc.
-- **Type bâtiment**: 25+ options (commerce, école, caserne, etc.)
-- **Localisation**: Adresse, Ville, Province, Code postal
-
----
-
-## 📦 CONTENU DU PACKAGE
+### Fichiers inclus:
 
 ```
-dast-bugfix-jan2/
-├── README.md
-├── supabase/migrations/
-│   └── 002_fix_projects_schema.sql    ← EXÉCUTER EN PREMIER
-├── src/pages/
-│   ├── ProjectDetails.tsx             ← Formulaire projet complet
-│   ├── Projects.tsx                   ← Liste cliquable
-│   └── Projets/
-│       └── Estimation.tsx             ← Navigation corrigée
-└── src/hooks/
-    └── useTakeoff.ts                  ← Upload fonctionnel
+src/
+├── components/
+│   └── Sidebar.tsx                    # Sidebar avec projets par phase
+├── pages/
+│   └── Gestion/
+│       ├── index.ts                   # Exports
+│       ├── GestionProjetLayout.tsx    # Layout principal (style ACC)
+│       ├── Budget.tsx                 # Gestion budget par division CSC
+│       ├── ChangeOrders.tsx           # Ordres de changement
+│       ├── Journal.tsx                # Journal de chantier
+│       └── PlaceholderPages.tsx       # Pages à développer
+├── routes-gestion.tsx                 # Routes à ajouter dans App.tsx
+supabase/
+└── migrations/
+    └── 003_gestion_tables.sql         # Tables pour gestion
 ```
 
----
+## 🚀 Installation
 
-## 🚀 INSTRUCTIONS D'INSTALLATION
+### Étape 1: Exécuter la migration SQL
 
-### ÉTAPE 1: Exécuter la migration SQL (OBLIGATOIRE)
-
-1. Aller dans **Supabase Dashboard** → **SQL Editor**
-2. Copier le contenu de `supabase/migrations/002_fix_projects_schema.sql`
-3. Cliquer sur **Run**
-
-Cette migration:
-- Ajoute les colonnes manquantes à `projects` (city, province, postal_code, budget, etc.)
-- Crée les tables `clients` et `contacts` pour le CRM
-- Active RLS sur toutes les tables signalées
-- Configure le bucket storage `takeoff-plans`
-
-### ÉTAPE 2: Configurer le Storage (si pas déjà fait)
-
-Dans **Supabase Dashboard** → **Storage**:
-
-1. Cliquer sur **New bucket**
-2. Nom: `takeoff-plans`
-3. Cocher **Public bucket**
-4. Cliquer **Create bucket**
-
-### ÉTAPE 3: Remplacer les fichiers
-
-Copier ces fichiers dans votre repo GitHub:
-
+Dans **Supabase Dashboard → SQL Editor**, exécutez le contenu de:
 ```
-src/pages/ProjectDetails.tsx        ← REMPLACER
-src/pages/Projects.tsx              ← REMPLACER
-src/pages/Projets/Estimation.tsx    ← REMPLACER
-src/hooks/useTakeoff.ts             ← REMPLACER
+supabase/migrations/003_gestion_tables.sql
 ```
 
-### ÉTAPE 4: Commit & Push
+Cela crée les tables:
+- `budget_lines` - Lignes de budget par division CSC
+- `change_orders` - Ordres de changement
+- `daily_reports` - Rapports journaliers de chantier
+- `rfis` - Demandes d'information
+- `project_issues` - Problèmes/issues
+- `project_photos` - Photos de projet
+
+### Étape 2: Copier les fichiers
+
+```bash
+# Copier les nouveaux fichiers
+cp -r src/components/Sidebar.tsx your-project/src/components/
+cp -r src/pages/Gestion your-project/src/pages/
+```
+
+### Étape 3: Ajouter les routes dans App.tsx
+
+Ajoutez les imports:
+```tsx
+import {
+  GestionProjetLayout,
+  GestionBudget,
+  GestionChangeOrders,
+  GestionJournal,
+  GestionCouts,
+  GestionPrevisions,
+  GestionPlans,
+  GestionDocuments,
+  GestionEcheancier,
+  GestionPhotos,
+  GestionProblemes,
+  GestionRFI,
+  GestionSoumissionsFournisseurs,
+  GestionRapports,
+  GestionEquipe
+} from '@/pages/Gestion'
+```
+
+Ajoutez les routes:
+```tsx
+<Route path="/gestion/:projectId" element={<GestionProjetLayout />}>
+  <Route path="budget" element={<GestionBudget />} />
+  <Route path="couts" element={<GestionCouts />} />
+  <Route path="change-orders" element={<GestionChangeOrders />} />
+  <Route path="previsions" element={<GestionPrevisions />} />
+  <Route path="plans" element={<GestionPlans />} />
+  <Route path="documents" element={<GestionDocuments />} />
+  <Route path="echeancier" element={<GestionEcheancier />} />
+  <Route path="photos" element={<GestionPhotos />} />
+  <Route path="problemes" element={<GestionProblemes />} />
+  <Route path="rfi" element={<GestionRFI />} />
+  <Route path="soumissions-fournisseurs" element={<GestionSoumissionsFournisseurs />} />
+  <Route path="journal" element={<GestionJournal />} />
+  <Route path="rapports" element={<GestionRapports />} />
+  <Route path="equipe" element={<GestionEquipe />} />
+</Route>
+```
+
+### Étape 4: Déployer
 
 ```bash
 git add .
-git commit -m "fix: bugs création projet, navigation, upload takeoff"
-git push origin main
+git commit -m "feat: module gestion projet complet (style ACC)"
+git push
 ```
 
-Vercel redéploiera automatiquement.
+## 📊 Fonctionnalités
 
----
+### Module Gestion (inspiré ACC Build)
 
-## ✅ VÉRIFICATION
+| Page | Statut | Description |
+|------|--------|-------------|
+| Accueil | ✅ Complète | Dashboard projet avec météo, progression, liens rapides |
+| Budget | ✅ Complète | Budget par division CSC MasterFormat |
+| Ordres de changement | ✅ Complète | CO avec workflow d'approbation |
+| Journal chantier | ✅ Complète | Rapports quotidiens avec météo |
+| Coûts | 🔧 Placeholder | Suivi des coûts réels |
+| Prévisions | 🔧 Placeholder | Projections fin de projet |
+| Plans | 🔧 Placeholder | Gestion des plans |
+| Documents | 🔧 Placeholder | GED projet |
+| Échéancier | 🔧 Placeholder | Gantt |
+| Photos | 🔧 Placeholder | Galerie photos |
+| Problèmes | 🔧 Placeholder | Suivi des issues |
+| RFIs | 🔧 Placeholder | Demandes d'information |
+| Soum. fournisseurs | 🔧 Placeholder | Soumissions sous-traitants |
+| Rapports | 🔧 Placeholder | Génération de rapports |
+| Équipe | 🔧 Placeholder | Gestion équipe |
 
-Après déploiement, tester:
+### Sidebar améliorée
 
-1. **Création projet**: Formulaire complet avec tous les champs
-2. **Liste projets**: Cliquer sur un projet → ouvre la page détails
-3. **Estimation**: Cliquer sur "Ouvrir" → va vers Takeoff
-4. **Takeoff**: Upload un PDF → doit s'afficher dans la liste
+- **Projets filtrés par phase**:
+  - Estimation: projets en `draft`, `planning`
+  - Gestion: projets en `active`, `on_hold`
+  
+- **Menu contextuel**: Quand un projet actif est ouvert, le menu de gestion apparaît dans la sidebar
 
----
+## 🔗 Flux Estimation ↔ Gestion
 
-## 📊 NOUVELLES TABLES CRÉÉES
+```
+ESTIMATION                      GESTION
+┌──────────────────┐           ┌──────────────────┐
+│ • Takeoff        │           │ • Budget         │
+│ • Soumission     │ ────────► │ • Suivi coûts    │
+│ • Budget initial │  contrat  │ • Change Orders  │
+└──────────────────┘  signé    └──────────────────┘
+                                       │
+                                       ▼
+                               ┌──────────────────┐
+                               │ ORDRE DE         │
+                               │ CHANGEMENT       │
+                               │ • Nouveau takeoff│
+                               │ • Ajust. budget  │
+                               └──────────────────┘
+```
 
-### `clients` (CRM)
-| Colonne | Type | Description |
-|---------|------|-------------|
-| type | varchar | 'individu' ou 'societe' |
-| prenom, nom | varchar | Pour individus |
-| nom_societe | varchar | Pour sociétés |
-| email, telephone | varchar | Contact |
-| adresse, ville, province | varchar | Localisation |
+## 📝 Notes
 
-### `contacts` (liés aux clients)
-| Colonne | Type | Description |
-|---------|------|-------------|
-| client_id | uuid | FK vers clients |
-| prenom, nom | varchar | Nom du contact |
-| titre | varchar | Fonction |
-| est_principal | boolean | Contact principal |
+- Les pages "Placeholder" sont des coquilles prêtes à être développées
+- Le module respecte le style Autodesk Construction Cloud pour la familiarité
+- Toutes les tables ont RLS activé pour la sécurité
+- Les triggers `updated_at` sont automatiques
 
-### `project_contacts` (liaison projet-contacts)
-| Colonne | Type | Description |
-|---------|------|-------------|
-| project_id | uuid | FK vers projects |
-| contact_id | uuid | FK vers contacts |
-| role | varchar | Rôle sur le projet |
+## ✅ Checklist post-installation
 
----
-
-## 🔒 RLS POLICIES AJOUTÉES
-
-Tables avec RLS maintenant activé:
-- ccq_sectors, ccq_trades, ccq_hourly_rates, ccq_regions, ccq_social_benefits (lecture publique)
-- appels_offres_favoris, appels_offres_notifications, appels_offres_invitations, etc. (user-specific)
-- bottin_equipe_membres, bottin_equipe_equipements (via equipe_id)
-- materiaux_categories (lecture publique)
-- materiaux_prix_historique (user-specific)
-- soumissions_sections, soumissions_items (via soumission_id)
-
----
-
-## 🐛 PROBLÈMES CONNUS
-
-### Three.js / BIM Viewer (Conception)
-La page Conception nécessite une implémentation Three.js complète qui sera développée dans une phase ultérieure. Pour l'instant, cette fonctionnalité est désactivée.
-
-### Import depuis cloud externe
-L'import depuis Box, SharePoint, Google Drive sera implémenté dans une phase ultérieure. Pour l'instant, seul l'upload local fonctionne.
+- [ ] Migration SQL exécutée
+- [ ] Fichiers copiés
+- [ ] Routes ajoutées dans App.tsx
+- [ ] Build passe (npm run build)
+- [ ] Test création d'un projet "actif"
+- [ ] Accès au module Gestion via /gestion/{projectId}
