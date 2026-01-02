@@ -1,166 +1,199 @@
-# DAST Solutions - Module Gestion Complet
+# DAST Solutions - Package Unifié Gestion Complète
+
+## 🐛 FIX BUG: "new row violates row-level security policy for table bid_configuration"
+
+Ce package corrige l'erreur RLS qui empêche la création de nouveaux projets.
 
 ## 📦 Contenu du Package
-
-Ce package ajoute un module de gestion de projet complet inspiré d'Autodesk Construction Cloud (ACC).
-
-### Fichiers inclus:
 
 ```
 src/
 ├── components/
-│   └── Sidebar.tsx                    # Sidebar avec projets par phase
+│   └── Sidebar.tsx              # Sidebar UNIFIÉE avec tous les modules
 ├── pages/
-│   └── Gestion/
-│       ├── index.ts                   # Exports
-│       ├── GestionProjetLayout.tsx    # Layout principal (style ACC)
-│       ├── Budget.tsx                 # Gestion budget par division CSC
-│       ├── ChangeOrders.tsx           # Ordres de changement
-│       ├── Journal.tsx                # Journal de chantier
-│       └── PlaceholderPages.tsx       # Pages à développer
-├── routes-gestion.tsx                 # Routes à ajouter dans App.tsx
+│   ├── GestionPages.tsx         # TOUTES les pages de gestion (20+ pages)
+│   └── ProjetsParPhase.tsx      # Listes par phase (Conception, Estimation, Gestion)
+└── routes-unified.tsx           # Routes à ajouter dans App.tsx
+
 supabase/
-└── migrations/
-    └── 003_gestion_tables.sql         # Tables pour gestion
+├── fix_bid_configuration_rls.sql   # Fix RLS (exécuter en premier si erreur)
+└── 004_gestion_complete.sql        # Migration complète (tables gestion)
 ```
 
 ## 🚀 Installation
 
-### Étape 1: Exécuter la migration SQL
+### Étape 1: CORRIGER L'ERREUR RLS (URGENT)
 
-Dans **Supabase Dashboard → SQL Editor**, exécutez le contenu de:
-```
-supabase/migrations/003_gestion_tables.sql
+Dans **Supabase Dashboard → SQL Editor**, exécutez:
+
+```sql
+-- Fix bid_configuration RLS
+ALTER TABLE public.bid_configuration DISABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users can manage own bid configurations" ON public.bid_configuration;
+ALTER TABLE public.bid_configuration ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can manage own bid configurations" ON public.bid_configuration
+  FOR ALL 
+  USING (auth.uid() IS NOT NULL)
+  WITH CHECK (auth.uid() IS NOT NULL);
 ```
 
-Cela crée les tables:
-- `budget_lines` - Lignes de budget par division CSC
-- `change_orders` - Ordres de changement
-- `daily_reports` - Rapports journaliers de chantier
-- `rfis` - Demandes d'information
-- `project_issues` - Problèmes/issues
-- `project_photos` - Photos de projet
+Ou exécutez le fichier complet: `supabase/004_gestion_complete.sql`
 
 ### Étape 2: Copier les fichiers
 
 ```bash
 # Copier les nouveaux fichiers
-cp -r src/components/Sidebar.tsx your-project/src/components/
-cp -r src/pages/Gestion your-project/src/pages/
+cp src/components/Sidebar.tsx your-project/src/components/
+cp src/pages/GestionPages.tsx your-project/src/pages/
+cp src/pages/ProjetsParPhase.tsx your-project/src/pages/
 ```
 
 ### Étape 3: Ajouter les routes dans App.tsx
 
-Ajoutez les imports:
 ```tsx
+// IMPORTS À AJOUTER
 import {
-  GestionProjetLayout,
-  GestionBudget,
-  GestionChangeOrders,
-  GestionJournal,
-  GestionCouts,
-  GestionPrevisions,
-  GestionPlans,
-  GestionDocuments,
-  GestionEcheancier,
-  GestionPhotos,
-  GestionProblemes,
-  GestionRFI,
-  GestionSoumissionsFournisseurs,
-  GestionRapports,
-  GestionEquipe
-} from '@/pages/Gestion'
-```
+  ProjectBudget, ProjectChangeOrders, ProjectJournal,
+  ProjectCouts, ProjectPrevisions, ProjectPlans,
+  ProjectSpecifications, ProjectDocuments, ProjectPhotos,
+  ProjectEcheancier, ProjectProblemes, ProjectRFI,
+  ProjectSoumissionsST, ProjectCorrespondance, ProjectReunions,
+  ProjectFormulaires, ProjectEquipe, ProjectEquipements,
+  ProjectMateriaux, ProjectRapports, ProjectParametres
+} from '@/pages/GestionPages'
 
-Ajoutez les routes:
-```tsx
-<Route path="/gestion/:projectId" element={<GestionProjetLayout />}>
-  <Route path="budget" element={<GestionBudget />} />
-  <Route path="couts" element={<GestionCouts />} />
-  <Route path="change-orders" element={<GestionChangeOrders />} />
-  <Route path="previsions" element={<GestionPrevisions />} />
-  <Route path="plans" element={<GestionPlans />} />
-  <Route path="documents" element={<GestionDocuments />} />
-  <Route path="echeancier" element={<GestionEcheancier />} />
-  <Route path="photos" element={<GestionPhotos />} />
-  <Route path="problemes" element={<GestionProblemes />} />
-  <Route path="rfi" element={<GestionRFI />} />
-  <Route path="soumissions-fournisseurs" element={<GestionSoumissionsFournisseurs />} />
-  <Route path="journal" element={<GestionJournal />} />
-  <Route path="rapports" element={<GestionRapports />} />
-  <Route path="equipe" element={<GestionEquipe />} />
-</Route>
+import {
+  ProjetsConception, ProjetsEstimation, ProjetsGestion
+} from '@/pages/ProjetsParPhase'
+
+// ROUTES À AJOUTER
+<Route path="/projets/conception" element={<ProjetsConception />} />
+<Route path="/projets/estimation" element={<ProjetsEstimation />} />
+<Route path="/projets/gestion" element={<ProjetsGestion />} />
+
+<Route path="/project/:projectId/budget" element={<ProjectBudget />} />
+<Route path="/project/:projectId/couts" element={<ProjectCouts />} />
+<Route path="/project/:projectId/change-orders" element={<ProjectChangeOrders />} />
+<Route path="/project/:projectId/previsions" element={<ProjectPrevisions />} />
+<Route path="/project/:projectId/plans" element={<ProjectPlans />} />
+<Route path="/project/:projectId/specifications" element={<ProjectSpecifications />} />
+<Route path="/project/:projectId/documents" element={<ProjectDocuments />} />
+<Route path="/project/:projectId/photos" element={<ProjectPhotos />} />
+<Route path="/project/:projectId/echeancier" element={<ProjectEcheancier />} />
+<Route path="/project/:projectId/journal" element={<ProjectJournal />} />
+<Route path="/project/:projectId/problemes" element={<ProjectProblemes />} />
+<Route path="/project/:projectId/rfi" element={<ProjectRFI />} />
+<Route path="/project/:projectId/soumissions-st" element={<ProjectSoumissionsST />} />
+<Route path="/project/:projectId/correspondance" element={<ProjectCorrespondance />} />
+<Route path="/project/:projectId/reunions" element={<ProjectReunions />} />
+<Route path="/project/:projectId/formulaires" element={<ProjectFormulaires />} />
+<Route path="/project/:projectId/equipe" element={<ProjectEquipe />} />
+<Route path="/project/:projectId/equipements" element={<ProjectEquipements />} />
+<Route path="/project/:projectId/materiaux" element={<ProjectMateriaux />} />
+<Route path="/project/:projectId/rapports" element={<ProjectRapports />} />
+<Route path="/project/:projectId/parametres" element={<ProjectParametres />} />
 ```
 
 ### Étape 4: Déployer
 
 ```bash
 git add .
-git commit -m "feat: module gestion projet complet (style ACC)"
+git commit -m "feat: gestion projet complète + fix RLS bid_configuration"
 git push
 ```
 
-## 📊 Fonctionnalités
+## 📊 Modules Inclus (Style ACC)
 
-### Module Gestion (inspiré ACC Build)
+| Module | Route | Statut |
+|--------|-------|--------|
+| **Accueil projet** | /project/:id | ✅ Existant |
+| **Budget** | /project/:id/budget | ✅ Complet |
+| **Coûts** | /project/:id/couts | 🔧 Placeholder |
+| **Ordres de changement** | /project/:id/change-orders | ✅ Complet |
+| **Prévisions** | /project/:id/previsions | 🔧 Placeholder |
+| **Takeoff** | /takeoff/:id | ✅ Existant |
+| **Plans** | /project/:id/plans | 🔧 Placeholder |
+| **Devis techniques** | /project/:id/specifications | 🔧 Placeholder |
+| **Documents** | /project/:id/documents | 🔧 Placeholder |
+| **Photos** | /project/:id/photos | 🔧 Placeholder |
+| **Échéancier** | /project/:id/echeancier | 🔧 Placeholder |
+| **Journal chantier** | /project/:id/journal | ✅ Complet |
+| **Problèmes** | /project/:id/problemes | 🔧 Placeholder |
+| **RFIs** | /project/:id/rfi | 🔧 Placeholder |
+| **Soum. sous-traitants** | /project/:id/soumissions-st | 🔧 Placeholder |
+| **Correspondance** | /project/:id/correspondance | 🔧 Placeholder |
+| **Réunions** | /project/:id/reunions | 🔧 Placeholder |
+| **Formulaires** | /project/:id/formulaires | 🔧 Placeholder |
+| **Équipe** | /project/:id/equipe | 🔧 Placeholder |
+| **Équipements** | /project/:id/equipements | 🔧 Placeholder |
+| **Matériaux** | /project/:id/materiaux | 🔧 Placeholder |
+| **Rapports** | /project/:id/rapports | 🔧 Placeholder |
+| **Paramètres** | /project/:id/parametres | 🔧 Placeholder |
 
-| Page | Statut | Description |
-|------|--------|-------------|
-| Accueil | ✅ Complète | Dashboard projet avec météo, progression, liens rapides |
-| Budget | ✅ Complète | Budget par division CSC MasterFormat |
-| Ordres de changement | ✅ Complète | CO avec workflow d'approbation |
-| Journal chantier | ✅ Complète | Rapports quotidiens avec météo |
-| Coûts | 🔧 Placeholder | Suivi des coûts réels |
-| Prévisions | 🔧 Placeholder | Projections fin de projet |
-| Plans | 🔧 Placeholder | Gestion des plans |
-| Documents | 🔧 Placeholder | GED projet |
-| Échéancier | 🔧 Placeholder | Gantt |
-| Photos | 🔧 Placeholder | Galerie photos |
-| Problèmes | 🔧 Placeholder | Suivi des issues |
-| RFIs | 🔧 Placeholder | Demandes d'information |
-| Soum. fournisseurs | 🔧 Placeholder | Soumissions sous-traitants |
-| Rapports | 🔧 Placeholder | Génération de rapports |
-| Équipe | 🔧 Placeholder | Gestion équipe |
-
-### Sidebar améliorée
-
-- **Projets filtrés par phase**:
-  - Estimation: projets en `draft`, `planning`
-  - Gestion: projets en `active`, `on_hold`
-  
-- **Menu contextuel**: Quand un projet actif est ouvert, le menu de gestion apparaît dans la sidebar
-
-## 🔗 Flux Estimation ↔ Gestion
+## 🔗 Navigation Unifiée
 
 ```
-ESTIMATION                      GESTION
-┌──────────────────┐           ┌──────────────────┐
-│ • Takeoff        │           │ • Budget         │
-│ • Soumission     │ ────────► │ • Suivi coûts    │
-│ • Budget initial │  contrat  │ • Change Orders  │
-└──────────────────┘  signé    └──────────────────┘
-                                       │
-                                       ▼
-                               ┌──────────────────┐
-                               │ ORDRE DE         │
-                               │ CHANGEMENT       │
-                               │ • Nouveau takeoff│
-                               │ • Ajust. budget  │
-                               └──────────────────┘
+SIDEBAR
+├── Tableau de bord
+├── Projets
+│   ├── Tous les projets
+│   ├── Conception (draft)
+│   ├── Estimation (draft, planning)
+│   ├── Gestion (active, on_hold) ← PROJETS EN EXÉCUTION
+│   └── Appels d'offres
+│
+├── [PROJET ACTIF EN GESTION] ← Apparaît quand projet actif
+│   ├── Finances
+│   │   ├── Budget
+│   │   ├── Coûts
+│   │   ├── Ordres de changement
+│   │   └── Prévisions
+│   ├── Documents
+│   │   ├── Takeoff
+│   │   ├── Plans
+│   │   ├── Devis techniques
+│   │   ├── Documents
+│   │   └── Photos
+│   ├── Suivi
+│   │   ├── Échéancier
+│   │   ├── Journal chantier
+│   │   └── Problèmes
+│   ├── Communication
+│   │   ├── RFIs
+│   │   ├── Soum. sous-traitants
+│   │   ├── Correspondance
+│   │   ├── Réunions
+│   │   └── Formulaires
+│   ├── Ressources
+│   │   ├── Équipe
+│   │   ├── Équipements
+│   │   └── Matériaux
+│   └── Rapports
+│       ├── Rapports
+│       └── Paramètres
+│
+├── Soumissions
+├── Factures
+├── Entrepreneurs
+├── Appels d'offre
+└── Ressources
 ```
 
-## 📝 Notes
+## ✅ Cohérence garantie
 
-- Les pages "Placeholder" sont des coquilles prêtes à être développées
-- Le module respecte le style Autodesk Construction Cloud pour la familiarité
-- Toutes les tables ont RLS activé pour la sécurité
-- Les triggers `updated_at` sont automatiques
+- **UN SEUL CHEMIN** vers chaque fonctionnalité
+- **MÊME STRUCTURE** peu importe d'où on accède
+- La sidebar s'adapte au contexte (projet actif ou non)
+- Toutes les routes projet sont sous `/project/:projectId/[module]`
+- Takeoff reste à `/takeoff/:projectId` pour compatibilité
 
-## ✅ Checklist post-installation
+## 📋 Checklist post-installation
 
-- [ ] Migration SQL exécutée
-- [ ] Fichiers copiés
+- [ ] Migration SQL exécutée (fix RLS + tables gestion)
+- [ ] Fichiers copiés (Sidebar, GestionPages, ProjetsParPhase)
 - [ ] Routes ajoutées dans App.tsx
-- [ ] Build passe (npm run build)
-- [ ] Test création d'un projet "actif"
-- [ ] Accès au module Gestion via /gestion/{projectId}
+- [ ] Imports ajoutés
+- [ ] Build passe (`npm run build`)
+- [ ] Test création projet → PLUS D'ERREUR bid_configuration
+- [ ] Test navigation sidebar → menus cohérents
