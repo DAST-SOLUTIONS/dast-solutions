@@ -273,7 +273,7 @@ export default function TakeoffV3() {
       canvas.width = viewport.width
       canvas.height = viewport.height
 
-      await page.render({ canvasContext: ctx, viewport }).promise
+      await page.render({ canvasContext: ctx, viewport, canvas } as any).promise
 
       if (overlayCanvasRef.current) {
         overlayCanvasRef.current.width = viewport.width
