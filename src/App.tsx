@@ -13,7 +13,7 @@ import Login from '@/pages/Login'
 import Dashboard from '@/pages/Dashboard'
 import Projects from '@/pages/Projects'
 import ProjectDetails from '@/pages/ProjectDetails'
-import TakeoffV2 from '@/pages/TakeoffV2'
+import TakeoffV3 from '@/pages/TakeoffV3'
 import BidProposalV2 from '@/pages/BidProposalV2'
 import Clients from '@/pages/Clients'
 import Factures from '@/pages/Factures'
@@ -143,7 +143,7 @@ function App() {
           <Route path="projects" element={<Projects />} />
           <Route path="project/new" element={<ProjectDetails />} />
           <Route path="project/:projectId" element={<ProjectDetails />} />
-          <Route path="takeoff/:projectId" element={<TakeoffV2 />} />
+          <Route path="takeoff/:projectId" element={<TakeoffV3 />} />
           <Route path="bid-proposal/:projectId" element={<BidProposalV2 />} />
 
           {/* ============ PROJETS PAR PHASE (Sidebar) ============ */}
