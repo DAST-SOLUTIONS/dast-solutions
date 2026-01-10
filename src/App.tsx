@@ -119,6 +119,11 @@ import { PayrollStandard, PayrollCCQ } from '@/pages/Paie'
 import EntreprisesQuebec from '@/pages/Ressources/EntreprisesQuebec'
 
 // ============================================================================
+// PHASE 6: SOUMISSIONS & ACHATS
+// ============================================================================
+import { Soumissions, BonsCommande } from '@/pages/Achats'
+
+// ============================================================================
 // MODULE ESTIMATION (Base de données ProEst)
 // ============================================================================
 import CostDatabase from '@/pages/CostDatabase'
@@ -236,6 +241,12 @@ function App() {
 
           {/* Phase 5: Entreprises Québec */}
           <Route path="entreprises-quebec" element={<EntreprisesQuebec />} />
+
+          {/* Phase 6: Soumissions & Achats */}
+          <Route path="soumissions" element={<Soumissions />} />
+          <Route path="achats" element={<BonsCommande />} />
+          <Route path="project/:projectId/soumissions" element={<Soumissions />} />
+          <Route path="project/:projectId/achats" element={<BonsCommande />} />
           
           {/* Ressources */}
           <Route path="project/:projectId/equipe" element={<ProjectEquipe />} />

@@ -14,7 +14,7 @@ import {
   Contact, Link as LinkIcon, TrendingUp, Flame, ShoppingCart,
   BookOpen, BookMarked, Scale, FileCheck, Users2, Package,
   Wrench, Smartphone, MessageSquare, MapPin, Database,
-  FileSpreadsheet, Cloud, Import, PlusCircle, Moon, Sun
+  FileSpreadsheet, Cloud, Import, PlusCircle, Moon, Sun, Send
 } from 'lucide-react'
 
 interface NavItem {
@@ -69,8 +69,19 @@ const navigation: NavItem[] = [
     name: 'Soumissions',
     icon: FileText,
     children: [
-      { name: 'Toutes les soumissions', href: '/soumissions', icon: FileText },
+      { name: 'Appels d\'offres', href: '/soumissions', icon: Send },
+      { name: 'Toutes les soumissions', href: '/soumissions/list', icon: FileText },
       { name: 'Nouvelle soumission', href: '/soumission/new', icon: PlusCircle },
+    ]
+  },
+  // ACHATS
+  {
+    name: 'Achats',
+    icon: ShoppingCart,
+    children: [
+      { name: 'Bons de commande', href: '/achats', icon: FileText },
+      { name: 'Réquisitions', href: '/achats?tab=requisitions', icon: ClipboardList },
+      { name: 'Réceptions', href: '/achats?tab=receipts', icon: Package },
     ]
   },
 
