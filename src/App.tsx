@@ -102,6 +102,13 @@ import GestionPunchList from '@/pages/Gestion/PunchList'
 import GestionReunions from '@/pages/Gestion/Reunions'
 
 // ============================================================================
+// PHASE 3: FINANCES AVANCÉES
+// ============================================================================
+import BudgetAdvanced from '@/pages/Gestion/BudgetAdvanced'
+import ChangeOrdersAdvanced from '@/pages/Gestion/ChangeOrdersAdvanced'
+import PaymentApplications from '@/pages/Gestion/PaymentApplications'
+
+// ============================================================================
 // MODULE ESTIMATION (Base de données ProEst)
 // ============================================================================
 import CostDatabase from '@/pages/CostDatabase'
@@ -207,6 +214,11 @@ function App() {
           <Route path="project/:projectId/inspections" element={<GestionInspections />} />
           <Route path="project/:projectId/punch-list" element={<GestionPunchList />} />
           <Route path="project/:projectId/reunions-v2" element={<GestionReunions />} />
+
+          {/* Phase 3: Finances avancées */}
+          <Route path="project/:projectId/budget-advanced" element={<BudgetAdvanced />} />
+          <Route path="project/:projectId/change-orders-v2" element={<ChangeOrdersAdvanced />} />
+          <Route path="project/:projectId/payment-applications" element={<PaymentApplications />} />
           
           {/* Ressources */}
           <Route path="project/:projectId/equipe" element={<ProjectEquipe />} />

@@ -10,7 +10,7 @@ import {
   Ruler, Receipt, ChevronRight, Calculator, Building2, Users,
   FolderOpen, TrendingUp, Clock, Upload, Image, Plus,
   AlertTriangle, CheckCircle, PauseCircle, Edit, Eye, Trash2,
-  ClipboardList, Wrench, FileCheck, Target, Layers
+  ClipboardList, Wrench, FileCheck, Target, Layers, PiggyBank
 } from 'lucide-react'
 
 // ============================================================================
@@ -716,6 +716,58 @@ function TabEstimation({ projectId, navigate }: { projectId: string; navigate: (
 function TabGestion({ projectId, project, navigate }: { projectId: string; project: Project; navigate: (path: string) => void }) {
   const [ordresChangement] = useState<any[]>([])
 
+  // Modules de gestion Phase 2 (Procore-style)
+  const gestionModules = [
+    { 
+      id: 'journal', 
+      label: 'Journal chantier', 
+      desc: 'Rapports quotidiens',
+      icon: ClipboardList, 
+      color: 'bg-blue-100 text-blue-700',
+      path: `/project/${projectId}/journal`
+    },
+    { 
+      id: 'rfi', 
+      label: 'RFIs', 
+      desc: 'Demandes d\'information',
+      icon: FileText, 
+      color: 'bg-purple-100 text-purple-700',
+      path: `/project/${projectId}/rfi-v2`
+    },
+    { 
+      id: 'submittals', 
+      label: 'Submittals', 
+      desc: 'Documents à approuver',
+      icon: FileCheck, 
+      color: 'bg-indigo-100 text-indigo-700',
+      path: `/project/${projectId}/submittals`
+    },
+    { 
+      id: 'inspections', 
+      label: 'Inspections', 
+      desc: 'Contrôle qualité',
+      icon: Target, 
+      color: 'bg-green-100 text-green-700',
+      path: `/project/${projectId}/inspections`
+    },
+    { 
+      id: 'punchlist', 
+      label: 'Punch List', 
+      desc: 'Déficiences à corriger',
+      icon: AlertTriangle, 
+      color: 'bg-red-100 text-red-700',
+      path: `/project/${projectId}/punch-list`
+    },
+    { 
+      id: 'reunions', 
+      label: 'Réunions', 
+      desc: 'Procès-verbaux',
+      icon: Users, 
+      color: 'bg-amber-100 text-amber-700',
+      path: `/project/${projectId}/reunions-v2`
+    },
+  ]
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -724,6 +776,26 @@ function TabGestion({ projectId, project, navigate }: { projectId: string; proje
           <Plus size={16} />
           Ordre de changement
         </button>
+      </div>
+
+      {/* Modules de gestion rapides */}
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+        {gestionModules.map(module => {
+          const Icon = module.icon
+          return (
+            <button
+              key={module.id}
+              onClick={() => navigate(module.path)}
+              className="bg-white rounded-xl border p-4 hover:shadow-md transition text-left group"
+            >
+              <div className={`w-10 h-10 rounded-lg ${module.color} flex items-center justify-center mb-3`}>
+                <Icon size={20} />
+              </div>
+              <h4 className="font-semibold text-gray-900 group-hover:text-teal-600">{module.label}</h4>
+              <p className="text-sm text-gray-500">{module.desc}</p>
+            </button>
+          )
+        })}
       </div>
 
       {/* Échéancier */}
@@ -797,17 +869,6 @@ function TabGestion({ projectId, project, navigate }: { projectId: string; proje
           Ouvrir Takeoff pour ajustements →
         </button>
       </div>
-
-      {/* Journal de chantier (placeholder) */}
-      <div className="bg-white rounded-xl border p-6">
-        <h4 className="font-semibold mb-4 flex items-center gap-2">
-          <ClipboardList size={18} />
-          Journal de chantier
-        </h4>
-        <p className="text-gray-500 text-center py-4">
-          Module à venir - Suivi quotidien des activités de chantier
-        </p>
-      </div>
     </div>
   )
 }
@@ -822,6 +883,34 @@ function TabFinances({ projectId, stats, project, navigate }: {
   project: Project
   navigate: (path: string) => void 
 }) {
+  // Modules financiers Phase 3
+  const financeModules = [
+    { 
+      id: 'budget', 
+      label: 'Budget & Coûts', 
+      desc: 'Contrôle budgétaire avancé',
+      icon: PiggyBank, 
+      color: 'bg-blue-100 text-blue-700',
+      path: `/project/${projectId}/budget-advanced`
+    },
+    { 
+      id: 'change-orders', 
+      label: 'Ordres de changement', 
+      desc: 'Gestion des CO',
+      icon: FileCheck, 
+      color: 'bg-amber-100 text-amber-700',
+      path: `/project/${projectId}/change-orders-v2`
+    },
+    { 
+      id: 'payments', 
+      label: 'Demandes de paiement', 
+      desc: 'Facturation progressive',
+      icon: Receipt, 
+      color: 'bg-green-100 text-green-700',
+      path: `/project/${projectId}/payment-applications`
+    },
+  ]
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -833,6 +922,26 @@ function TabFinances({ projectId, stats, project, navigate }: {
           <Receipt size={16} />
           Nouvelle facture
         </button>
+      </div>
+
+      {/* Modules financiers Phase 3 */}
+      <div className="grid grid-cols-3 gap-4">
+        {financeModules.map(module => {
+          const Icon = module.icon
+          return (
+            <button
+              key={module.id}
+              onClick={() => navigate(module.path)}
+              className="bg-white rounded-xl border p-5 hover:shadow-md transition text-left group"
+            >
+              <div className={`w-12 h-12 rounded-lg ${module.color} flex items-center justify-center mb-3`}>
+                <Icon size={24} />
+              </div>
+              <h4 className="font-semibold text-gray-900 group-hover:text-teal-600">{module.label}</h4>
+              <p className="text-sm text-gray-500">{module.desc}</p>
+            </button>
+          )
+        })}
       </div>
 
       {/* Résumé financier */}
