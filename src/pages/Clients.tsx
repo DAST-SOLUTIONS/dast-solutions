@@ -345,8 +345,8 @@ export default function ClientsPage() {
       {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-4 border-b flex justify-between items-center sticky top-0 bg-white">
+          <div className="bg-white rounded-xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="p-4 border-b flex justify-between items-center">
               <h2 className="text-lg font-bold">
                 {editingClient ? 'Modifier le client' : 'Nouveau client'}
               </h2>
@@ -355,10 +355,10 @@ export default function ClientsPage() {
               </button>
             </div>
             
-            <form onSubmit={handleSubmit} className="p-4 space-y-4">
+            <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 space-y-6">
               {/* Type */}
               <div className="flex gap-4">
-                <label className="flex items-center gap-2">
+                <label className="flex items-center gap-2 px-4 py-2 border rounded-lg cursor-pointer hover:bg-gray-50">
                   <input
                     type="radio"
                     checked={form.type === 'entreprise'}
@@ -366,7 +366,7 @@ export default function ClientsPage() {
                   />
                   <Building2 size={16} /> Entreprise
                 </label>
-                <label className="flex items-center gap-2">
+                <label className="flex items-center gap-2 px-4 py-2 border rounded-lg cursor-pointer hover:bg-gray-50">
                   <input
                     type="radio"
                     checked={form.type === 'particulier'}
@@ -376,183 +376,254 @@ export default function ClientsPage() {
                 </label>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1">Nom *</label>
-                  <input
-                    type="text"
-                    value={form.name}
-                    onChange={(e) => setForm({ ...form, name: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg"
-                    required
-                  />
-                </div>
-                {form.type === 'entreprise' && (
+              {/* Section: Informations générales */}
+              <div className="border rounded-lg p-4">
+                <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                  <Building2 size={18} className="text-teal-600" />
+                  Informations générales
+                </h3>
+                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium mb-1">Entreprise</label>
+                    <label className="block text-sm font-medium mb-1">Nom *</label>
                     <input
                       type="text"
-                      value={form.company}
-                      onChange={(e) => setForm({ ...form, company: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-lg"
+                      value={form.name}
+                      onChange={(e) => setForm({ ...form, name: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500"
+                      required
                     />
                   </div>
-                )}
-                <div>
-                  <label className="block text-sm font-medium mb-1">Personne contact</label>
-                  <input
-                    type="text"
-                    value={form.contact_name}
-                    onChange={(e) => setForm({ ...form, contact_name: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Titre</label>
-                  <input
-                    type="text"
-                    value={form.contact_title}
-                    onChange={(e) => setForm({ ...form, contact_title: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Email</label>
-                  <input
-                    type="email"
-                    value={form.email}
-                    onChange={(e) => setForm({ ...form, email: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Téléphone</label>
-                  <input
-                    type="tel"
-                    value={form.phone}
-                    onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Mobile</label>
-                  <input
-                    type="tel"
-                    value={form.mobile}
-                    onChange={(e) => setForm({ ...form, mobile: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Adresse</label>
-                  <input
-                    type="text"
-                    value={form.address}
-                    onChange={(e) => setForm({ ...form, address: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Ville</label>
-                  <input
-                    type="text"
-                    value={form.city}
-                    onChange={(e) => setForm({ ...form, city: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Code postal</label>
-                  <input
-                    type="text"
-                    value={form.postal_code}
-                    onChange={(e) => setForm({ ...form, postal_code: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Catégorie</label>
-                  <select
-                    value={form.category}
-                    onChange={(e) => setForm({ ...form, category: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg"
-                  >
-                    <option value="">Sélectionner...</option>
-                    {CLIENT_CATEGORIES.map(c => (
-                      <option key={c.value} value={c.value}>{c.label}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Source</label>
-                  <select
-                    value={form.source}
-                    onChange={(e) => setForm({ ...form, source: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg"
-                  >
-                    <option value="">Sélectionner...</option>
-                    {CLIENT_SOURCES.map(s => (
-                      <option key={s.value} value={s.value}>{s.label}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Limite crédit</label>
-                  <input
-                    type="number"
-                    value={form.credit_limit}
-                    onChange={(e) => setForm({ ...form, credit_limit: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Termes (jours)</label>
-                  <input
-                    type="number"
-                    value={form.payment_terms}
-                    onChange={(e) => setForm({ ...form, payment_terms: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Statut</label>
-                  <select
-                    value={form.status}
-                    onChange={(e) => setForm({ ...form, status: e.target.value as any })}
-                    className="w-full px-3 py-2 border rounded-lg"
-                  >
-                    <option value="actif">Actif</option>
-                    <option value="prospect">Prospect</option>
-                    <option value="inactif">Inactif</option>
-                  </select>
-                </div>
-                <div className="flex items-center gap-2 pt-6">
-                  <input
-                    type="checkbox"
-                    id="tax_exempt"
-                    checked={form.tax_exempt}
-                    onChange={(e) => setForm({ ...form, tax_exempt: e.target.checked })}
-                  />
-                  <label htmlFor="tax_exempt">Exempté de taxes</label>
+                  {form.type === 'entreprise' && (
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Raison sociale</label>
+                      <input
+                        type="text"
+                        value={form.company}
+                        onChange={(e) => setForm({ ...form, company: e.target.value })}
+                        className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500"
+                      />
+                    </div>
+                  )}
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Catégorie</label>
+                    <select
+                      value={form.category}
+                      onChange={(e) => setForm({ ...form, category: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500"
+                    >
+                      <option value="">Sélectionner...</option>
+                      {CLIENT_CATEGORIES.map(c => (
+                        <option key={c.value} value={c.value}>{c.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Source</label>
+                    <select
+                      value={form.source}
+                      onChange={(e) => setForm({ ...form, source: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500"
+                    >
+                      <option value="">Sélectionner...</option>
+                      {CLIENT_SOURCES.map(s => (
+                        <option key={s.value} value={s.value}>{s.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Statut</label>
+                    <select
+                      value={form.status}
+                      onChange={(e) => setForm({ ...form, status: e.target.value as any })}
+                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500"
+                    >
+                      <option value="actif">Actif</option>
+                      <option value="prospect">Prospect</option>
+                      <option value="inactif">Inactif</option>
+                    </select>
+                  </div>
                 </div>
               </div>
 
+              {/* Section: Contact principal */}
+              <div className="border rounded-lg p-4">
+                <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                  <User size={18} className="text-blue-600" />
+                  Contact principal
+                </h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Nom du contact</label>
+                    <input
+                      type="text"
+                      value={form.contact_name}
+                      onChange={(e) => setForm({ ...form, contact_name: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Titre / Fonction</label>
+                    <input
+                      type="text"
+                      value={form.contact_title}
+                      onChange={(e) => setForm({ ...form, contact_title: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500"
+                      placeholder="Ex: Directeur, Gérant..."
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Email</label>
+                    <input
+                      type="email"
+                      value={form.email}
+                      onChange={(e) => setForm({ ...form, email: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Téléphone</label>
+                    <input
+                      type="tel"
+                      value={form.phone}
+                      onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Mobile</label>
+                    <input
+                      type="tel"
+                      value={form.mobile}
+                      onChange={(e) => setForm({ ...form, mobile: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500"
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500 mt-3 flex items-center gap-1">
+                  💡 Pour ajouter d'autres contacts, utilisez la section "Contacts" après création du client
+                </p>
+              </div>
+
+              {/* Section: Adresse */}
+              <div className="border rounded-lg p-4">
+                <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                  <MapPin size={18} className="text-green-600" />
+                  Adresse
+                </h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="col-span-2">
+                    <label className="block text-sm font-medium mb-1">Adresse</label>
+                    <input
+                      type="text"
+                      value={form.address}
+                      onChange={(e) => setForm({ ...form, address: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Ville</label>
+                    <input
+                      type="text"
+                      value={form.city}
+                      onChange={(e) => setForm({ ...form, city: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Province</label>
+                    <select
+                      value={form.province}
+                      onChange={(e) => setForm({ ...form, province: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500"
+                    >
+                      <option value="QC">Québec</option>
+                      <option value="ON">Ontario</option>
+                      <option value="BC">Colombie-Britannique</option>
+                      <option value="AB">Alberta</option>
+                      <option value="MB">Manitoba</option>
+                      <option value="SK">Saskatchewan</option>
+                      <option value="NS">Nouvelle-Écosse</option>
+                      <option value="NB">Nouveau-Brunswick</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Code postal</label>
+                    <input
+                      type="text"
+                      value={form.postal_code}
+                      onChange={(e) => setForm({ ...form, postal_code: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500"
+                      placeholder="H2X 1Y4"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Section: Facturation */}
+              <div className="border rounded-lg p-4 bg-amber-50 border-amber-200">
+                <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                  <DollarSign size={18} className="text-amber-600" />
+                  Comptes payables / Facturation
+                </h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Limite de crédit ($)</label>
+                    <input
+                      type="number"
+                      value={form.credit_limit}
+                      onChange={(e) => setForm({ ...form, credit_limit: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 bg-white"
+                      placeholder="0.00"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Termes de paiement</label>
+                    <select
+                      value={form.payment_terms}
+                      onChange={(e) => setForm({ ...form, payment_terms: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 bg-white"
+                    >
+                      <option value="0">Paiement immédiat</option>
+                      <option value="15">Net 15 jours</option>
+                      <option value="30">Net 30 jours</option>
+                      <option value="45">Net 45 jours</option>
+                      <option value="60">Net 60 jours</option>
+                      <option value="90">Net 90 jours</option>
+                    </select>
+                  </div>
+                  <div className="col-span-2 flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      id="tax_exempt"
+                      checked={form.tax_exempt}
+                      onChange={(e) => setForm({ ...form, tax_exempt: e.target.checked })}
+                      className="w-4 h-4 text-teal-600 rounded"
+                    />
+                    <label htmlFor="tax_exempt" className="text-sm">
+                      Exempté de taxes (TPS/TVQ)
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Notes */}
               <div>
-                <label className="block text-sm font-medium mb-1">Notes</label>
+                <label className="block text-sm font-medium mb-1">Notes internes</label>
                 <textarea
                   value={form.notes}
                   onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg"
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500"
                   rows={3}
+                  placeholder="Notes privées sur ce client..."
                 />
               </div>
 
-              <div className="flex justify-end gap-2 pt-4">
-                <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 border rounded-lg">
+              <div className="flex justify-end gap-2 pt-4 border-t">
+                <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 border rounded-lg hover:bg-gray-50">
                   Annuler
                 </button>
-                <button type="submit" className="px-4 py-2 bg-teal-600 text-white rounded-lg">
-                  {editingClient ? 'Enregistrer' : 'Créer'}
+                <button type="submit" className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700">
+                  {editingClient ? 'Enregistrer' : 'Créer le client'}
                 </button>
               </div>
             </form>

@@ -18,6 +18,7 @@ import {
   type CreateEntrepreneurParams,
   type CreateEvaluationParams
 } from '@/hooks/useEntrepreneursCRUD'
+import { verifyRBQLicense, type RBQVerificationResult, getRBQVerificationUrl } from '@/services/rbqService'
 
 const SPECIALITES = [
   'Maçonnerie', 'Béton', 'Charpente', 'Électricité', 'Plomberie', 'CVAC', 
@@ -36,6 +37,97 @@ const RBQ_CATEGORIES = [
   '4.1 Travaux de fondation',
   '4.2 Travaux d\'érection'
 ]
+
+// Bouton de vérification RBQ
+function VerifyRBQButton({ 
+  licenseNumber, 
+  onVerified 
+}: { 
+  licenseNumber: string
+  onVerified?: (result: RBQVerificationResult) => void 
+}) {
+  const [verifying, setVerifying] = useState(false)
+  const [result, setResult] = useState<RBQVerificationResult | null>(null)
+
+  const handleVerify = async () => {
+    if (!licenseNumber || licenseNumber.length < 8) {
+      alert('Veuillez entrer un numéro de licence valide (minimum 8 chiffres)')
+      return
+    }
+    
+    setVerifying(true)
+    try {
+      const verificationResult = await verifyRBQLicense(licenseNumber)
+      setResult(verificationResult)
+      onVerified?.(verificationResult)
+    } catch (error) {
+      console.error('Erreur vérification RBQ:', error)
+      alert('Erreur lors de la vérification. Réessayez plus tard.')
+    } finally {
+      setVerifying(false)
+    }
+  }
+
+  return (
+    <div className="flex flex-col">
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={handleVerify}
+          disabled={verifying || !licenseNumber}
+          className="px-3 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:opacity-50 flex items-center gap-2 whitespace-nowrap"
+        >
+          {verifying ? (
+            <><Loader2 size={16} className="animate-spin" />Vérification...</>
+          ) : (
+            <><Shield size={16} />Vérifier RBQ</>
+          )}
+        </button>
+        <a
+          href={getRBQVerificationUrl(licenseNumber)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="p-2 border rounded-lg hover:bg-gray-50"
+          title="Vérifier manuellement sur rbq.gouv.qc.ca"
+        >
+          <ExternalLink size={16} className="text-gray-500" />
+        </a>
+      </div>
+      
+      {result && (
+        <div className={`mt-2 p-2 rounded-lg text-sm ${
+          result.data?.status === 'valide' ? 'bg-green-100 text-green-800' :
+          result.data?.status === 'suspendu' ? 'bg-red-100 text-red-800' :
+          result.data?.status === 'expire' ? 'bg-amber-100 text-amber-800' :
+          'bg-gray-100 text-gray-800'
+        }`}>
+          {result.success && result.data ? (
+            <div>
+              <div className="flex items-center gap-2 font-medium">
+                {result.data.status === 'valide' && <CheckCircle size={14} />}
+                {result.data.status === 'suspendu' && <AlertTriangle size={14} />}
+                {result.data.status === 'expire' && <Clock size={14} />}
+                Statut: {result.data.status.charAt(0).toUpperCase() + result.data.status.slice(1)}
+              </div>
+              {result.data.dateExpiration && (
+                <p className="text-xs mt-1">
+                  Expiration: {new Date(result.data.dateExpiration).toLocaleDateString('fr-CA')}
+                </p>
+              )}
+              {result.data.categories && result.data.categories.length > 0 && (
+                <p className="text-xs mt-1">
+                  Catégories: {result.data.categories.join(', ')}
+                </p>
+              )}
+            </div>
+          ) : (
+            <span>❌ {result.error || 'Licence non trouvée'}</span>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
 
 // Composants utilitaires
 function StarRating({ rating, size = 16, interactive = false, onChange }: { 
@@ -572,13 +664,23 @@ function FormModal({
           
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Licence RBQ</label>
-            <input
-              type="text"
-              value={form.rbq_licence}
-              onChange={e => setForm(p => ({ ...p, rbq_licence: e.target.value }))}
-              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500"
-              placeholder="1234-5678-90"
-            />
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={form.rbq_licence}
+                onChange={e => setForm(p => ({ ...p, rbq_licence: e.target.value }))}
+                className="flex-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500"
+                placeholder="1234-5678-90"
+              />
+              <VerifyRBQButton 
+                licenseNumber={form.rbq_licence || ''} 
+                onVerified={(result) => {
+                  if (result.data?.categories) {
+                    setForm(p => ({ ...p, rbq_categories: result.data?.categories || [] }))
+                  }
+                }}
+              />
+            </div>
           </div>
           
           <div>

@@ -610,60 +610,134 @@ export default function TakeoffV3() {
   // FILE UPLOAD
   // ============================================================================
 
+  const [uploadProgress, setUploadProgress] = useState(0)
+
   const handleFileUpload = async (files: FileList | null) => {
     if (!files?.length || !projectId) return
 
     setUploading(true)
+    setUploadProgress(0)
+    
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('Non authentifié')
 
-      const file = files[0]
-      if (file.size > 50 * 1024 * 1024) throw new Error('Fichier trop volumineux (max 50MB)')
+      const fileArray = Array.from(files).filter(f => f.type === 'application/pdf')
+      if (fileArray.length === 0) throw new Error('Seuls les fichiers PDF sont acceptés')
 
-      const timestamp = Date.now()
-      const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_')
-      const storagePath = `${user.id}/${projectId}/${timestamp}_${sanitizedName}`
+      let successCount = 0
+      const newPlans: TakeoffPlan[] = []
 
-      const { error: uploadError } = await supabase.storage
-        .from('takeoff-plans')
-        .upload(storagePath, file, { cacheControl: '3600', upsert: false })
+      for (let i = 0; i < fileArray.length; i++) {
+        const file = fileArray[i]
+        setUploadProgress(Math.round((i / fileArray.length) * 100))
 
-      if (uploadError) throw new Error(`Upload: ${uploadError.message}`)
+        // Vérifier la taille (100MB max pour gros plans)
+        if (file.size > 100 * 1024 * 1024) {
+          console.warn(`${file.name} dépasse 100MB, ignoré`)
+          continue
+        }
 
-      const { data: urlData } = supabase.storage.from('takeoff-plans').getPublicUrl(storagePath)
-      const nextOrder = plans.length > 0 ? Math.max(...plans.map(p => p.sort_order)) + 1 : 1
+        const timestamp = Date.now()
+        const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_')
+        const storagePath = `${user.id}/${projectId}/${timestamp}_${sanitizedName}`
 
-      const { data: planData, error: insertError } = await supabase
-        .from('takeoff_plans')
-        .insert({
-          project_id: projectId,
-          user_id: user.id,
-          filename: sanitizedName,
-          original_name: file.name,
-          storage_path: storagePath,
-          file_size: file.size,
-          page_count: 1,
-          name: file.name.replace(/\.[^/.]+$/, ''),
-          numero: `P-${String(nextOrder).padStart(3, '0')}`,
-          sort_order: nextOrder
-        })
-        .select()
-        .single()
+        // Tentative d'upload avec retry
+        let uploadSuccess = false
+        let lastError = null
 
-      if (insertError) {
-        await supabase.storage.from('takeoff-plans').remove([storagePath])
-        throw insertError
+        for (let attempt = 0; attempt < 3; attempt++) {
+          try {
+            const { error: uploadError } = await supabase.storage
+              .from('takeoff-plans')
+              .upload(storagePath, file, { 
+                cacheControl: '3600', 
+                upsert: false,
+                contentType: 'application/pdf'
+              })
+
+            if (!uploadError) {
+              uploadSuccess = true
+              break
+            }
+            lastError = uploadError
+            
+            // Attendre avant retry
+            if (attempt < 2) await new Promise(r => setTimeout(r, 1000 * (attempt + 1)))
+          } catch (e) {
+            lastError = e
+            if (attempt < 2) await new Promise(r => setTimeout(r, 1000 * (attempt + 1)))
+          }
+        }
+
+        if (!uploadSuccess) {
+          console.error(`Échec upload ${file.name}:`, lastError)
+          continue
+        }
+
+        // Obtenir l'URL publique
+        const { data: urlData } = supabase.storage.from('takeoff-plans').getPublicUrl(storagePath)
+        
+        // Compter les pages du PDF
+        let pageCount = 1
+        try {
+          const arrayBuffer = await file.arrayBuffer()
+          const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
+          pageCount = pdf.numPages
+          pdf.destroy()
+        } catch (e) {
+          console.warn('Impossible de compter les pages:', e)
+        }
+
+        const nextOrder = plans.length + newPlans.length + 1
+
+        // Insérer en base
+        const { data: planData, error: insertError } = await supabase
+          .from('takeoff_plans')
+          .insert({
+            project_id: projectId,
+            user_id: user.id,
+            filename: sanitizedName,
+            original_name: file.name,
+            storage_path: storagePath,
+            file_size: file.size,
+            page_count: pageCount,
+            name: file.name.replace(/\.[^/.]+$/, ''),
+            numero: `P-${String(nextOrder).padStart(3, '0')}`,
+            sort_order: nextOrder
+          })
+          .select()
+          .single()
+
+        if (insertError) {
+          console.error('Erreur insertion:', insertError)
+          await supabase.storage.from('takeoff-plans').remove([storagePath])
+          continue
+        }
+
+        const newPlan = { ...planData, file_url: urlData?.publicUrl }
+        newPlans.push(newPlan)
+        successCount++
       }
 
-      const newPlan = { ...planData, file_url: urlData?.publicUrl }
-      setPlans([...plans, newPlan])
-      setActivePlan(newPlan)
+      if (newPlans.length > 0) {
+        setPlans([...plans, ...newPlans])
+        setActivePlan(newPlans[0])
+      }
+
+      setUploadProgress(100)
+      
+      if (successCount === 0) {
+        throw new Error('Aucun fichier uploadé avec succès')
+      } else if (successCount < fileArray.length) {
+        alert(`${successCount}/${fileArray.length} fichiers uploadés`)
+      }
     } catch (err: any) {
       console.error('Upload error:', err)
       alert('Erreur: ' + err.message)
     } finally {
       setUploading(false)
+      setTimeout(() => setUploadProgress(0), 1000)
     }
   }
 
@@ -769,7 +843,7 @@ export default function TakeoffV3() {
                   <Layers size={16} />
                   Plans ({plans.length})
                 </h3>
-                <input ref={fileInputRef} type="file" accept=".pdf" onChange={(e) => handleFileUpload(e.target.files)} className="hidden" />
+                <input ref={fileInputRef} type="file" accept=".pdf" multiple onChange={(e) => handleFileUpload(e.target.files)} className="hidden" />
                 <button 
                   onClick={() => fileInputRef.current?.click()} 
                   disabled={uploading}

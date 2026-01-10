@@ -1,23 +1,85 @@
 /**
  * DAST Solutions - Page Appels d'Offres
  */
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { FileText, Plus, Trash2, Send, Users, DollarSign, Calendar, Mail, Check, X, ChevronDown, ChevronRight } from 'lucide-react'
+import { FileText, Plus, Trash2, Send, Users, DollarSign, Calendar, Mail, Check, X, ChevronDown, ChevronRight, Building2, MapPin, Globe, Lock } from 'lucide-react'
 import { useAppelsOffres, useAppelOffreDetail } from '@/hooks/useAppelsOffres'
 import { useBottin } from '@/hooks/useBottin'
+import { supabase } from '@/lib/supabase'
 
 export default function AppelsOffresPage() {
   const navigate = useNavigate()
   const [showForm, setShowForm] = useState(false)
-  const [formData, setFormData] = useState({ titre: '', specialite: '', date_limite: '' })
+  const [projects, setProjects] = useState<any[]>([])
+  const [formData, setFormData] = useState({ 
+    titre: '', 
+    specialite: '', 
+    date_limite: '',
+    project_id: '',
+    // Champs auto-remplis du projet
+    address: '',
+    city: '',
+    province: 'QC',
+    visibility: 'private',
+    building_type: '',
+    project_type: ''
+  })
   const { appelsOffres, loading, createAppelOffre, deleteAppelOffre } = useAppelsOffres()
+
+  // Charger les projets
+  useEffect(() => {
+    const loadProjects = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const { data } = await supabase
+        .from('projects')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+      setProjects(data || [])
+    }
+    loadProjects()
+  }, [])
+
+  // Auto-remplir les champs quand un projet est sélectionné
+  const handleProjectSelect = (projectId: string) => {
+    const project = projects.find(p => p.id === projectId)
+    if (project) {
+      setFormData(prev => ({
+        ...prev,
+        project_id: projectId,
+        titre: prev.titre || project.name,
+        address: project.address || '',
+        city: project.city || '',
+        province: project.province || 'QC',
+        visibility: project.visibility || 'private',
+        building_type: project.building_type || '',
+        project_type: project.project_type || ''
+      }))
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        project_id: '',
+        address: '',
+        city: '',
+        province: 'QC',
+        visibility: 'private',
+        building_type: '',
+        project_type: ''
+      }))
+    }
+  }
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault()
-    const ao = await createAppelOffre(formData)
+    const ao = await createAppelOffre({
+      ...formData,
+      project_id: formData.project_id || null
+    })
     if (ao) navigate(`/appels-offres/${ao.id}`)
     setShowForm(false)
+    setFormData({ titre: '', specialite: '', date_limite: '', project_id: '', address: '', city: '', province: 'QC', visibility: 'private', building_type: '', project_type: '' })
   }
 
   const getStatutColor = (statut: string) => {
@@ -74,13 +136,92 @@ export default function AppelsOffresPage() {
 
       {showForm && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-semibold mb-4">Nouvel appel d'offres</h3>
             <form onSubmit={handleCreate} className="space-y-4">
-              <div><label className="block text-sm font-medium mb-1">Titre *</label><input type="text" required value={formData.titre} onChange={(e) => setFormData({ ...formData, titre: e.target.value })} className="input-field" /></div>
-              <div><label className="block text-sm font-medium mb-1">Spécialité</label><input type="text" value={formData.specialite} onChange={(e) => setFormData({ ...formData, specialite: e.target.value })} className="input-field" placeholder="Ex: Maçonnerie, Électricité..." /></div>
-              <div><label className="block text-sm font-medium mb-1">Date limite *</label><input type="date" required value={formData.date_limite} onChange={(e) => setFormData({ ...formData, date_limite: e.target.value })} className="input-field" /></div>
-              <div className="flex justify-end gap-2 pt-4"><button type="button" onClick={() => setShowForm(false)} className="btn btn-secondary">Annuler</button><button type="submit" className="btn btn-primary">Créer</button></div>
+              {/* Sélection projet */}
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  <Building2 size={14} className="inline mr-1" />
+                  Projet associé
+                </label>
+                <select 
+                  value={formData.project_id} 
+                  onChange={(e) => handleProjectSelect(e.target.value)} 
+                  className="input-field"
+                >
+                  <option value="">-- Aucun projet (créer indépendamment) --</option>
+                  {projects.map(p => (
+                    <option key={p.id} value={p.id}>
+                      {p.project_number ? `${p.project_number} - ` : ''}{p.name}
+                    </option>
+                  ))}
+                </select>
+                {formData.project_id && (
+                  <p className="text-xs text-teal-600 mt-1">✓ Les paramètres du projet seront utilisés</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Titre *</label>
+                <input type="text" required value={formData.titre} onChange={(e) => setFormData({ ...formData, titre: e.target.value })} className="input-field" />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-1">Spécialité / Corps de métier</label>
+                <input type="text" value={formData.specialite} onChange={(e) => setFormData({ ...formData, specialite: e.target.value })} className="input-field" placeholder="Ex: Maçonnerie, Électricité..." />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-1">Date limite *</label>
+                <input type="date" required value={formData.date_limite} onChange={(e) => setFormData({ ...formData, date_limite: e.target.value })} className="input-field" />
+              </div>
+
+              {/* Infos projet (si sélectionné, afficher en lecture seule) */}
+              {formData.project_id && (
+                <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+                  <h4 className="text-sm font-medium text-gray-700">Paramètres du projet</h4>
+                  
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    {formData.address && (
+                      <div className="col-span-2">
+                        <span className="text-gray-500">Adresse:</span>
+                        <span className="ml-2">{formData.address}</span>
+                      </div>
+                    )}
+                    {formData.city && (
+                      <div>
+                        <span className="text-gray-500">Ville:</span>
+                        <span className="ml-2">{formData.city}, {formData.province}</span>
+                      </div>
+                    )}
+                    {formData.building_type && (
+                      <div>
+                        <span className="text-gray-500">Bâtiment:</span>
+                        <span className="ml-2">{formData.building_type}</span>
+                      </div>
+                    )}
+                    {formData.project_type && (
+                      <div>
+                        <span className="text-gray-500">Type:</span>
+                        <span className="ml-2">{formData.project_type}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-1">
+                      {formData.visibility === 'public' ? (
+                        <><Globe size={14} className="text-blue-600" /><span>Public</span></>
+                      ) : (
+                        <><Lock size={14} className="text-gray-600" /><span>Privé</span></>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2 pt-4">
+                <button type="button" onClick={() => { setShowForm(false); setFormData({ titre: '', specialite: '', date_limite: '', project_id: '', address: '', city: '', province: 'QC', visibility: 'private', building_type: '', project_type: '' }) }} className="btn btn-secondary">Annuler</button>
+                <button type="submit" className="btn btn-primary">Créer</button>
+              </div>
             </form>
           </div>
         </div>

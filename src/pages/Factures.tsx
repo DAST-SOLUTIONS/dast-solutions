@@ -52,7 +52,9 @@ function CreateFactureModal({
   const { createFacture, createFromSoumission } = useFactures()
   const [mode, setMode] = useState<'new' | 'from_soumission'>('new')
   const [selectedSoumission, setSelectedSoumission] = useState('')
+  const [selectedProject, setSelectedProject] = useState('')
   const [soumissions, setSoumissions] = useState<any[]>([])
+  const [projects, setProjects] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   
   // Données client
@@ -79,17 +81,29 @@ function CreateFactureModal({
     new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
   )
 
-  // Charger les soumissions acceptées
+  // Charger les soumissions et projets
   useState(() => {
-    const loadSoumissions = async () => {
-      const { data } = await supabase
+    const loadData = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      // Charger soumissions acceptées
+      const { data: soumData } = await supabase
         .from('soumissions')
         .select('*')
         .eq('status', 'acceptee')
         .order('created_at', { ascending: false })
-      setSoumissions(data || [])
+      setSoumissions(soumData || [])
+
+      // Charger projets
+      const { data: projData } = await supabase
+        .from('projects')
+        .select('id, name, project_number, client_name')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+      setProjects(projData || [])
     }
-    loadSoumissions()
+    loadData()
   })
 
   if (!isOpen) return null
@@ -112,7 +126,8 @@ function CreateFactureModal({
             ...i,
             total_price: i.quantity * i.unit_price
           })),
-          date_echeance: dateEcheance
+          date_echeance: dateEcheance,
+          project_id: selectedProject || null
         })
       }
       onCreated()
@@ -200,6 +215,39 @@ function CreateFactureModal({
             </div>
           ) : (
             <div className="space-y-6">
+              {/* Projet lié */}
+              <div>
+                <h3 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
+                  <Building size={18} className="text-teal-600" />
+                  Projet associé
+                </h3>
+                <select
+                  value={selectedProject}
+                  onChange={(e) => {
+                    setSelectedProject(e.target.value)
+                    // Auto-remplir le client si projet sélectionné
+                    const proj = projects.find(p => p.id === e.target.value)
+                    if (proj?.client_name) {
+                      setClient(prev => ({ ...prev, name: proj.client_name }))
+                    }
+                  }}
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500"
+                >
+                  <option value="">-- Aucun projet (facture indépendante) --</option>
+                  {projects.map(p => (
+                    <option key={p.id} value={p.id}>
+                      {p.project_number ? `${p.project_number} - ` : ''}{p.name}
+                      {p.client_name ? ` (${p.client_name})` : ''}
+                    </option>
+                  ))}
+                </select>
+                {selectedProject && (
+                  <p className="text-xs text-teal-600 mt-1">
+                    ✓ La facture sera liée à ce projet
+                  </p>
+                )}
+              </div>
+
               {/* Client */}
               <div>
                 <h3 className="font-bold text-gray-900 mb-3">Client</h3>
