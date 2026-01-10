@@ -109,6 +109,16 @@ import ChangeOrdersAdvanced from '@/pages/Gestion/ChangeOrdersAdvanced'
 import PaymentApplications from '@/pages/Gestion/PaymentApplications'
 
 // ============================================================================
+// PHASE 4: PAIE STANDARD ET CCQ (QIPAIE)
+// ============================================================================
+import { PayrollStandard, PayrollCCQ } from '@/pages/Paie'
+
+// ============================================================================
+// PHASE 5: ENTREPRISES QUÉBEC
+// ============================================================================
+import EntreprisesQuebec from '@/pages/Ressources/EntreprisesQuebec'
+
+// ============================================================================
 // MODULE ESTIMATION (Base de données ProEst)
 // ============================================================================
 import CostDatabase from '@/pages/CostDatabase'
@@ -219,6 +229,13 @@ function App() {
           <Route path="project/:projectId/budget-advanced" element={<BudgetAdvanced />} />
           <Route path="project/:projectId/change-orders-v2" element={<ChangeOrdersAdvanced />} />
           <Route path="project/:projectId/payment-applications" element={<PaymentApplications />} />
+
+          {/* Phase 4: Paie Standard et CCQ */}
+          <Route path="paie/standard" element={<PayrollStandard />} />
+          <Route path="paie/ccq" element={<PayrollCCQ />} />
+
+          {/* Phase 5: Entreprises Québec */}
+          <Route path="entreprises-quebec" element={<EntreprisesQuebec />} />
           
           {/* Ressources */}
           <Route path="project/:projectId/equipe" element={<ProjectEquipe />} />

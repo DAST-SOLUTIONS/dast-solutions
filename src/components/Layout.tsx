@@ -81,9 +81,20 @@ const navigation: NavItem[] = [
     children: [
       { name: 'Code Navigator', href: '/ressources/code-navigator', icon: BookMarked },
       { name: 'CCQ Navigator', href: '/ressources/ccq-navigator', icon: Scale },
+      { name: 'Entreprises Québec', href: '/entreprises-quebec', icon: Building2 },
       { name: 'Contrats ACC/CCDC', href: '/ressources/documents-acc-ccdc', icon: FileCheck },
       { name: 'Associations', href: '/ressources/associations', icon: Users2 },
       { name: 'Matériaux & Prix', href: '/materials', icon: Package },
+    ]
+  },
+
+  // PAIE (Phase 4)
+  {
+    name: 'Paie',
+    icon: DollarSign,
+    children: [
+      { name: 'Paie Standard', href: '/paie/standard', icon: Users },
+      { name: 'Paie CCQ', href: '/paie/ccq', icon: Building2 },
     ]
   },
 
