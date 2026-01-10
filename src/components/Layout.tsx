@@ -14,7 +14,8 @@ import {
   Contact, Link as LinkIcon, TrendingUp, Flame, ShoppingCart,
   BookOpen, BookMarked, Scale, FileCheck, Users2, Package,
   Wrench, Smartphone, MessageSquare, MapPin, Database,
-  FileSpreadsheet, Cloud, Import, PlusCircle, Moon, Sun, Send
+  FileSpreadsheet, Cloud, Import, PlusCircle, Moon, Sun, Send,
+  FileSignature, Globe
 } from 'lucide-react'
 
 interface NavItem {
@@ -82,6 +83,26 @@ const navigation: NavItem[] = [
       { name: 'Bons de commande', href: '/achats', icon: FileText },
       { name: 'Réquisitions', href: '/achats?tab=requisitions', icon: ClipboardList },
       { name: 'Réceptions', href: '/achats?tab=receipts', icon: Package },
+    ]
+  },
+  // CONTRATS
+  {
+    name: 'Contrats',
+    icon: FileSignature,
+    children: [
+      { name: 'Tous les contrats', href: '/contrats', icon: FileText },
+      { name: 'Contrats clients', href: '/contrats?type=client', icon: Building2 },
+      { name: 'Sous-contrats', href: '/contrats?type=subcontract', icon: Users },
+    ]
+  },
+  // SEAO
+  {
+    name: 'SEAO',
+    icon: Globe,
+    children: [
+      { name: 'Appels d\'offres', href: '/seao', icon: FileText },
+      { name: 'Mes favoris', href: '/seao?tab=bookmarks', icon: BookMarked },
+      { name: 'Mes soumissions', href: '/seao?tab=submissions', icon: Send },
     ]
   },
 

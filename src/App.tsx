@@ -124,6 +124,12 @@ import EntreprisesQuebec from '@/pages/Ressources/EntreprisesQuebec'
 import { Soumissions, BonsCommande } from '@/pages/Achats'
 
 // ============================================================================
+// PHASE 7: CONTRATS & SEAO
+// ============================================================================
+import { Contrats } from '@/pages/Contrats'
+import SEAOQuebec from '@/pages/Contrats/SEAO'
+
+// ============================================================================
 // MODULE ESTIMATION (Base de données ProEst)
 // ============================================================================
 import CostDatabase from '@/pages/CostDatabase'
@@ -247,6 +253,11 @@ function App() {
           <Route path="achats" element={<BonsCommande />} />
           <Route path="project/:projectId/soumissions" element={<Soumissions />} />
           <Route path="project/:projectId/achats" element={<BonsCommande />} />
+
+          {/* Phase 7: Contrats & SEAO */}
+          <Route path="contrats" element={<Contrats />} />
+          <Route path="seao" element={<SEAOQuebec />} />
+          <Route path="project/:projectId/contrats" element={<Contrats />} />
           
           {/* Ressources */}
           <Route path="project/:projectId/equipe" element={<ProjectEquipe />} />
