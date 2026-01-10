@@ -136,6 +136,13 @@ import { SST } from '@/pages/SST'
 import { DashboardBI } from '@/pages/BI'
 
 // ============================================================================
+// NOUVEAUX MODULES: Takeoff Avancé, Conception, Stockage
+// ============================================================================
+import { TakeoffAdvanced } from '@/pages/Takeoff'
+import { Conception as ConceptionModule } from '@/pages/Conception'
+import { StorageManager } from '@/pages/Storage'
+
+// ============================================================================
 // MODULE ESTIMATION (Base de données ProEst)
 // ============================================================================
 import CostDatabase from '@/pages/CostDatabase'
@@ -206,7 +213,6 @@ function App() {
           <Route path="projets/appels-offres" element={<AppelOffres />} />
           
           {/* Legacy routes pour compatibilité */}
-          <Route path="conception" element={<Conception />} />
           <Route path="estimation" element={<Estimation />} />
           <Route path="gestion" element={<Gestion />} />
 
@@ -270,6 +276,15 @@ function App() {
           <Route path="project/:projectId/sst" element={<SST />} />
           <Route path="bi" element={<DashboardBI />} />
           <Route path="analytics" element={<DashboardBI />} />
+
+          {/* Nouveaux modules: Takeoff Avancé, Conception, Stockage */}
+          <Route path="takeoff-advanced" element={<TakeoffAdvanced />} />
+          <Route path="project/:projectId/takeoff-advanced" element={<TakeoffAdvanced />} />
+          <Route path="conception" element={<ConceptionModule />} />
+          <Route path="project/:projectId/conception" element={<ConceptionModule />} />
+          <Route path="storage" element={<StorageManager />} />
+          <Route path="storage/business" element={<StorageManager />} />
+          <Route path="project/:projectId/storage" element={<StorageManager />} />
           
           {/* Ressources */}
           <Route path="project/:projectId/equipe" element={<ProjectEquipe />} />

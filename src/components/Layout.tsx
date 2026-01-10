@@ -15,7 +15,8 @@ import {
   BookOpen, BookMarked, Scale, FileCheck, Users2, Package,
   Wrench, Smartphone, MessageSquare, MapPin, Database,
   FileSpreadsheet, Cloud, Import, PlusCircle, Moon, Sun, Send,
-  FileSignature, Globe, Shield, HardHat, Activity, PieChart
+  FileSignature, Globe, Shield, HardHat, Activity, PieChart,
+  Ruler, Box, HardDrive, Briefcase, PenTool, Layers
 } from 'lucide-react'
 
 interface NavItem {
@@ -39,6 +40,35 @@ const navigation: NavItem[] = [
       { name: 'Gestion', href: '/projets/gestion', icon: ClipboardCheck },
       { name: 'Appels d\'offres', href: '/projets/appels-offres', icon: Megaphone },
       { name: 'Factures', href: '/factures', icon: Receipt },
+    ]
+  },
+  // CONCEPTION
+  {
+    name: 'Conception',
+    icon: PenTool,
+    children: [
+      { name: 'Documents', href: '/conception', icon: FileText },
+      { name: 'Viewer', href: '/conception?tab=viewer', icon: Layers },
+      { name: 'Coordination', href: '/conception?tab=coordination', icon: Users },
+    ]
+  },
+  // ESTIMATION / TAKEOFF
+  {
+    name: 'Estimation',
+    icon: Ruler,
+    children: [
+      { name: 'Takeoff avancé', href: '/takeoff-advanced', icon: Box },
+      { name: 'Base de coûts', href: '/cost-database', icon: Database },
+      { name: 'Estimation', href: '/estimation', icon: Calculator },
+    ]
+  },
+  // STOCKAGE
+  {
+    name: 'Stockage',
+    icon: HardDrive,
+    children: [
+      { name: 'Business', href: '/storage/business', icon: Building2 },
+      { name: 'Mes projets', href: '/storage', icon: Briefcase },
     ]
   },
 
