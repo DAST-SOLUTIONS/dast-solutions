@@ -1,54 +1,70 @@
-# DAST Solutions - Version Corrigée
+# DAST Solutions - Version Corrigée V2
 
 **Date de correction:** 9 janvier 2026  
-**Version:** 2.0 CORRIGÉE
+**Version:** 2.1 - Corrections complètes
 
 ---
 
-## 🚀 CHANGEMENTS EFFECTUÉS
+## 🚀 CORRECTIONS EFFECTUÉES (CETTE VERSION)
 
-### ✅ Sidebar.tsx - Corrections Majeures
-- Tous les liens cassés ont été corrigés
-- Nouvelle section **"Bases de données"** ajoutée
-- Nouvelle section **"Outils avancés"** ajoutée
-- Liens vers Analytics et Settings maintenant visibles
-- Routes `/ressources/...` corrigées
+### ✅ 1. Associations professionnelles (37+ associations)
+**Fichier:** `src/pages/Ressources/Associations.tsx`
+- Ajout de toutes les associations manquantes
+- AEÉCQ, CIQS/ICÉC, AAPPQ, OTP, Batimatech, CEGQ, BSDQ
+- AERMQ, AEMQ, ACRGTQ, AIQ, APECQ, AECQ, FQAESC, RECQ
+- AVFQ, AMCQ, AFDICQ, APDIQ, APESIQ, CETAF, AECSQ
+- AWMAC, AQMAT, OÉAQ, AIBQ + syndicats
+- Filtres par catégorie et recherche
 
-### ✅ App.tsx - Routes Ajoutées
-- Route `/takeoff-ai/:projectId` pour l'analyse IA
-- Route `/estimation-advanced/:projectId` pour l'estimation avancée
-- Import du composant AITakeoff activé
+### ✅ 2. Contrats ACC/CCDC (Liens directs)
+**Fichier:** `src/pages/Ressources/DocumentsACCCCDC.tsx`
+- Liens directs vers CCDC.org pour chaque document
+- Liens vers Trésor du Québec pour documents publics
+- Liens vers ACC/CCA et ACQ
+- Descriptions françaises complètes
 
-### ✅ TakeoffV3.tsx - Bouton IA Ajouté
-- Nouveau bouton **"Analyse IA"** dans la toolbar
-- Style gradient violet/indigo avec icône Sparkles
-- Navigation vers la page d'analyse IA automatique
+### ✅ 3. Module Documents fonctionnel
+**Fichier:** `src/pages/GestionPages.tsx` - `ProjectDocuments`
+- Upload drag & drop fonctionnel
+- Support multi-fichiers (PDF, Word, Excel, Images, AutoCAD)
+- Classification automatique par type
+- Prévisualisation et téléchargement
+- Suppression avec confirmation
+
+### ✅ 4. Module GANTT (Échéancier)
+**Fichier:** `src/pages/GestionPages.tsx` - `ProjectEcheancier`
+- Vrai diagramme de Gantt interactif
+- Création de tâches avec dates
+- Barre de progression cliquable
+- Vue semaine / mois
+- Couleurs personnalisables
+- Stats d'avancement global
+
+### ✅ 5. Migration base de données
+**Fichier:** `supabase/migrations/012_documents_tasks.sql`
+- Table `project_documents` avec versioning
+- Table `project_tasks` pour le GANTT
+- Policies RLS configurées
+- Index pour performance
 
 ---
 
-## 📂 NOUVELLES FONCTIONNALITÉS ACCESSIBLES
+## 📋 AVANT DE DÉPLOYER
 
-### Navigation Sidebar
+### Supabase Dashboard - Créer le bucket:
 
-| Section | Éléments |
-|---------|----------|
-| **Tableau de bord** | Dashboard principal |
-| **Analytique** | Statistiques et KPIs |
-| **Projets** | Tous, Conception, Estimation, Gestion, Appels d'offres |
-| **Soumissions** | Toutes, Nouvelle |
-| **Factures** | Gestion des factures |
-| **Entrepreneurs** | Bottin, RBQ, Personnel CCQ, Clients |
-| **Appels d'offre** | Mes appels, SEAO, MERX, Bonfire |
-| **Bases de données** | Coûts (ProEst), Matériaux, Prix Québec |
-| **Ressources** | Code Navigator, CCQ, ACC/CCDC, Associations |
-| **Outils avancés** | Rapports terrain, Cloud, Import, Messagerie, Géoloc, Mobile |
-| **Paramètres** | Configuration utilisateur |
+1. Aller dans **Storage** > **New Bucket**
+2. Nom: `project-documents`
+3. Cocher **Public bucket**
+4. Créer les policies:
+   - SELECT: `true`
+   - INSERT: `true`
+   - DELETE: `true`
 
-### Module Takeoff avec IA
+### Exécuter la migration SQL:
 
-1. Ouvrir un projet
-2. Cliquer sur "Relevé quantités"
-3. Utiliser le bouton **"Analyse IA"** dans la toolbar pour l'analyse automatique
+Dans **SQL Editor**, exécuter le contenu de:
+`supabase/migrations/012_documents_tasks.sql`
 
 ---
 
@@ -56,7 +72,7 @@
 
 ```bash
 # Extraire le ZIP
-unzip DAST_CORRIGE_09-01-2026.zip
+unzip DAST_CORRIGE_V2_09-01-2026.zip
 
 # Installer les dépendances
 cd dast-corrected
@@ -71,43 +87,12 @@ npm run build
 
 ---
 
-## 🔧 DÉPLOIEMENT VERCEL
+## 📝 NOTES
 
-1. Pousser sur GitHub
-2. Connecter le repo à Vercel
-3. Variables d'environnement requises:
-   - `VITE_SUPABASE_URL`
-   - `VITE_SUPABASE_ANON_KEY`
-
----
-
-## 📊 COMPOSANTS IA DISPONIBLES
-
-| Composant | Description | Location |
-|-----------|-------------|----------|
-| AITakeoff | Analyse automatique des plans | `/src/components/AITakeoff.tsx` |
-| aiTakeoffService | Service d'analyse IA | `/src/services/aiTakeoffService.ts` |
-| aiVisionService | Vision IA pour plans | `/src/services/aiVisionService.ts` |
-| OCRExtractor | Extraction texte OCR | `/src/components/Takeoff/OCRExtractor.tsx` |
-| IFCViewer3D | Viewer BIM 3D | `/src/components/Takeoff/IFCViewer3D.tsx` |
-
----
-
-## 📝 NOTES IMPORTANTES
-
-1. **Supabase Storage:** S'assurer que le bucket `takeoff-plans` existe avec les bonnes policies
-2. **PDF Worker:** Le worker PDF.js est chargé depuis un CDN
-3. **Routes protégées:** Toutes les routes requièrent une authentification
-
----
-
-## 🐛 PROBLÈMES RÉSOLUS
-
-- ✅ Liens Sidebar vers routes inexistantes
-- ✅ Pages développées mais non accessibles
-- ✅ Composants IA non intégrés
-- ✅ Section Outils avancés manquante
-- ✅ Bouton Analyse IA absent du Takeoff
+- Les uploads utilisent le bucket `project-documents` en priorité
+- Fallback sur `takeoff-plans` si nécessaire
+- Le GANTT sauvegarde en temps réel dans Supabase
+- Les documents supportent jusqu'à 100MB par fichier
 
 ---
 

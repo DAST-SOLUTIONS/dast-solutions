@@ -772,7 +772,273 @@ export function ProjectSpecifications() {
 }
 
 export function ProjectDocuments() {
-  return <PagePlaceholder title="Documents" description="Centralisez contrats, spécifications, rapports et autres documents." icon={FileSearch} />
+  const { project, loading, projectId } = useProject()
+  const [documents, setDocuments] = useState<any[]>([])
+  const [uploading, setUploading] = useState(false)
+  const [dragOver, setDragOver] = useState(false)
+  const [filter, setFilter] = useState('all')
+  const fileInputRef = useState<HTMLInputElement | null>(null)
+
+  const DOCUMENT_TYPES = [
+    { id: 'all', name: 'Tous', icon: '📁' },
+    { id: 'plan', name: 'Plans', icon: '📐' },
+    { id: 'spec', name: 'Devis', icon: '📋' },
+    { id: 'contract', name: 'Contrats', icon: '📄' },
+    { id: 'report', name: 'Rapports', icon: '📊' },
+    { id: 'photo', name: 'Photos', icon: '📷' },
+    { id: 'other', name: 'Autres', icon: '📎' },
+  ]
+
+  useEffect(() => {
+    if (!projectId) return
+    loadDocuments()
+  }, [projectId])
+
+  const loadDocuments = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user || !projectId) return
+
+    const { data } = await supabase
+      .from('project_documents')
+      .select('*')
+      .eq('project_id', projectId)
+      .order('created_at', { ascending: false })
+
+    setDocuments(data || [])
+  }
+
+  const handleFileUpload = async (files: FileList | null) => {
+    if (!files?.length || !projectId) return
+
+    setUploading(true)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('Non authentifié')
+
+      for (const file of Array.from(files)) {
+        if (file.size > 100 * 1024 * 1024) {
+          alert(`${file.name} dépasse 100MB`)
+          continue
+        }
+
+        const timestamp = Date.now()
+        const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_')
+        const storagePath = `documents/${user.id}/${projectId}/${timestamp}_${sanitizedName}`
+
+        const { error: uploadError } = await supabase.storage
+          .from('project-documents')
+          .upload(storagePath, file, { cacheControl: '3600', upsert: false })
+
+        if (uploadError) {
+          console.error('Upload error:', uploadError)
+          // Essayer avec le bucket takeoff-plans comme fallback
+          const { error: fallbackError } = await supabase.storage
+            .from('takeoff-plans')
+            .upload(storagePath, file, { cacheControl: '3600', upsert: false })
+          
+          if (fallbackError) throw new Error(`Upload: ${fallbackError.message}`)
+        }
+
+        const { data: urlData } = supabase.storage
+          .from('project-documents')
+          .getPublicUrl(storagePath)
+
+        // Détecter le type de document
+        const ext = file.name.split('.').pop()?.toLowerCase()
+        let docType = 'other'
+        if (['pdf'].includes(ext || '') && file.name.toLowerCase().includes('plan')) docType = 'plan'
+        else if (['pdf'].includes(ext || '') && (file.name.toLowerCase().includes('devis') || file.name.toLowerCase().includes('spec'))) docType = 'spec'
+        else if (['pdf', 'doc', 'docx'].includes(ext || '') && file.name.toLowerCase().includes('contrat')) docType = 'contract'
+        else if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext || '')) docType = 'photo'
+        else if (['xls', 'xlsx', 'csv'].includes(ext || '')) docType = 'report'
+
+        await supabase.from('project_documents').insert({
+          project_id: projectId,
+          user_id: user.id,
+          name: file.name.replace(/\.[^/.]+$/, ''),
+          filename: sanitizedName,
+          original_name: file.name,
+          storage_path: storagePath,
+          file_url: urlData?.publicUrl,
+          file_size: file.size,
+          file_type: ext,
+          document_type: docType,
+          version: 1
+        })
+      }
+
+      await loadDocuments()
+    } catch (err: any) {
+      console.error('Upload error:', err)
+      alert('Erreur: ' + err.message)
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const deleteDocument = async (docId: string, storagePath: string) => {
+    if (!confirm('Supprimer ce document?')) return
+    try {
+      await supabase.storage.from('project-documents').remove([storagePath])
+      await supabase.from('project_documents').delete().eq('id', docId)
+      await loadDocuments()
+    } catch (err) {
+      console.error('Delete error:', err)
+    }
+  }
+
+  const formatSize = (bytes: number) => {
+    if (bytes < 1024) return bytes + ' B'
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
+    return (bytes / 1024 / 1024).toFixed(1) + ' MB'
+  }
+
+  const filteredDocs = filter === 'all' 
+    ? documents 
+    : documents.filter(d => d.document_type === filter)
+
+  if (loading) return <div className="flex justify-center py-20"><Loader2 className="animate-spin" size={40} /></div>
+  if (!project) return null
+
+  return (
+    <PageWrapper 
+      title="Documents"
+      actions={
+        <div className="flex gap-2">
+          <input
+            type="file"
+            multiple
+            accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif,.dwg,.rvt"
+            onChange={(e) => handleFileUpload(e.target.files)}
+            className="hidden"
+            id="doc-upload"
+          />
+          <label
+            htmlFor="doc-upload"
+            className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 flex items-center gap-2 cursor-pointer"
+          >
+            {uploading ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
+            {uploading ? 'Envoi...' : 'Ajouter documents'}
+          </label>
+        </div>
+      }
+    >
+      {/* Zone de drop */}
+      <div
+        className={`border-2 border-dashed rounded-xl p-8 mb-6 text-center transition ${
+          dragOver ? 'border-teal-500 bg-teal-50' : 'border-gray-300 bg-gray-50'
+        }`}
+        onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={(e) => { 
+          e.preventDefault()
+          setDragOver(false)
+          handleFileUpload(e.dataTransfer.files) 
+        }}
+      >
+        <Upload className="mx-auto mb-3 text-gray-400" size={40} />
+        <p className="text-gray-600 font-medium">Glissez vos fichiers ici</p>
+        <p className="text-sm text-gray-400">PDF, Word, Excel, Images, AutoCAD (max 100MB)</p>
+      </div>
+
+      {/* Filtres */}
+      <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
+        {DOCUMENT_TYPES.map(type => (
+          <button
+            key={type.id}
+            onClick={() => setFilter(type.id)}
+            className={`px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition ${
+              filter === type.id 
+                ? 'bg-teal-600 text-white' 
+                : 'bg-white border text-gray-600 hover:bg-gray-50'
+            }`}
+          >
+            {type.icon} {type.name}
+            {type.id !== 'all' && (
+              <span className="ml-1 text-xs opacity-70">
+                ({documents.filter(d => d.document_type === type.id).length})
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* Liste des documents */}
+      {filteredDocs.length === 0 ? (
+        <div className="text-center py-12 bg-white rounded-xl border">
+          <FileSearch size={48} className="mx-auto text-gray-300 mb-4" />
+          <p className="text-gray-500">Aucun document</p>
+        </div>
+      ) : (
+        <div className="bg-white rounded-xl border overflow-hidden">
+          <table className="w-full">
+            <thead className="bg-gray-50 border-b">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Document</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Taille</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {filteredDocs.map(doc => (
+                <tr key={doc.id} className="hover:bg-gray-50">
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-gray-100 rounded-lg">
+                        <FileText size={20} className="text-gray-500" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900">{doc.name}</p>
+                        <p className="text-xs text-gray-500">{doc.original_name}</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs uppercase">
+                      {doc.file_type}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-500">{formatSize(doc.file_size)}</td>
+                  <td className="px-4 py-3 text-sm text-gray-500">
+                    {new Date(doc.created_at).toLocaleDateString('fr-CA')}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <div className="flex justify-end gap-1">
+                      {doc.file_url && (
+                        <a
+                          href={doc.file_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-2 text-gray-400 hover:text-teal-600 hover:bg-teal-50 rounded"
+                        >
+                          <Eye size={16} />
+                        </a>
+                      )}
+                      <a
+                        href={doc.file_url}
+                        download={doc.original_name}
+                        className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded"
+                      >
+                        <Download size={16} />
+                      </a>
+                      <button
+                        onClick={() => deleteDocument(doc.id, doc.storage_path)}
+                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </PageWrapper>
+  )
 }
 
 export function ProjectPhotos() {
@@ -780,7 +1046,388 @@ export function ProjectPhotos() {
 }
 
 export function ProjectEcheancier() {
-  return <PagePlaceholder title="Échéancier" description="Diagramme de Gantt interactif pour la planification." icon={Calendar} />
+  const { project, loading, projectId } = useProject()
+  const [tasks, setTasks] = useState<any[]>([])
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [viewMode, setViewMode] = useState<'week' | 'month'>('week')
+  const [newTask, setNewTask] = useState({
+    name: '',
+    start_date: '',
+    end_date: '',
+    progress: 0,
+    responsible: '',
+    color: '#14b8a6'
+  })
+
+  const COLORS = [
+    { name: 'Turquoise', hex: '#14b8a6' },
+    { name: 'Bleu', hex: '#3b82f6' },
+    { name: 'Violet', hex: '#8b5cf6' },
+    { name: 'Orange', hex: '#f97316' },
+    { name: 'Rouge', hex: '#ef4444' },
+    { name: 'Vert', hex: '#22c55e' },
+  ]
+
+  useEffect(() => {
+    if (!projectId) return
+    loadTasks()
+  }, [projectId])
+
+  const loadTasks = async () => {
+    const { data } = await supabase
+      .from('project_tasks')
+      .select('*')
+      .eq('project_id', projectId)
+      .order('start_date', { ascending: true })
+    
+    setTasks(data || [])
+  }
+
+  const addTask = async () => {
+    if (!newTask.name || !newTask.start_date || !newTask.end_date) return
+    
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+
+    await supabase.from('project_tasks').insert({
+      project_id: projectId,
+      user_id: user.id,
+      ...newTask,
+      status: 'pending'
+    })
+
+    setShowAddModal(false)
+    setNewTask({ name: '', start_date: '', end_date: '', progress: 0, responsible: '', color: '#14b8a6' })
+    loadTasks()
+  }
+
+  const updateTaskProgress = async (taskId: string, progress: number) => {
+    await supabase.from('project_tasks').update({ progress }).eq('id', taskId)
+    loadTasks()
+  }
+
+  const deleteTask = async (taskId: string) => {
+    if (!confirm('Supprimer cette tâche?')) return
+    await supabase.from('project_tasks').delete().eq('id', taskId)
+    loadTasks()
+  }
+
+  // Calcul des dates pour le GANTT
+  const allDates = tasks.flatMap(t => [new Date(t.start_date), new Date(t.end_date)])
+  const minDate = allDates.length > 0 
+    ? new Date(Math.min(...allDates.map(d => d.getTime()))) 
+    : new Date()
+  const maxDate = allDates.length > 0 
+    ? new Date(Math.max(...allDates.map(d => d.getTime()))) 
+    : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+
+  // Générer les colonnes de dates
+  const generateDateColumns = () => {
+    const columns = []
+    const current = new Date(minDate)
+    current.setDate(current.getDate() - 7) // Commencer 1 semaine avant
+    
+    const end = new Date(maxDate)
+    end.setDate(end.getDate() + 14) // Finir 2 semaines après
+    
+    while (current <= end) {
+      columns.push(new Date(current))
+      if (viewMode === 'week') {
+        current.setDate(current.getDate() + 1)
+      } else {
+        current.setDate(current.getDate() + 7)
+      }
+    }
+    return columns
+  }
+
+  const dateColumns = generateDateColumns()
+  const totalDays = Math.ceil((maxDate.getTime() - minDate.getTime()) / (1000 * 60 * 60 * 24)) + 21
+
+  const getTaskPosition = (task: any) => {
+    const start = new Date(task.start_date)
+    const end = new Date(task.end_date)
+    const chartStart = new Date(dateColumns[0])
+    
+    const startOffset = Math.ceil((start.getTime() - chartStart.getTime()) / (1000 * 60 * 60 * 24))
+    const duration = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1
+    
+    const dayWidth = viewMode === 'week' ? 40 : 15
+    return {
+      left: startOffset * dayWidth,
+      width: duration * dayWidth
+    }
+  }
+
+  if (loading) return <div className="flex justify-center py-20"><Loader2 className="animate-spin" size={40} /></div>
+  if (!project) return null
+
+  return (
+    <PageWrapper 
+      title="Échéancier - Diagramme de Gantt"
+      actions={
+        <div className="flex gap-2">
+          <div className="flex bg-gray-100 rounded-lg p-1">
+            <button
+              onClick={() => setViewMode('week')}
+              className={`px-3 py-1.5 rounded text-sm font-medium ${viewMode === 'week' ? 'bg-white shadow' : ''}`}
+            >
+              Semaine
+            </button>
+            <button
+              onClick={() => setViewMode('month')}
+              className={`px-3 py-1.5 rounded text-sm font-medium ${viewMode === 'month' ? 'bg-white shadow' : ''}`}
+            >
+              Mois
+            </button>
+          </div>
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 flex items-center gap-2"
+          >
+            <Plus size={16} /> Nouvelle tâche
+          </button>
+        </div>
+      }
+    >
+      {/* Stats rapides */}
+      <div className="grid grid-cols-4 gap-4 mb-6">
+        <div className="bg-white rounded-xl border p-4">
+          <p className="text-sm text-gray-500">Tâches totales</p>
+          <p className="text-2xl font-bold">{tasks.length}</p>
+        </div>
+        <div className="bg-white rounded-xl border p-4">
+          <p className="text-sm text-gray-500">Complétées</p>
+          <p className="text-2xl font-bold text-green-600">{tasks.filter(t => t.progress === 100).length}</p>
+        </div>
+        <div className="bg-white rounded-xl border p-4">
+          <p className="text-sm text-gray-500">En cours</p>
+          <p className="text-2xl font-bold text-blue-600">{tasks.filter(t => t.progress > 0 && t.progress < 100).length}</p>
+        </div>
+        <div className="bg-white rounded-xl border p-4">
+          <p className="text-sm text-gray-500">Avancement global</p>
+          <p className="text-2xl font-bold text-teal-600">
+            {tasks.length > 0 ? Math.round(tasks.reduce((a, t) => a + t.progress, 0) / tasks.length) : 0}%
+          </p>
+        </div>
+      </div>
+
+      {/* GANTT Chart */}
+      <div className="bg-white rounded-xl border overflow-hidden">
+        {tasks.length === 0 ? (
+          <div className="text-center py-12">
+            <Calendar size={48} className="mx-auto text-gray-300 mb-4" />
+            <p className="text-gray-500 mb-4">Aucune tâche planifiée</p>
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700"
+            >
+              Créer une tâche
+            </button>
+          </div>
+        ) : (
+          <div className="flex">
+            {/* Liste des tâches (gauche) */}
+            <div className="w-72 flex-shrink-0 border-r">
+              <div className="bg-gray-50 px-4 py-3 border-b font-medium text-sm text-gray-600">
+                Tâches ({tasks.length})
+              </div>
+              <div className="divide-y">
+                {tasks.map((task, index) => (
+                  <div key={task.id} className="px-4 py-3 hover:bg-gray-50">
+                    <div className="flex items-center gap-2">
+                      <div 
+                        className="w-3 h-3 rounded-full flex-shrink-0" 
+                        style={{ backgroundColor: task.color || '#14b8a6' }}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm truncate">{task.name}</p>
+                        <p className="text-xs text-gray-500">
+                          {new Date(task.start_date).toLocaleDateString('fr-CA')} - {new Date(task.end_date).toLocaleDateString('fr-CA')}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => deleteTask(task.id)}
+                        className="p-1 text-gray-400 hover:text-red-600 rounded"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                    <div className="mt-2 flex items-center gap-2">
+                      <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full rounded-full transition-all" 
+                          style={{ 
+                            width: `${task.progress}%`,
+                            backgroundColor: task.color || '#14b8a6'
+                          }}
+                        />
+                      </div>
+                      <span className="text-xs text-gray-500 w-10">{task.progress}%</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Chart (droite) */}
+            <div className="flex-1 overflow-x-auto">
+              {/* Header avec dates */}
+              <div className="bg-gray-50 border-b flex sticky top-0">
+                {dateColumns.map((date, i) => (
+                  <div 
+                    key={i} 
+                    className="flex-shrink-0 px-2 py-2 border-r text-center"
+                    style={{ width: viewMode === 'week' ? 40 : 15 }}
+                  >
+                    <div className="text-[10px] text-gray-400">
+                      {date.toLocaleDateString('fr-CA', { weekday: 'short' })}
+                    </div>
+                    <div className="text-xs font-medium">
+                      {date.getDate()}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Barres */}
+              <div className="relative">
+                {tasks.map((task, index) => {
+                  const pos = getTaskPosition(task)
+                  return (
+                    <div key={task.id} className="h-16 border-b relative">
+                      {/* Grille */}
+                      <div className="absolute inset-0 flex">
+                        {dateColumns.map((_, i) => (
+                          <div 
+                            key={i} 
+                            className="border-r border-gray-100"
+                            style={{ width: viewMode === 'week' ? 40 : 15 }}
+                          />
+                        ))}
+                      </div>
+                      
+                      {/* Barre de tâche */}
+                      <div
+                        className="absolute top-3 h-10 rounded-lg flex items-center px-2 text-white text-xs font-medium shadow cursor-pointer hover:opacity-90 transition"
+                        style={{
+                          left: pos.left,
+                          width: Math.max(pos.width, 40),
+                          backgroundColor: task.color || '#14b8a6'
+                        }}
+                        onClick={() => {
+                          const newProgress = prompt('Avancement (0-100):', task.progress)
+                          if (newProgress !== null) {
+                            updateTaskProgress(task.id, Math.min(100, Math.max(0, parseInt(newProgress) || 0)))
+                          }
+                        }}
+                      >
+                        {/* Progression */}
+                        <div 
+                          className="absolute inset-0 rounded-lg bg-black/20"
+                          style={{ width: `${task.progress}%` }}
+                        />
+                        <span className="relative truncate">{task.name}</span>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Modal ajout tâche */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-bold">Nouvelle tâche</h3>
+              <button onClick={() => setShowAddModal(false)} className="p-2 hover:bg-gray-100 rounded">
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nom de la tâche *</label>
+                <input
+                  type="text"
+                  value={newTask.name}
+                  onChange={(e) => setNewTask({ ...newTask, name: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500"
+                  placeholder="Ex: Fondations"
+                />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Date début *</label>
+                  <input
+                    type="date"
+                    value={newTask.start_date}
+                    onChange={(e) => setNewTask({ ...newTask, start_date: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Date fin *</label>
+                  <input
+                    type="date"
+                    value={newTask.end_date}
+                    onChange={(e) => setNewTask({ ...newTask, end_date: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500"
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Responsable</label>
+                <input
+                  type="text"
+                  value={newTask.responsible}
+                  onChange={(e) => setNewTask({ ...newTask, responsible: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500"
+                  placeholder="Nom du responsable"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Couleur</label>
+                <div className="flex gap-2">
+                  {COLORS.map(c => (
+                    <button
+                      key={c.hex}
+                      onClick={() => setNewTask({ ...newTask, color: c.hex })}
+                      className={`w-8 h-8 rounded-full ${newTask.color === c.hex ? 'ring-2 ring-offset-2 ring-gray-400' : ''}`}
+                      style={{ backgroundColor: c.hex }}
+                      title={c.name}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex gap-2 mt-6">
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={addTask}
+                className="flex-1 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700"
+              >
+                Créer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </PageWrapper>
+  )
 }
 
 export function ProjectProblemes() {
