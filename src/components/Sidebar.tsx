@@ -1,21 +1,19 @@
 /**
- * DAST Solutions - Sidebar UNIFIÉE
- * Navigation cohérente - un seul chemin vers chaque fonctionnalité
- * Inspiré d'Autodesk Construction Cloud
+ * DAST Solutions - Sidebar CORRIGÉE
+ * Navigation complète avec TOUTES les fonctionnalités
+ * Version corrigée: 9 janvier 2026
  */
 import { useState, useEffect } from 'react'
-import { NavLink, useLocation, useNavigate, useParams } from 'react-router-dom'
+import { NavLink, useLocation } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import {
   LayoutDashboard, FolderKanban, ChevronDown, ChevronRight,
   Pencil, Calculator, ClipboardList, FileText, Receipt, Users,
   Building2, BookOpen, Scale, Landmark, Package, LogOut,
-  FolderOpen, Ruler, Briefcase,
-  // Icons Gestion (ACC Style)
-  Home, Layers, FileSearch, AlertCircle, Camera, Settings,
-  MessageSquare, Send, Calendar, Wrench, BarChart3, UserCog,
-  DollarSign, TrendingUp, PiggyBank, FileCheck, FormInput,
-  FileSpreadsheet, Video, Mail, HardHat, Box, Truck
+  FolderOpen, Briefcase, Database, BarChart3, Settings,
+  Cloud, Upload, MessageSquare, MapPin, FileSpreadsheet,
+  Send, Calendar, Video, Mail, HardHat, Box, Truck,
+  FileCheck, Smartphone, Cpu, Layers
 } from 'lucide-react'
 
 interface Project {
@@ -40,7 +38,6 @@ const PROJECT_PHASES = {
 
 export default function Sidebar({ user, onLogout }: SidebarProps) {
   const location = useLocation()
-  const navigate = useNavigate()
   const [projects, setProjects] = useState<Project[]>([])
   const [activeProject, setActiveProject] = useState<Project | null>(null)
   
@@ -51,7 +48,9 @@ export default function Sidebar({ user, onLogout }: SidebarProps) {
     soumissions: false,
     ressources: false,
     appelsOffre: false,
-    entrepreneurs: false
+    entrepreneurs: false,
+    outilsAvances: false,
+    basesDonnees: false
   })
 
   // Charger les projets
@@ -81,7 +80,7 @@ export default function Sidebar({ user, onLogout }: SidebarProps) {
 
   // Détecter le projet actif depuis l'URL
   useEffect(() => {
-    const match = location.pathname.match(/\/project\/([^/]+)|\/takeoff\/([^/]+)|\/gestion\/([^/]+)/)
+    const match = location.pathname.match(/\/project\/([^/]+)|\/takeoff\/([^/]+)|\/estimation\/([^/]+)/)
     if (match) {
       const projectId = match[1] || match[2] || match[3]
       const project = projects.find(p => p.id === projectId)
@@ -137,9 +136,15 @@ export default function Sidebar({ user, onLogout }: SidebarProps) {
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto p-3 space-y-1">
         {/* Tableau de bord */}
-        <NavLink to="/" className={({ isActive }) => linkClass(isActive)}>
+        <NavLink to="/dashboard" className={({ isActive }) => linkClass(isActive)}>
           <LayoutDashboard size={18} />
           Tableau de bord
+        </NavLink>
+
+        {/* Analytics */}
+        <NavLink to="/analytics" className={({ isActive }) => linkClass(isActive)}>
+          <BarChart3 size={18} />
+          Analytique
         </NavLink>
 
         {/* ============ PROJETS ============ */}
@@ -204,68 +209,42 @@ export default function Sidebar({ user, onLogout }: SidebarProps) {
               className="w-full flex items-center justify-between px-3 py-2 text-sm font-medium text-teal-700 bg-teal-50 rounded-lg"
             >
               <span className="flex items-center gap-2 truncate">
-                <Wrench size={18} />
+                <Layers size={16} />
                 <span className="truncate">{activeProject.name}</span>
               </span>
               {expandedMenus.gestionProjet ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
             </button>
 
             {expandedMenus.gestionProjet && (
-              <div className="mt-1 space-y-0.5 bg-gray-50 rounded-lg p-1.5">
-                {/* Accueil */}
-                <NavLink 
-                  to={`/project/${activeProject.id}`} 
-                  end
-                  className={({ isActive }) => gestionLinkClass(isActive)}
-                >
-                  <Home size={14} />
-                  Accueil
-                </NavLink>
-
+              <div className="mt-1 space-y-0.5 max-h-96 overflow-y-auto">
                 {/* === FINANCES === */}
                 <p className="px-3 pt-2 pb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
                   Finances
                 </p>
                 <NavLink to={`/project/${activeProject.id}/budget`} className={({ isActive }) => gestionLinkClass(isActive)}>
-                  <PiggyBank size={14} />
+                  <Calculator size={14} />
                   Budget
                 </NavLink>
                 <NavLink to={`/project/${activeProject.id}/couts`} className={({ isActive }) => gestionLinkClass(isActive)}>
-                  <DollarSign size={14} />
+                  <Receipt size={14} />
                   Coûts
                 </NavLink>
                 <NavLink to={`/project/${activeProject.id}/change-orders`} className={({ isActive }) => gestionLinkClass(isActive)}>
-                  <FileCheck size={14} />
-                  Ordres de chg.
-                </NavLink>
-                <NavLink to={`/project/${activeProject.id}/previsions`} className={({ isActive }) => gestionLinkClass(isActive)}>
-                  <TrendingUp size={14} />
-                  Prévisions
+                  <FileText size={14} />
+                  Avenants
                 </NavLink>
 
                 {/* === DOCUMENTS === */}
                 <p className="px-3 pt-2 pb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
                   Documents
                 </p>
-                <NavLink to={`/takeoff/${activeProject.id}`} className={({ isActive }) => gestionLinkClass(isActive)}>
-                  <Ruler size={14} />
-                  Takeoff
-                </NavLink>
                 <NavLink to={`/project/${activeProject.id}/plans`} className={({ isActive }) => gestionLinkClass(isActive)}>
                   <Layers size={14} />
                   Plans
                 </NavLink>
-                <NavLink to={`/project/${activeProject.id}/specifications`} className={({ isActive }) => gestionLinkClass(isActive)}>
-                  <FileSpreadsheet size={14} />
-                  Devis techniques
-                </NavLink>
                 <NavLink to={`/project/${activeProject.id}/documents`} className={({ isActive }) => gestionLinkClass(isActive)}>
-                  <FileSearch size={14} />
+                  <FileText size={14} />
                   Documents
-                </NavLink>
-                <NavLink to={`/project/${activeProject.id}/photos`} className={({ isActive }) => gestionLinkClass(isActive)}>
-                  <Camera size={14} />
-                  Photos
                 </NavLink>
 
                 {/* === SUIVI === */}
@@ -277,12 +256,8 @@ export default function Sidebar({ user, onLogout }: SidebarProps) {
                   Échéancier
                 </NavLink>
                 <NavLink to={`/project/${activeProject.id}/journal`} className={({ isActive }) => gestionLinkClass(isActive)}>
-                  <FormInput size={14} />
-                  Journal chantier
-                </NavLink>
-                <NavLink to={`/project/${activeProject.id}/problemes`} className={({ isActive }) => gestionLinkClass(isActive)}>
-                  <AlertCircle size={14} />
-                  Problèmes
+                  <FileSpreadsheet size={14} />
+                  Journal
                 </NavLink>
 
                 {/* === COMMUNICATION === */}
@@ -291,7 +266,7 @@ export default function Sidebar({ user, onLogout }: SidebarProps) {
                 </p>
                 <NavLink to={`/project/${activeProject.id}/rfi`} className={({ isActive }) => gestionLinkClass(isActive)}>
                   <MessageSquare size={14} />
-                  RFIs
+                  RFI
                 </NavLink>
                 <NavLink to={`/project/${activeProject.id}/soumissions-st`} className={({ isActive }) => gestionLinkClass(isActive)}>
                   <Send size={14} />
@@ -304,10 +279,6 @@ export default function Sidebar({ user, onLogout }: SidebarProps) {
                 <NavLink to={`/project/${activeProject.id}/reunions`} className={({ isActive }) => gestionLinkClass(isActive)}>
                   <Video size={14} />
                   Réunions
-                </NavLink>
-                <NavLink to={`/project/${activeProject.id}/formulaires`} className={({ isActive }) => gestionLinkClass(isActive)}>
-                  <FileText size={14} />
-                  Formulaires
                 </NavLink>
 
                 {/* === RESSOURCES === */}
@@ -363,7 +334,7 @@ export default function Sidebar({ user, onLogout }: SidebarProps) {
                 <FileSpreadsheet size={16} />
                 Toutes les soumissions
               </NavLink>
-              <NavLink to="/soumissions/nouveau" className={({ isActive }) => subLinkClass(isActive)}>
+              <NavLink to="/soumission/new" className={({ isActive }) => subLinkClass(isActive)}>
                 <FileText size={16} />
                 Nouvelle soumission
               </NavLink>
@@ -392,13 +363,21 @@ export default function Sidebar({ user, onLogout }: SidebarProps) {
 
           {expandedMenus.entrepreneurs && (
             <div className="mt-1 space-y-0.5">
-              <NavLink to="/entrepreneurs" className={({ isActive }) => subLinkClass(isActive)}>
+              <NavLink to="/bottin" className={({ isActive }) => subLinkClass(isActive)}>
                 <Users size={16} />
-                Bottin
+                Bottin ressources
               </NavLink>
-              <NavLink to="/entrepreneurs/qualification" className={({ isActive }) => subLinkClass(isActive)}>
+              <NavLink to="/entrepreneurs/rbq" className={({ isActive }) => subLinkClass(isActive)}>
                 <FileCheck size={16} />
-                Qualification
+                Vérification RBQ
+              </NavLink>
+              <NavLink to="/entrepreneurs/personnel" className={({ isActive }) => subLinkClass(isActive)}>
+                <HardHat size={16} />
+                Personnel CCQ
+              </NavLink>
+              <NavLink to="/clients" className={({ isActive }) => subLinkClass(isActive)}>
+                <Building2 size={16} />
+                Clients
               </NavLink>
             </div>
           )}
@@ -419,13 +398,52 @@ export default function Sidebar({ user, onLogout }: SidebarProps) {
 
           {expandedMenus.appelsOffre && (
             <div className="mt-1 space-y-0.5">
-              <NavLink to="/appels-offre" className={({ isActive }) => subLinkClass(isActive)}>
+              <NavLink to="/appels-offres" className={({ isActive }) => subLinkClass(isActive)}>
                 <FileText size={16} />
                 Mes appels
               </NavLink>
               <NavLink to="/appels-offre/seao" className={({ isActive }) => subLinkClass(isActive)}>
                 <Landmark size={16} />
                 SEAO
+              </NavLink>
+              <NavLink to="/appels-offre/merx" className={({ isActive }) => subLinkClass(isActive)}>
+                <Landmark size={16} />
+                MERX
+              </NavLink>
+              <NavLink to="/appels-offre/bonfire" className={({ isActive }) => subLinkClass(isActive)}>
+                <Landmark size={16} />
+                Bonfire
+              </NavLink>
+            </div>
+          )}
+        </div>
+
+        {/* ============ BASES DE DONNÉES ============ */}
+        <div className="pt-2">
+          <button
+            onClick={() => toggleMenu('basesDonnees')}
+            className="w-full flex items-center justify-between px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-lg"
+          >
+            <span className="flex items-center gap-2">
+              <Database size={18} />
+              Bases de données
+            </span>
+            {expandedMenus.basesDonnees ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+          </button>
+
+          {expandedMenus.basesDonnees && (
+            <div className="mt-1 space-y-0.5">
+              <NavLink to="/database" className={({ isActive }) => subLinkClass(isActive)}>
+                <Database size={16} />
+                Coûts (ProEst)
+              </NavLink>
+              <NavLink to="/materials" className={({ isActive }) => subLinkClass(isActive)}>
+                <Package size={16} />
+                Matériaux
+              </NavLink>
+              <NavLink to="/materiaux-prix" className={({ isActive }) => subLinkClass(isActive)}>
+                <Receipt size={16} />
+                Prix Québec
               </NavLink>
             </div>
           )}
@@ -446,29 +464,74 @@ export default function Sidebar({ user, onLogout }: SidebarProps) {
 
           {expandedMenus.ressources && (
             <div className="mt-1 space-y-0.5">
-              <NavLink to="/code-navigator" className={({ isActive }) => subLinkClass(isActive)}>
+              <NavLink to="/ressources/code-navigator" className={({ isActive }) => subLinkClass(isActive)}>
                 <Scale size={16} />
                 Code Navigator
               </NavLink>
-              <NavLink to="/ccq-navigator" className={({ isActive }) => subLinkClass(isActive)}>
+              <NavLink to="/ressources/ccq-navigator" className={({ isActive }) => subLinkClass(isActive)}>
                 <Landmark size={16} />
                 CCQ Navigator
               </NavLink>
-              <NavLink to="/contrats-acc-ccdc" className={({ isActive }) => subLinkClass(isActive)}>
+              <NavLink to="/ressources/documents-acc-ccdc" className={({ isActive }) => subLinkClass(isActive)}>
                 <FileText size={16} />
                 Contrats ACC/CCDC
               </NavLink>
-              <NavLink to="/associations" className={({ isActive }) => subLinkClass(isActive)}>
+              <NavLink to="/ressources/associations" className={({ isActive }) => subLinkClass(isActive)}>
                 <Users size={16} />
                 Associations
-              </NavLink>
-              <NavLink to="/materiaux-prix" className={({ isActive }) => subLinkClass(isActive)}>
-                <Package size={16} />
-                Matériaux & Prix
               </NavLink>
             </div>
           )}
         </div>
+
+        {/* ============ OUTILS AVANCÉS ============ */}
+        <div className="pt-2">
+          <button
+            onClick={() => toggleMenu('outilsAvances')}
+            className="w-full flex items-center justify-between px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-lg"
+          >
+            <span className="flex items-center gap-2">
+              <Cpu size={18} />
+              Outils avancés
+            </span>
+            {expandedMenus.outilsAvances ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+          </button>
+
+          {expandedMenus.outilsAvances && (
+            <div className="mt-1 space-y-0.5">
+              <NavLink to="/rapports-terrain" className={({ isActive }) => subLinkClass(isActive)}>
+                <FileSpreadsheet size={16} />
+                Rapports terrain
+              </NavLink>
+              <NavLink to="/cloud-storage" className={({ isActive }) => subLinkClass(isActive)}>
+                <Cloud size={16} />
+                Stockage cloud
+              </NavLink>
+              <NavLink to="/import-data" className={({ isActive }) => subLinkClass(isActive)}>
+                <Upload size={16} />
+                Import données
+              </NavLink>
+              <NavLink to="/outils-avances/messagerie" className={({ isActive }) => subLinkClass(isActive)}>
+                <MessageSquare size={16} />
+                Messagerie
+              </NavLink>
+              <NavLink to="/outils-avances/geolocalisation" className={({ isActive }) => subLinkClass(isActive)}>
+                <MapPin size={16} />
+                Géolocalisation
+              </NavLink>
+              <NavLink to="/outils-avances/application-mobile" className={({ isActive }) => subLinkClass(isActive)}>
+                <Smartphone size={16} />
+                Application mobile
+              </NavLink>
+            </div>
+          )}
+        </div>
+
+        {/* Paramètres */}
+        <NavLink to="/settings" className={({ isActive }) => linkClass(isActive)}>
+          <Settings size={18} />
+          Paramètres
+        </NavLink>
       </nav>
 
       {/* Utilisateur */}

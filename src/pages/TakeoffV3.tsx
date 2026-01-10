@@ -12,7 +12,7 @@ import {
   Square, Hexagon, Hash, MousePointer, Check, X, ChevronLeft, ChevronRight, 
   Download, Send, Loader2, Crosshair, RotateCw, Eye, EyeOff, Minus,
   AlertTriangle, RefreshCw, Maximize2, Grid, Layers, Search, Filter,
-  Plus, FolderOpen, Settings, HelpCircle
+  Plus, FolderOpen, Settings, HelpCircle, Cpu, Wand2, Sparkles
 } from 'lucide-react'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`
@@ -976,6 +976,18 @@ export default function TakeoffV3() {
                 <Hash size={14} />
               </button>
             </div>
+
+            <div className="w-px h-6 bg-gray-700" />
+
+            {/* AI Analysis Button */}
+            <button 
+              onClick={() => navigate(`/takeoff-ai/${projectId}`)}
+              className="px-3 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded flex items-center gap-1.5 text-xs font-medium hover:from-purple-700 hover:to-indigo-700 transition-all shadow-lg"
+              title="Analyse automatique par IA"
+            >
+              <Sparkles size={14} />
+              Analyse IA
+            </button>
 
             {/* Color Picker */}
             <div className="flex gap-0.5">

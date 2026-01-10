@@ -1,7 +1,7 @@
 /**
- * DAST Solutions - App.tsx COMPLET
- * TOUTES les routes pour TOUS les modules
- * Mis à jour: 2 janvier 2026
+ * DAST Solutions - App.tsx COMPLET ET CORRIGÉ
+ * TOUTES les routes pour TOUS les modules + AI Takeoff
+ * Corrigé: 9 janvier 2026
  */
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
@@ -19,6 +19,9 @@ import Clients from '@/pages/Clients'
 import Factures from '@/pages/Factures'
 import Analytics from '@/pages/Analytics'
 import Settings from '@/pages/Settings'
+
+// AI Takeoff Component
+import AITakeoff from '@/components/AITakeoff'
 
 // Projets sous-menus
 import Conception from '@/pages/Projets/Conception'
@@ -94,6 +97,7 @@ import {
 // ============================================================================
 import CostDatabase from '@/pages/CostDatabase'
 import EstimationPage from '@/pages/EstimationPage'
+import EstimationAdvanced from '@/pages/EstimationAdvanced'
 
 // ============================================================================
 // PROJETS PAR PHASE (listes filtrées)
@@ -136,14 +140,20 @@ function App() {
         <Route path="/" element={session ? <Layout /> : <Navigate to="/login" />}>
           <Route index element={<Navigate to="/dashboard" />} />
           
-          {/* ============ DASHBOARD ============ */}
+          {/* ============ DASHBOARD & ANALYTICS ============ */}
           <Route path="dashboard" element={<Dashboard />} />
+          <Route path="analytics" element={<Analytics />} />
           
           {/* ============ PROJETS - LISTE ============ */}
           <Route path="projects" element={<Projects />} />
           <Route path="project/new" element={<ProjectDetails />} />
           <Route path="project/:projectId" element={<ProjectDetails />} />
+          
+          {/* ============ TAKEOFF (Manuel + AI) ============ */}
           <Route path="takeoff/:projectId" element={<TakeoffV3 />} />
+          <Route path="takeoff-ai/:projectId" element={<AITakeoff />} />
+          
+          {/* ============ BID PROPOSAL ============ */}
           <Route path="bid-proposal/:projectId" element={<BidProposalV2 />} />
 
           {/* ============ PROJETS PAR PHASE (Sidebar) ============ */}
@@ -194,6 +204,7 @@ function App() {
           {/* ============ MODULE ESTIMATION (ProEst) ============ */}
           <Route path="database" element={<CostDatabase />} />
           <Route path="estimation/:projectId" element={<EstimationPage />} />
+          <Route path="estimation-advanced/:projectId" element={<EstimationAdvanced />} />
           
           {/* ============ FACTURES ============ */}
           <Route path="factures" element={<Factures />} />
@@ -237,8 +248,7 @@ function App() {
           <Route path="cloud-storage" element={<CloudStorage />} />
           <Route path="import-data" element={<ImportData />} />
 
-          {/* ============ ANALYTICS & SETTINGS ============ */}
-          <Route path="analytics" element={<Analytics />} />
+          {/* ============ SETTINGS ============ */}
           <Route path="settings" element={<Settings />} />
 
           {/* Legacy redirects */}
