@@ -1,85 +1,85 @@
 /**
- * DAST Solutions - Layout Principal COMPLET
- * Sidebar avec tous les menus et sous-menus
- * CORRIGÉ: Positionnement du profil utilisateur en bas
+ * DAST Solutions - Layout Principal
+ * Navigation restructurée selon flux de travail construction
+ * 
+ * Structure:
+ * - Logo entreprise + nom (du profil)
+ * - Projets (Conception, Estimation, Gestion, etc.)
+ * - Appels d'offre (SEAO, MERX, etc.)
+ * - Répertoires (Entrepreneurs, Clients, Équipes)
+ * - RH & Paie
+ * - Ressources
+ * - Stockage Business
+ * - Analytics
+ * - Paramètres (admin)
  */
-import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
+import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import {
   LayoutDashboard, FolderKanban, Users, FileText, DollarSign,
   BarChart3, ClipboardList, LogOut, Menu, X, Building2, 
   ChevronDown, ChevronRight, Bell, User, Settings,
-  Palette, Calculator, ClipboardCheck, Megaphone, Receipt,
+  Calculator, ClipboardCheck, Megaphone, Receipt,
   Contact, Link as LinkIcon, TrendingUp, Flame, ShoppingCart,
   BookOpen, BookMarked, Scale, FileCheck, Users2, Package,
   Wrench, Smartphone, MessageSquare, MapPin, Database,
-  FileSpreadsheet, Cloud, Import, PlusCircle, Moon, Sun, Send,
+  FileSpreadsheet, Cloud, PlusCircle, Moon, Sun, Send,
   FileSignature, Globe, Shield, HardHat, Activity, PieChart,
-  Ruler, Box, HardDrive, Briefcase, PenTool, Layers
+  Ruler, Box, HardDrive, Briefcase, PenTool, Layers,
+  UserCog, CreditCard, Wallet, FolderOpen, Search, Star,
+  Hammer, Truck, Eye, GitBranch, AlertTriangle, GraduationCap,
+  Building, Heart, Coins, BadgeDollarSign, CircleDollarSign
 } from 'lucide-react'
 
+// Types
 interface NavItem {
   name: string
   href?: string
   icon: any
   children?: NavItem[]
+  badge?: string
+  adminOnly?: boolean
 }
 
-const navigation: NavItem[] = [
-  { name: 'Tableau de bord', href: '/dashboard', icon: LayoutDashboard },
-  
-  // PROJETS
+// Structure de navigation restructurée
+const NAVIGATION: NavItem[] = [
+  // DASHBOARD
+  {
+    name: 'Tableau de bord',
+    href: '/dashboard',
+    icon: LayoutDashboard
+  },
+
+  // PROJETS - Section principale
   {
     name: 'Projets',
     icon: FolderKanban,
     children: [
       { name: 'Tous les projets', href: '/projects', icon: ClipboardList },
-      { name: 'Conception', href: '/projets/conception', icon: Palette },
-      { name: 'Estimation', href: '/projets/estimation', icon: Calculator },
-      { name: 'Gestion', href: '/projets/gestion', icon: ClipboardCheck },
-      { name: 'Appels d\'offres', href: '/projets/appels-offres', icon: Megaphone },
-      { name: 'Factures', href: '/factures', icon: Receipt },
-    ]
-  },
-  // CONCEPTION
-  {
-    name: 'Conception',
-    icon: PenTool,
-    children: [
-      { name: 'Documents', href: '/conception', icon: FileText },
-      { name: 'Viewer', href: '/conception?tab=viewer', icon: Layers },
-      { name: 'Coordination', href: '/conception?tab=coordination', icon: Users },
-    ]
-  },
-  // ESTIMATION / TAKEOFF
-  {
-    name: 'Estimation',
-    icon: Ruler,
-    children: [
-      { name: 'Takeoff avancé', href: '/takeoff-advanced', icon: Box },
+      { name: 'Nouveau projet', href: '/projects/new', icon: PlusCircle },
+      // Conception
+      { name: '── Conception ──', href: '#', icon: PenTool },
+      { name: 'Documents conception', href: '/conception', icon: FileText },
+      { name: 'Revue & Coordination', href: '/conception?tab=coordination', icon: GitBranch },
+      // Estimation
+      { name: '── Estimation ──', href: '#', icon: Calculator },
+      { name: 'Takeoff avancé', href: '/takeoff-advanced', icon: Ruler },
       { name: 'Base de coûts', href: '/cost-database', icon: Database },
-      { name: 'Estimation', href: '/estimation', icon: Calculator },
-    ]
-  },
-  // STOCKAGE
-  {
-    name: 'Stockage',
-    icon: HardDrive,
-    children: [
-      { name: 'Business', href: '/storage/business', icon: Building2 },
-      { name: 'Mes projets', href: '/storage', icon: Briefcase },
-    ]
-  },
-
-  // ENTREPRENEURS
-  {
-    name: 'Entrepreneurs',
-    icon: Users,
-    children: [
-      { name: 'Bottin RBQ', href: '/entrepreneurs/rbq', icon: Building2 },
-      { name: 'Bottin personnels', href: '/entrepreneurs/personnel', icon: Contact },
-      { name: 'Clients CRM', href: '/clients', icon: Users },
+      { name: 'Soumissions', href: '/soumissions', icon: FileText },
+      { name: 'Comparatifs prix', href: '/estimation/comparatifs', icon: Scale },
+      // Appels d'offres
+      { name: '── Appels d\'offres ──', href: '#', icon: Megaphone },
+      { name: 'Projets en soumission', href: '/projets/appels-offres', icon: Send },
+      // Gestion
+      { name: '── Gestion ──', href: '#', icon: ClipboardCheck },
+      { name: 'Projets en cours', href: '/projets/gestion', icon: Hammer },
+      { name: 'Contrats', href: '/contrats', icon: FileSignature },
+      { name: 'Achats & Commandes', href: '/achats', icon: ShoppingCart },
+      { name: 'SST Chantier', href: '/sst', icon: Shield },
+      // Stockage
+      { name: '── Stockage ──', href: '#', icon: HardDrive },
+      { name: 'Documents projets', href: '/storage', icon: FolderOpen },
     ]
   },
 
@@ -88,71 +88,40 @@ const navigation: NavItem[] = [
     name: 'Appels d\'offre',
     icon: Megaphone,
     children: [
-      { name: 'SEAO', href: '/appels-offre/seao', icon: LinkIcon },
+      { name: '── SEAO ──', href: '#', icon: Globe },
+      { name: 'Recherche SEAO', href: '/seao', icon: Search },
+      { name: 'Mes favoris SEAO', href: '/seao?tab=favoris', icon: Star },
+      { name: 'Mes soumissions SEAO', href: '/seao?tab=soumissions', icon: Send },
+      { name: '── Autres plateformes ──', href: '#', icon: LinkIcon },
       { name: 'MERX', href: '/appels-offre/merx', icon: TrendingUp },
-      { name: 'Buy GC', href: '/appels-offre/buy-gc', icon: ShoppingCart },
+      { name: 'BuyGC', href: '/appels-offre/buy-gc', icon: ShoppingCart },
       { name: 'Bonfire', href: '/appels-offre/bonfire', icon: Flame },
     ]
   },
 
-  // SOUMISSIONS
+  // RÉPERTOIRES
   {
-    name: 'Soumissions',
-    icon: FileText,
+    name: 'Répertoires',
+    icon: Users,
     children: [
-      { name: 'Appels d\'offres', href: '/soumissions', icon: Send },
-      { name: 'Toutes les soumissions', href: '/soumissions/list', icon: FileText },
-      { name: 'Nouvelle soumission', href: '/soumission/new', icon: PlusCircle },
+      { name: 'Entrepreneurs RBQ', href: '/entrepreneurs/rbq', icon: Building2, badge: 'RBQ' },
+      { name: 'Équipes de travail', href: '/entrepreneurs/equipes', icon: Users2 },
+      { name: 'Clients CRM', href: '/clients', icon: Contact },
+      { name: 'Fournisseurs', href: '/fournisseurs', icon: Truck },
     ]
   },
-  // ACHATS
+
+  // RH & PAIE
   {
-    name: 'Achats',
-    icon: ShoppingCart,
+    name: 'RH & Paie',
+    icon: UserCog,
     children: [
-      { name: 'Bons de commande', href: '/achats', icon: FileText },
-      { name: 'Réquisitions', href: '/achats?tab=requisitions', icon: ClipboardList },
-      { name: 'Réceptions', href: '/achats?tab=receipts', icon: Package },
-    ]
-  },
-  // CONTRATS
-  {
-    name: 'Contrats',
-    icon: FileSignature,
-    children: [
-      { name: 'Tous les contrats', href: '/contrats', icon: FileText },
-      { name: 'Contrats clients', href: '/contrats?type=client', icon: Building2 },
-      { name: 'Sous-contrats', href: '/contrats?type=subcontract', icon: Users },
-    ]
-  },
-  // SEAO
-  {
-    name: 'SEAO',
-    icon: Globe,
-    children: [
-      { name: 'Appels d\'offres', href: '/seao', icon: FileText },
-      { name: 'Mes favoris', href: '/seao?tab=bookmarks', icon: BookMarked },
-      { name: 'Mes soumissions', href: '/seao?tab=submissions', icon: Send },
-    ]
-  },
-  // SST - SECURITE
-  {
-    name: 'SST',
-    icon: Shield,
-    children: [
-      { name: 'Tableau de bord', href: '/sst', icon: Activity },
-      { name: 'Incidents', href: '/sst?tab=incidents', icon: HardHat },
-      { name: 'Inspections', href: '/sst?tab=inspections', icon: ClipboardCheck },
-      { name: 'Formations', href: '/sst?tab=training', icon: BookOpen },
-    ]
-  },
-  // ANALYTICS - BI
-  {
-    name: 'Analytics',
-    icon: PieChart,
-    children: [
-      { name: 'Dashboard BI', href: '/bi', icon: BarChart3 },
-      { name: 'Rapports', href: '/bi?tab=reports', icon: FileText },
+      { name: '── Ressources humaines ──', href: '#', icon: Users },
+      { name: 'Employés (non-CCQ)', href: '/rh/employes', icon: User },
+      { name: 'Dossiers employés', href: '/rh/dossiers', icon: FolderOpen },
+      { name: '── Paie ──', href: '#', icon: Wallet },
+      { name: 'Paie Standard', href: '/paie/standard', icon: CreditCard },
+      { name: 'Paie CCQ', href: '/paie/ccq', icon: BadgeDollarSign, badge: 'CCQ' },
     ]
   },
 
@@ -161,162 +130,106 @@ const navigation: NavItem[] = [
     name: 'Ressources',
     icon: BookOpen,
     children: [
-      { name: 'Code Navigator', href: '/ressources/code-navigator', icon: BookMarked },
-      { name: 'CCQ Navigator', href: '/ressources/ccq-navigator', icon: Scale },
-      { name: 'Entreprises Québec', href: '/entreprises-quebec', icon: Building2 },
-      { name: 'Contrats ACC/CCDC', href: '/ressources/documents-acc-ccdc', icon: FileCheck },
+      { name: 'Codes Navigator', href: '/ressources/codes', icon: BookMarked },
+      { name: 'CCQ Navigator', href: '/ressources/ccq', icon: Scale },
+      { name: 'Contrats ACC/CCDC', href: '/ressources/contrats-types', icon: FileCheck },
       { name: 'Associations', href: '/ressources/associations', icon: Users2 },
-      { name: 'Matériaux & Prix', href: '/materials', icon: Package },
+      { name: 'Matériaux & Prix', href: '/ressources/materiaux', icon: Package },
     ]
   },
 
-  // PAIE (Phase 4)
+  // STOCKAGE BUSINESS
   {
-    name: 'Paie',
-    icon: DollarSign,
-    children: [
-      { name: 'Paie Standard', href: '/paie/standard', icon: Users },
-      { name: 'Paie CCQ', href: '/paie/ccq', icon: Building2 },
-    ]
-  },
-
-  // OUTILS AVANCÉS
-  {
-    name: 'Outils avancés',
-    icon: Wrench,
-    children: [
-      { name: 'App terrain mobile', href: '/outils-avances/application-mobile', icon: Smartphone },
-      { name: 'Messagerie d\'équipe', href: '/outils-avances/messagerie', icon: MessageSquare },
-      { name: 'Géolocalisation', href: '/outils-avances/geolocalisation', icon: MapPin },
-      { name: 'Rapports terrain', href: '/rapports-terrain', icon: ClipboardCheck },
-      { name: 'Stockage Cloud', href: '/cloud-storage', icon: Cloud },
-      { name: 'Import données', href: '/import-data', icon: Import },
-    ]
+    name: 'Stockage Business',
+    href: '/storage/business',
+    icon: Building
   },
 
   // ANALYTICS
-  { name: 'Analytique', href: '/analytics', icon: BarChart3 },
+  {
+    name: 'Analytics',
+    icon: BarChart3,
+    children: [
+      { name: 'Dashboard BI', href: '/bi', icon: PieChart },
+      { name: 'Rapports', href: '/rapports', icon: FileSpreadsheet },
+      { name: 'KPIs', href: '/bi?tab=kpis', icon: Activity },
+    ]
+  },
+
+  // SST GLOBAL (récapitulatif)
+  {
+    name: 'SST',
+    icon: Shield,
+    children: [
+      { name: 'Tableau de bord SST', href: '/sst', icon: Activity },
+      { name: 'Incidents', href: '/sst?tab=incidents', icon: AlertTriangle },
+      { name: 'Inspections', href: '/sst?tab=inspections', icon: ClipboardCheck },
+      { name: 'Formations', href: '/sst?tab=formations', icon: GraduationCap },
+    ]
+  },
 
   // PARAMÈTRES
-  { name: 'Paramètres', href: '/settings', icon: Settings },
+  {
+    name: 'Paramètres',
+    icon: Settings,
+    children: [
+      { name: 'Mon profil', href: '/parametres/profil', icon: User },
+      { name: 'Profil entreprise', href: '/parametres/entreprise', icon: Building2, adminOnly: true },
+      { name: 'Utilisateurs', href: '/parametres/utilisateurs', icon: Users, adminOnly: true },
+      { name: 'Abonnements', href: '/parametres/abonnements', icon: CreditCard, adminOnly: true },
+      { name: 'Intégrations', href: '/parametres/integrations', icon: LinkIcon },
+      { name: 'Notifications', href: '/parametres/notifications', icon: Bell },
+    ]
+  },
 ]
 
-// Notifications Component
-function NotificationsBell() {
-  const [count, setCount] = useState(0)
-  const [isOpen, setIsOpen] = useState(false)
-  const [notifications, setNotifications] = useState<any[]>([])
-  const dropdownRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    const fetchNotifications = async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) return
-        const { data } = await supabase
-          .from('notifications')
-          .select('*')
-          .eq('user_id', user.id)
-          .is('dismissed_at', null)
-          .order('created_at', { ascending: false })
-          .limit(10)
-        if (data) {
-          setNotifications(data)
-          setCount(data.filter((n: any) => !n.read_at).length)
-        }
-      } catch (err) {
-        console.error('Notifications error:', err)
-      }
-    }
-    fetchNotifications()
-    const interval = setInterval(fetchNotifications, 60000)
-    return () => clearInterval(interval)
-  }, [])
-
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setIsOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
-
-  return (
-    <div className="relative" ref={dropdownRef}>
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg relative"
-      >
-        <Bell size={20} />
-        {count > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
-            {count > 9 ? '9+' : count}
-          </span>
-        )}
-      </button>
-
-      {isOpen && (
-        <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-xl border z-50 overflow-hidden">
-          <div className="px-4 py-3 bg-gray-50 border-b font-semibold text-gray-900">
-            Notifications
-          </div>
-          <div className="max-h-80 overflow-y-auto">
-            {notifications.length === 0 ? (
-              <div className="p-8 text-center text-gray-500">
-                <Bell className="mx-auto mb-2 text-gray-300" size={32} />
-                Aucune notification
-              </div>
-            ) : (
-              notifications.map((n: any) => (
-                <div key={n.id} className={`px-4 py-3 border-b hover:bg-gray-50 ${!n.read_at ? 'bg-teal-50/50' : ''}`}>
-                  <p className="text-sm font-medium text-gray-900">{n.title}</p>
-                  {n.message && <p className="text-xs text-gray-600 mt-1">{n.message}</p>}
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
 export default function Layout() {
-  const location = useLocation()
   const navigate = useNavigate()
-  const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [userMenuOpen, setUserMenuOpen] = useState(false)
-  const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set(['Projets', 'Ressources']))
-  const [userProfile, setUserProfile] = useState<any>(null)
-  const [darkMode, setDarkMode] = useState(() => {
-    const saved = localStorage.getItem('dast_dark_mode')
-    return saved === 'true'
-  })
+  const location = useLocation()
+  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
+  const [expandedMenus, setExpandedMenus] = useState<string[]>(['Projets'])
+  const [user, setUser] = useState<any>(null)
+  const [companyProfile, setCompanyProfile] = useState<any>(null)
+  const [darkMode, setDarkMode] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(true) // TODO: real admin check
 
   useEffect(() => {
-    const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        setUserProfile({
-          email: user.email,
-          fullName: user.user_metadata?.full_name || user.email?.split('@')[0]
-        })
-      }
-    }
-    getUser()
+    loadUserAndCompany()
   }, [])
 
-  // Dark mode toggle
-  useEffect(() => {
-    localStorage.setItem('dast_dark_mode', darkMode.toString())
-    if (darkMode) {
-      document.documentElement.classList.add('dark')
-    } else {
-      document.documentElement.classList.remove('dark')
+  const loadUserAndCompany = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    setUser(user)
+
+    if (user) {
+      // Charger le profil entreprise
+      const { data: profile } = await supabase
+        .from('company_profiles')
+        .select('*')
+        .eq('user_id', user.id)
+        .single()
+      
+      setCompanyProfile(profile)
+
+      // Vérifier si admin
+      const { data: userRole } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .single()
+      
+      setIsAdmin(userRole?.role === 'admin' || userRole?.role === 'owner')
     }
-  }, [darkMode])
+  }
+
+  const toggleMenu = (menuName: string) => {
+    setExpandedMenus(prev => 
+      prev.includes(menuName) 
+        ? prev.filter(m => m !== menuName)
+        : [...prev, menuName]
+    )
+  }
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -324,264 +237,291 @@ export default function Layout() {
   }
 
   const isActive = (href?: string) => {
-    if (!href) return false
+    if (!href || href === '#') return false
     return location.pathname === href || location.pathname.startsWith(href + '/')
   }
 
-  const isParentActive = (item: NavItem) => {
-    if (item.href) return isActive(item.href)
-    return item.children?.some(child => isActive(child.href)) || false
-  }
+  const renderNavItem = (item: NavItem, depth = 0) => {
+    // Skip admin-only items if not admin
+    if (item.adminOnly && !isAdmin) return null
 
-  const toggleMenu = (name: string) => {
-    setExpandedMenus(prev => {
-      const next = new Set(prev)
-      if (next.has(name)) {
-        next.delete(name)
-      } else {
-        next.add(name)
-      }
-      return next
-    })
+    const hasChildren = item.children && item.children.length > 0
+    const isExpanded = expandedMenus.includes(item.name)
+    const active = isActive(item.href)
+
+    // Separator items
+    if (item.name.startsWith('──')) {
+      return (
+        <div key={item.name} className="px-3 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider mt-2">
+          {item.name.replace(/──/g, '').trim()}
+        </div>
+      )
+    }
+
+    if (hasChildren) {
+      return (
+        <div key={item.name}>
+          <button
+            onClick={() => toggleMenu(item.name)}
+            className={`w-full flex items-center justify-between px-3 py-2 text-sm rounded-lg transition ${
+              isExpanded ? 'bg-gray-100 text-gray-900' : 'text-gray-600 hover:bg-gray-50'
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <item.icon size={18} className={isExpanded ? 'text-teal-600' : ''} />
+              <span className="font-medium">{item.name}</span>
+            </div>
+            {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+          </button>
+          
+          {isExpanded && (
+            <div className="ml-4 mt-1 space-y-1 border-l-2 border-gray-100 pl-2">
+              {item.children?.map(child => renderNavItem(child, depth + 1))}
+            </div>
+          )}
+        </div>
+      )
+    }
+
+    return (
+      <Link
+        key={item.name}
+        to={item.href || '#'}
+        className={`flex items-center justify-between px-3 py-2 text-sm rounded-lg transition ${
+          active
+            ? 'bg-teal-50 text-teal-700 font-medium'
+            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+        }`}
+      >
+        <div className="flex items-center gap-3">
+          <item.icon size={16} className={active ? 'text-teal-600' : 'text-gray-400'} />
+          <span>{item.name}</span>
+        </div>
+        {item.badge && (
+          <span className="px-1.5 py-0.5 text-xs bg-teal-100 text-teal-700 rounded">
+            {item.badge}
+          </span>
+        )}
+      </Link>
+    )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className={`min-h-screen ${darkMode ? 'dark bg-gray-900' : 'bg-gray-50'}`}>
       {/* Mobile sidebar backdrop */}
-      {sidebarOpen && (
+      {mobileSidebarOpen && (
         <div 
           className="fixed inset-0 bg-black/50 z-40 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
+          onClick={() => setMobileSidebarOpen(false)}
         />
       )}
 
       {/* Sidebar */}
       <aside className={`
-        fixed top-0 left-0 z-50 h-full w-72 bg-gray-900 transform transition-transform duration-200 ease-in-out
-        lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-        flex flex-col
+        fixed top-0 left-0 z-50 h-full bg-white border-r transition-all duration-300
+        ${sidebarOpen ? 'w-64' : 'w-16'}
+        ${mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
-        {/* Logo */}
-        <div className="h-16 flex items-center justify-between px-4 border-b border-gray-800 flex-shrink-0">
-          <Link to="/dashboard" className="flex items-center gap-2">
-            <div className="w-10 h-10 bg-teal-500 rounded-lg flex items-center justify-center">
-              <Building2 className="text-white" size={24} />
-            </div>
-            <div>
-              <span className="text-xl font-bold text-white">DAST</span>
-              <span className="text-xs text-gray-400 block">Solutions</span>
-            </div>
-          </Link>
-          <button 
-            onClick={() => setSidebarOpen(false)}
-            className="lg:hidden text-gray-400 hover:text-white"
-          >
-            <X size={24} />
-          </button>
-        </div>
-
-        {/* Navigation - scrollable */}
-        <nav className="flex-1 overflow-y-auto p-3 space-y-1">
-          {navigation.map((item) => (
-            <div key={item.name}>
-              {item.children ? (
-                // Menu with children
-                <div>
-                  <button
-                    onClick={() => toggleMenu(item.name)}
-                    className={`
-                      w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-colors
-                      ${isParentActive(item)
-                        ? 'bg-gray-800 text-white' 
-                        : 'text-gray-400 hover:bg-gray-800 hover:text-white'}
-                    `}
-                  >
-                    <div className="flex items-center gap-3">
-                      <item.icon size={20} />
-                      {item.name}
-                    </div>
-                    {expandedMenus.has(item.name) ? (
-                      <ChevronDown size={16} />
-                    ) : (
-                      <ChevronRight size={16} />
-                    )}
-                  </button>
-                  
-                  {expandedMenus.has(item.name) && (
-                    <div className="mt-1 ml-4 pl-4 border-l border-gray-700 space-y-1">
-                      {item.children.map(child => (
-                        <Link
-                          key={child.name}
-                          to={child.href!}
-                          onClick={() => setSidebarOpen(false)}
-                          className={`
-                            flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors
-                            ${isActive(child.href) 
-                              ? 'bg-teal-600 text-white' 
-                              : 'text-gray-400 hover:bg-gray-800 hover:text-white'}
-                          `}
-                        >
-                          <child.icon size={16} />
-                          {child.name}
-                        </Link>
-                      ))}
-                    </div>
-                  )}
+        {/* Company Header */}
+        <div className="p-4 border-b">
+          {sidebarOpen ? (
+            <div className="space-y-3">
+              {/* Logo et nom entreprise */}
+              <div className="flex items-center gap-3">
+                {companyProfile?.logo_url ? (
+                  <img 
+                    src={companyProfile.logo_url} 
+                    alt="Logo" 
+                    className="w-10 h-10 rounded-lg object-cover"
+                  />
+                ) : (
+                  <div className="w-10 h-10 bg-gradient-to-br from-teal-500 to-cyan-600 rounded-lg flex items-center justify-center text-white font-bold">
+                    {companyProfile?.name?.charAt(0) || user?.email?.charAt(0)?.toUpperCase() || 'D'}
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <h2 className="font-bold text-gray-900 truncate">
+                    {companyProfile?.name || 'Mon Entreprise'}
+                  </h2>
+                  <p className="text-xs text-gray-500 truncate">
+                    {user?.email}
+                  </p>
                 </div>
-              ) : (
-                // Simple link
-                <Link
-                  to={item.href!}
-                  onClick={() => setSidebarOpen(false)}
-                  className={`
-                    flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors
-                    ${isActive(item.href) 
-                      ? 'bg-teal-600 text-white' 
-                      : 'text-gray-400 hover:bg-gray-800 hover:text-white'}
-                  `}
-                >
-                  <item.icon size={20} />
-                  {item.name}
-                </Link>
-              )}
+              </div>
+              
+              {/* Powered by DAST */}
+              <div className="flex items-center gap-2 px-2 py-1 bg-gray-50 rounded-lg">
+                <img 
+                  src="/dast-logo.png" 
+                  alt="DAST" 
+                  className="w-5 h-5 rounded"
+                />
+                <span className="text-xs text-gray-500">Powered by DAST CC</span>
+              </div>
             </div>
-          ))}
-        </nav>
-
-        {/* User info & Logout - FIXED at bottom */}
-        <div className="flex-shrink-0 p-4 border-t border-gray-800 bg-gray-900">
-          {userProfile && (
-            <div className="flex items-center gap-3 mb-3 px-2">
-              <div className="w-10 h-10 bg-teal-500/20 rounded-full flex items-center justify-center">
-                <span className="text-teal-400 font-bold">
-                  {userProfile.fullName?.charAt(0).toUpperCase() || 'U'}
-                </span>
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-white truncate">{userProfile.fullName}</p>
-                <p className="text-xs text-gray-500 truncate">{userProfile.email}</p>
-              </div>
+          ) : (
+            <div className="flex justify-center">
+              <img 
+                src="/dast-logo.png" 
+                alt="DAST" 
+                className="w-8 h-8 rounded"
+              />
             </div>
           )}
+        </div>
+
+        {/* Navigation */}
+        <nav className="flex-1 overflow-y-auto p-3 space-y-1" style={{ height: 'calc(100vh - 200px)' }}>
+          {sidebarOpen ? (
+            NAVIGATION.map(item => renderNavItem(item))
+          ) : (
+            // Collapsed mode - icons only
+            NAVIGATION.filter(item => !item.name.startsWith('──')).map(item => (
+              <Link
+                key={item.name}
+                to={item.href || (item.children?.[0]?.href) || '#'}
+                className={`flex items-center justify-center p-3 rounded-lg transition ${
+                  isActive(item.href) ? 'bg-teal-50 text-teal-700' : 'text-gray-500 hover:bg-gray-100'
+                }`}
+                title={item.name}
+              >
+                <item.icon size={20} />
+              </Link>
+            ))
+          )}
+        </nav>
+
+        {/* Footer */}
+        <div className="p-3 border-t space-y-2">
+          {sidebarOpen && (
+            <>
+              <button
+                onClick={() => setDarkMode(!darkMode)}
+                className="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded-lg"
+              >
+                {darkMode ? <Sun size={16} /> : <Moon size={16} />}
+                {darkMode ? 'Mode clair' : 'Mode sombre'}
+              </button>
+              <button
+                onClick={handleLogout}
+                className="w-full flex items-center gap-3 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg"
+              >
+                <LogOut size={16} />
+                Déconnexion
+              </button>
+            </>
+          )}
+          
+          {/* Toggle sidebar */}
           <button
-            onClick={handleLogout}
-            className="flex items-center gap-3 w-full px-3 py-2.5 text-gray-400 hover:bg-gray-800 hover:text-white rounded-lg text-sm font-medium transition-colors"
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="w-full flex items-center justify-center p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
           >
-            <LogOut size={20} />
-            Déconnexion
+            {sidebarOpen ? <ChevronRight size={20} /> : <Menu size={20} />}
           </button>
         </div>
       </aside>
 
-      {/* Main content */}
-      <div className="lg:pl-72">
-        {/* Top header */}
-        <header className="sticky top-0 z-30 bg-white border-b shadow-sm">
-          <div className="h-16 flex items-center justify-between px-4">
-            {/* Mobile menu button */}
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className="lg:hidden p-2 text-gray-600 hover:bg-gray-100 rounded-lg"
-            >
-              <Menu size={24} />
-            </button>
-
-            {/* Breadcrumb / Page title */}
-            <div className="hidden lg:block">
-              <h1 className="text-lg font-semibold text-gray-900">
-                {navigation.find(n => isActive(n.href))?.name || 
-                 navigation.flatMap(n => n.children || []).find(c => isActive(c.href))?.name ||
-                 'DAST Solutions'}
-              </h1>
-            </div>
-
-            {/* Search */}
-            <div className="hidden md:flex flex-1 max-w-md mx-8">
-              <input
-                type="text"
-                placeholder="Rechercher projets, clients, documents..."
-                className="w-full px-4 py-2 bg-gray-100 border-0 rounded-lg text-sm focus:ring-2 focus:ring-teal-500"
-              />
-            </div>
-
-            {/* Right side */}
-            <div className="flex items-center gap-2">
-              {/* Dark mode toggle */}
+      {/* Main Content */}
+      <main className={`transition-all duration-300 ${sidebarOpen ? 'lg:ml-64' : 'lg:ml-16'}`}>
+        {/* Top Header */}
+        <header className="bg-white border-b sticky top-0 z-30">
+          <div className="flex items-center justify-between px-4 py-3">
+            <div className="flex items-center gap-4">
+              {/* Mobile menu button */}
               <button
-                onClick={() => setDarkMode(!darkMode)}
-                className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg"
-                title={darkMode ? 'Mode clair' : 'Mode sombre'}
+                onClick={() => setMobileSidebarOpen(true)}
+                className="p-2 hover:bg-gray-100 rounded-lg lg:hidden"
               >
-                {darkMode ? <Sun size={20} /> : <Moon size={20} />}
+                <Menu size={20} />
               </button>
+              
+              {/* Breadcrumb / Page title */}
+              <div>
+                <h1 className="text-lg font-semibold text-gray-900">
+                  {getBreadcrumbTitle(location.pathname)}
+                </h1>
+              </div>
+            </div>
 
-              {/* Quick add */}
-              <button 
-                onClick={() => navigate('/project/new')}
-                className="hidden sm:flex items-center gap-2 px-3 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700"
-              >
-                <PlusCircle size={18} />
-                Nouveau projet
-              </button>
+            <div className="flex items-center gap-2">
+              {/* Search */}
+              <div className="hidden md:flex items-center">
+                <div className="relative">
+                  <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Rechercher..."
+                    className="pl-9 pr-4 py-2 border rounded-lg text-sm w-64 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  />
+                </div>
+              </div>
 
               {/* Notifications */}
-              <NotificationsBell />
+              <button className="relative p-2 hover:bg-gray-100 rounded-lg">
+                <Bell size={20} className="text-gray-500" />
+                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
+              </button>
 
               {/* User menu */}
-              <div className="relative">
-                <button
-                  onClick={() => setUserMenuOpen(!userMenuOpen)}
-                  className="flex items-center gap-2 p-2 text-gray-600 hover:bg-gray-100 rounded-lg"
-                >
-                  <div className="w-8 h-8 bg-teal-100 rounded-full flex items-center justify-center">
-                    <User size={18} className="text-teal-600" />
-                  </div>
-                  <ChevronDown size={16} className="hidden sm:block" />
-                </button>
-
-                {userMenuOpen && (
-                  <>
-                    <div 
-                      className="fixed inset-0 z-40"
-                      onClick={() => setUserMenuOpen(false)}
-                    />
-                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border z-50">
-                      <Link
-                        to="/settings"
-                        onClick={() => setUserMenuOpen(false)}
-                        className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                      >
-                        <Settings size={16} />
-                        Paramètres
-                      </Link>
-                      <button
-                        onClick={() => setDarkMode(!darkMode)}
-                        className="flex items-center gap-2 w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                      >
-                        {darkMode ? <Sun size={16} /> : <Moon size={16} />}
-                        {darkMode ? 'Mode clair' : 'Mode sombre'}
-                      </button>
-                      <hr className="my-1" />
-                      <button
-                        onClick={handleLogout}
-                        className="flex items-center gap-2 w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"
-                      >
-                        <LogOut size={16} />
-                        Déconnexion
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
+              <button className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded-lg">
+                <div className="w-8 h-8 bg-teal-100 rounded-full flex items-center justify-center">
+                  <User size={16} className="text-teal-600" />
+                </div>
+              </button>
             </div>
           </div>
         </header>
 
-        {/* Page content */}
-        <main className="p-6">
+        {/* Page Content */}
+        <div className="p-4 lg:p-6">
           <Outlet />
-        </main>
-      </div>
+        </div>
+      </main>
     </div>
   )
+}
+
+// Helper function to get page title from path
+function getBreadcrumbTitle(pathname: string): string {
+  const routes: Record<string, string> = {
+    '/dashboard': 'Tableau de bord',
+    '/projects': 'Projets',
+    '/projects/new': 'Nouveau projet',
+    '/conception': 'Conception',
+    '/takeoff-advanced': 'Takeoff avancé',
+    '/cost-database': 'Base de coûts',
+    '/soumissions': 'Soumissions',
+    '/estimation': 'Estimation',
+    '/contrats': 'Contrats',
+    '/achats': 'Achats & Commandes',
+    '/sst': 'Santé & Sécurité',
+    '/seao': 'SEAO Québec',
+    '/entrepreneurs/rbq': 'Bottin RBQ',
+    '/entrepreneurs/equipes': 'Équipes de travail',
+    '/clients': 'Clients CRM',
+    '/fournisseurs': 'Fournisseurs',
+    '/rh/employes': 'Employés',
+    '/paie/standard': 'Paie Standard',
+    '/paie/ccq': 'Paie CCQ',
+    '/ressources/codes': 'Codes Navigator',
+    '/ressources/ccq': 'CCQ Navigator',
+    '/ressources/materiaux': 'Matériaux & Prix',
+    '/storage/business': 'Stockage Business',
+    '/storage': 'Documents Projets',
+    '/bi': 'Analytics & BI',
+    '/parametres/profil': 'Mon profil',
+    '/parametres/entreprise': 'Profil entreprise',
+    '/parametres/abonnements': 'Abonnements',
+  }
+
+  // Check exact match
+  if (routes[pathname]) return routes[pathname]
+
+  // Check partial match
+  for (const [path, title] of Object.entries(routes)) {
+    if (pathname.startsWith(path)) return title
+  }
+
+  return 'DAST Solutions'
 }

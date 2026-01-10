@@ -143,6 +143,12 @@ import { Conception as ConceptionModule } from '@/pages/Conception'
 import { StorageManager } from '@/pages/Storage'
 
 // ============================================================================
+// NOUVELLES PAGES: Équipes, Paramètres, etc.
+// ============================================================================
+import { EquipesTravail } from '@/pages/Entrepreneurs'
+import ParametresPage from '@/pages/Parametres/ParametresPage'
+
+// ============================================================================
 // MODULE ESTIMATION (Base de données ProEst)
 // ============================================================================
 import CostDatabase from '@/pages/CostDatabase'
@@ -306,7 +312,17 @@ function App() {
           {/* ============ ENTREPRENEURS ============ */}
           <Route path="entrepreneurs/rbq" element={<RBQ />} />
           <Route path="entrepreneurs/personnel" element={<Personnel />} />
+          <Route path="entrepreneurs/equipes" element={<EquipesTravail />} />
           <Route path="clients" element={<Clients />} />
+          <Route path="fournisseurs" element={<Clients />} />
+
+          {/* ============ RH & PAIE ============ */}
+          <Route path="rh/employes" element={<Personnel />} />
+          <Route path="rh/dossiers" element={<Personnel />} />
+
+          {/* ============ PARAMÈTRES ============ */}
+          <Route path="parametres/:tab" element={<ParametresPage />} />
+          <Route path="parametres" element={<ParametresPage />} />
 
           {/* ============ APPELS D'OFFRE (plateformes) ============ */}
           <Route path="appels-offre/seao" element={<SEAO />} />
