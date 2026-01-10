@@ -93,6 +93,15 @@ import {
 } from '@/pages/GestionPages'
 
 // ============================================================================
+// PHASE 2: MODULES PROCORE-STYLE
+// ============================================================================
+import GestionRFI from '@/pages/Gestion/RFI'
+import GestionSubmittals from '@/pages/Gestion/Submittals'
+import GestionInspections from '@/pages/Gestion/Inspections'
+import GestionPunchList from '@/pages/Gestion/PunchList'
+import GestionReunions from '@/pages/Gestion/Reunions'
+
+// ============================================================================
 // MODULE ESTIMATION (Base de données ProEst)
 // ============================================================================
 import CostDatabase from '@/pages/CostDatabase'
@@ -191,6 +200,13 @@ function App() {
           <Route path="project/:projectId/correspondance" element={<ProjectCorrespondance />} />
           <Route path="project/:projectId/reunions" element={<ProjectReunions />} />
           <Route path="project/:projectId/formulaires" element={<ProjectFormulaires />} />
+          
+          {/* Phase 2: Modules Procore-style */}
+          <Route path="project/:projectId/rfi-v2" element={<GestionRFI />} />
+          <Route path="project/:projectId/submittals" element={<GestionSubmittals />} />
+          <Route path="project/:projectId/inspections" element={<GestionInspections />} />
+          <Route path="project/:projectId/punch-list" element={<GestionPunchList />} />
+          <Route path="project/:projectId/reunions-v2" element={<GestionReunions />} />
           
           {/* Ressources */}
           <Route path="project/:projectId/equipe" element={<ProjectEquipe />} />

@@ -49,11 +49,17 @@ const GESTION_NAV = [
     { path: '/echeancier', label: 'Échéancier', icon: Calendar },
     { path: '/photos', label: 'Photos', icon: Camera },
   ]},
-  { section: 'Communication', items: [
-    { path: '/problemes', label: 'Problèmes', icon: AlertCircle },
-    { path: '/rfi', label: 'RFIs', icon: MessageSquare },
-    { path: '/soumissions-fournisseurs', label: 'Soum. fournisseurs', icon: Send },
+  { section: 'Qualité & Terrain', items: [
     { path: '/journal', label: 'Journal chantier', icon: FormInput },
+    { path: '/inspections', label: 'Inspections', icon: FileCheck },
+    { path: '/punch-list', label: 'Punch List', icon: AlertCircle },
+    { path: '/reunions', label: 'Réunions', icon: Calendar },
+  ]},
+  { section: 'Communication', items: [
+    { path: '/rfi', label: 'RFIs', icon: MessageSquare },
+    { path: '/submittals', label: 'Submittals', icon: Send },
+    { path: '/problemes', label: 'Problèmes', icon: AlertCircle },
+    { path: '/soumissions-fournisseurs', label: 'Soum. fournisseurs', icon: Send },
   ]},
   { section: 'Rapports', items: [
     { path: '/rapports', label: 'Rapports', icon: BarChart3 },

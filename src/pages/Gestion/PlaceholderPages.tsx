@@ -125,17 +125,7 @@ export function GestionProblemes() {
   )
 }
 
-// Page RFIs
-export function GestionRFI() {
-  const { project } = useOutletContext<{ project: Project }>()
-  return (
-    <PlaceholderPage
-      title="Demandes d'information (RFI)"
-      description="Gérez les demandes d'information entre les parties prenantes du projet."
-      icon={MessageSquare}
-    />
-  )
-}
+// Note: GestionRFI a été migré vers un module complet dans ./RFI.tsx
 
 // Page Soumissions fournisseurs
 export function GestionSoumissionsFournisseurs() {
