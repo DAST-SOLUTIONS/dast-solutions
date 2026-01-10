@@ -130,6 +130,12 @@ import { Contrats } from '@/pages/Contrats'
 import SEAOQuebec from '@/pages/Contrats/SEAO'
 
 // ============================================================================
+// PHASES E & F: SST & DASHBOARD BI
+// ============================================================================
+import { SST } from '@/pages/SST'
+import { DashboardBI } from '@/pages/BI'
+
+// ============================================================================
 // MODULE ESTIMATION (Base de données ProEst)
 // ============================================================================
 import CostDatabase from '@/pages/CostDatabase'
@@ -258,6 +264,12 @@ function App() {
           <Route path="contrats" element={<Contrats />} />
           <Route path="seao" element={<SEAOQuebec />} />
           <Route path="project/:projectId/contrats" element={<Contrats />} />
+
+          {/* Phases E & F: SST & Dashboard BI */}
+          <Route path="sst" element={<SST />} />
+          <Route path="project/:projectId/sst" element={<SST />} />
+          <Route path="bi" element={<DashboardBI />} />
+          <Route path="analytics" element={<DashboardBI />} />
           
           {/* Ressources */}
           <Route path="project/:projectId/equipe" element={<ProjectEquipe />} />

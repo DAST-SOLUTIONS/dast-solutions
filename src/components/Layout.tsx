@@ -15,7 +15,7 @@ import {
   BookOpen, BookMarked, Scale, FileCheck, Users2, Package,
   Wrench, Smartphone, MessageSquare, MapPin, Database,
   FileSpreadsheet, Cloud, Import, PlusCircle, Moon, Sun, Send,
-  FileSignature, Globe
+  FileSignature, Globe, Shield, HardHat, Activity, PieChart
 } from 'lucide-react'
 
 interface NavItem {
@@ -103,6 +103,26 @@ const navigation: NavItem[] = [
       { name: 'Appels d\'offres', href: '/seao', icon: FileText },
       { name: 'Mes favoris', href: '/seao?tab=bookmarks', icon: BookMarked },
       { name: 'Mes soumissions', href: '/seao?tab=submissions', icon: Send },
+    ]
+  },
+  // SST - SECURITE
+  {
+    name: 'SST',
+    icon: Shield,
+    children: [
+      { name: 'Tableau de bord', href: '/sst', icon: Activity },
+      { name: 'Incidents', href: '/sst?tab=incidents', icon: HardHat },
+      { name: 'Inspections', href: '/sst?tab=inspections', icon: ClipboardCheck },
+      { name: 'Formations', href: '/sst?tab=training', icon: BookOpen },
+    ]
+  },
+  // ANALYTICS - BI
+  {
+    name: 'Analytics',
+    icon: PieChart,
+    children: [
+      { name: 'Dashboard BI', href: '/bi', icon: BarChart3 },
+      { name: 'Rapports', href: '/bi?tab=reports', icon: FileText },
     ]
   },
 
