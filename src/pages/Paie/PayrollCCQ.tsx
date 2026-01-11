@@ -1,5 +1,5 @@
 /**
- * DAST Solutions - Phase 4: Module Paie CCQ (QIPAIE)
+ * DAST Solutions - Phase 4: Module Paie CCQ
  * Gestion complète de la paie construction selon les conventions CCQ
  * Basé sur les grilles officielles CCQ 2025
  */
@@ -522,7 +522,7 @@ export default function PayrollCCQ() {
         <div className="flex-1">
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
             <HardHat className="text-amber-500" />
-            Paie CCQ (QIPAIE)
+            Paie CCQ
           </h1>
           <p className="text-gray-500">Gestion de la paie construction - Conventions CCQ 2025</p>
         </div>

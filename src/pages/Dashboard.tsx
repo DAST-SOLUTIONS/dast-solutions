@@ -13,9 +13,15 @@ import {
 } from 'lucide-react'
 
 // Import des widgets
-import WidgetWeather from '@/components/Dashboard/WidgetWeather'
-import WidgetCalendar from '@/components/Dashboard/WidgetCalendar'
-import WidgetMaterialPrices from '@/components/Dashboard/WidgetMaterialPrices'
+import {
+  WidgetWeatherAdvanced,
+  WidgetMaterialPricesAdvanced,
+  WidgetEcheances,
+  WidgetSEAO,
+  WidgetProductivite,
+  WidgetAlertes,
+  WidgetCalendar
+} from '@/components/Dashboard'
 
 interface DashboardStats {
   totalProjects: number
@@ -57,10 +63,14 @@ interface WidgetConfig {
 }
 
 const DEFAULT_WIDGETS: WidgetConfig[] = [
-  { id: 'weather', name: 'Météo Construction', icon: Cloud, visible: true, size: 'medium' },
-  { id: 'calendar', name: 'Calendrier', icon: Calendar, visible: true, size: 'medium' },
+  { id: 'weather', name: 'Météo Chantier', icon: Cloud, visible: true, size: 'medium' },
+  { id: 'echeances', name: 'Échéances', icon: Clock, visible: true, size: 'medium' },
+  { id: 'alerts', name: 'Alertes', icon: Bell, visible: true, size: 'medium' },
+  { id: 'seao', name: 'SEAO Québec', icon: Receipt, visible: true, size: 'medium' },
   { id: 'materials', name: 'Prix Matériaux', icon: Package, visible: true, size: 'large' },
+  { id: 'productivity', name: 'Productivité', icon: Activity, visible: true, size: 'medium' },
   { id: 'kpis', name: 'KPIs', icon: BarChart3, visible: true, size: 'large' },
+  { id: 'calendar', name: 'Calendrier', icon: Calendar, visible: true, size: 'medium' },
   { id: 'projects', name: 'Projets récents', icon: FolderOpen, visible: true, size: 'medium' },
   { id: 'soumissions', name: 'Soumissions récentes', icon: FileText, visible: true, size: 'medium' },
 ]
@@ -342,24 +352,38 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Widgets Row 1: Weather + Calendar */}
-      <div className="grid grid-cols-2 gap-6">
-        {isWidgetVisible('weather') && (
-          <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
-            <WidgetWeather />
-          </div>
+      {/* Widgets Row 1: Alertes + Échéances + Météo + SEAO */}
+      <div className="grid grid-cols-4 gap-4">
+        {isWidgetVisible('alerts') && (
+          <WidgetAlertes />
         )}
-        {isWidgetVisible('calendar') && (
-          <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
-            <WidgetCalendar />
+        {isWidgetVisible('echeances') && (
+          <WidgetEcheances />
+        )}
+        {isWidgetVisible('weather') && (
+          <WidgetWeatherAdvanced />
+        )}
+        {isWidgetVisible('seao') && (
+          <WidgetSEAO />
+        )}
+      </div>
+
+      {/* Widgets Row 2: Productivité + Prix Matériaux */}
+      <div className="grid grid-cols-3 gap-4">
+        {isWidgetVisible('productivity') && (
+          <WidgetProductivite />
+        )}
+        {isWidgetVisible('materials') && (
+          <div className="col-span-2">
+            <WidgetMaterialPricesAdvanced />
           </div>
         )}
       </div>
 
-      {/* Widget: Prix matériaux */}
-      {isWidgetVisible('materials') && (
+      {/* Widget Calendrier */}
+      {isWidgetVisible('calendar') && (
         <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
-          <WidgetMaterialPrices />
+          <WidgetCalendar />
         </div>
       )}
 
