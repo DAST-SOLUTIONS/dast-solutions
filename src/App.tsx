@@ -156,6 +156,11 @@ import SoumissionBuilderAdvanced from '@/pages/Soumissions/SoumissionBuilderAdva
 import SoumissionAnalytics from '@/pages/Soumissions/SoumissionAnalytics'
 
 // ============================================================================
+// SYSTÈME D'ALERTES
+// ============================================================================
+import AlertCenter from '@/pages/Alertes/AlertCenter'
+
+// ============================================================================
 // MODULE ESTIMATION (Base de données ProEst)
 // ============================================================================
 import CostDatabase from '@/pages/CostDatabase'
@@ -330,6 +335,10 @@ function App() {
           {/* ============ PARAMÈTRES ============ */}
           <Route path="parametres/:tab" element={<ParametresPage />} />
           <Route path="parametres" element={<ParametresPage />} />
+
+          {/* ============ ALERTES & NOTIFICATIONS ============ */}
+          <Route path="alertes" element={<AlertCenter />} />
+          <Route path="notifications" element={<AlertCenter />} />
 
           {/* ============ APPELS D'OFFRE (plateformes) ============ */}
           <Route path="appels-offre/seao" element={<SEAO />} />

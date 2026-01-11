@@ -16,6 +16,7 @@
 import { useState, useEffect } from 'react'
 import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
+import NotificationBell from '@/components/NotificationBell'
 import {
   LayoutDashboard, FolderKanban, Users, FileText, DollarSign,
   BarChart3, ClipboardList, LogOut, Menu, X, Building2, 
@@ -458,10 +459,7 @@ export default function Layout() {
               </div>
 
               {/* Notifications */}
-              <button className="relative p-2 hover:bg-gray-100 rounded-lg">
-                <Bell size={20} className="text-gray-500" />
-                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
-              </button>
+              <NotificationBell />
 
               {/* User menu */}
               <button className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded-lg">
