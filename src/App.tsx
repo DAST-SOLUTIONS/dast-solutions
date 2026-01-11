@@ -176,6 +176,11 @@ import ImportExportCenter from '@/pages/ImportExport/ImportExportCenter'
 import ReportCenter from '@/pages/Rapports/ReportCenter'
 
 // ============================================================================
+// CENTRE D'INTÉGRATIONS
+// ============================================================================
+import IntegrationCenter from '@/pages/Integrations/IntegrationCenter'
+
+// ============================================================================
 // MODULE ESTIMATION (Base de données ProEst)
 // ============================================================================
 import CostDatabase from '@/pages/CostDatabase'
@@ -369,6 +374,13 @@ function App() {
           <Route path="rapports" element={<ReportCenter />} />
           <Route path="reports" element={<ReportCenter />} />
           <Route path="analytics" element={<ReportCenter />} />
+
+          {/* ============ INTÉGRATIONS & API ============ */}
+          <Route path="integrations" element={<IntegrationCenter />} />
+          <Route path="api" element={<IntegrationCenter />} />
+          <Route path="webhooks" element={<IntegrationCenter />} />
+          <Route path="ccq" element={<IntegrationCenter />} />
+          <Route path="rbq" element={<IntegrationCenter />} />
 
           {/* ============ APPELS D'OFFRE (plateformes) ============ */}
           <Route path="appels-offre/seao" element={<SEAO />} />
