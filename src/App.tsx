@@ -149,6 +149,13 @@ import { EquipesTravail } from '@/pages/Entrepreneurs'
 import ParametresPage from '@/pages/Parametres/ParametresPage'
 
 // ============================================================================
+// TEMPLATES SOUMISSIONS & ANALYTICS
+// ============================================================================
+import SoumissionTemplates from '@/pages/Soumissions/SoumissionTemplates'
+import SoumissionBuilderAdvanced from '@/pages/Soumissions/SoumissionBuilderAdvanced'
+import SoumissionAnalytics from '@/pages/Soumissions/SoumissionAnalytics'
+
+// ============================================================================
 // MODULE ESTIMATION (Base de données ProEst)
 // ============================================================================
 import CostDatabase from '@/pages/CostDatabase'
@@ -330,11 +337,15 @@ function App() {
           <Route path="appels-offre/buy-gc" element={<BuyGC />} />
           <Route path="appels-offre/bonfire" element={<Bonfire />} />
 
-          {/* ============ SOUMISSIONS V2 ============ */}
+          {/* ============ SOUMISSIONS V2 + TEMPLATES + ANALYTICS ============ */}
           <Route path="soumissions" element={<SoumissionBuilder />} />
           <Route path="soumissions-v2" element={<SoumissionBuilder />} />
-          <Route path="soumission/new" element={<SoumissionBuilder />} />
-          <Route path="soumission/:id" element={<SoumissionBuilder />} />
+          <Route path="soumission/new" element={<SoumissionBuilderAdvanced />} />
+          <Route path="soumission/:id" element={<SoumissionBuilderAdvanced />} />
+          <Route path="soumission/templates" element={<SoumissionTemplates />} />
+          <Route path="soumissions/templates" element={<SoumissionTemplates />} />
+          <Route path="soumissions/analytics" element={<SoumissionAnalytics />} />
+          <Route path="soumission/analytics" element={<SoumissionAnalytics />} />
 
           {/* ============ RESSOURCES ============ */}
           <Route path="ressources/code-navigator" element={<CodeNavigator />} />
