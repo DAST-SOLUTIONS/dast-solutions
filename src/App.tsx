@@ -161,6 +161,11 @@ import SoumissionAnalytics from '@/pages/Soumissions/SoumissionAnalytics'
 import AlertCenter from '@/pages/Alertes/AlertCenter'
 
 // ============================================================================
+// COMPARATEUR DE PLANS
+// ============================================================================
+import PlanComparator from '@/pages/Plans/PlanComparator'
+
+// ============================================================================
 // MODULE ESTIMATION (Base de données ProEst)
 // ============================================================================
 import CostDatabase from '@/pages/CostDatabase'
@@ -243,9 +248,14 @@ function App() {
           
           {/* Documents */}
           <Route path="project/:projectId/plans" element={<ProjectPlans />} />
+          <Route path="project/:projectId/plans/compare" element={<PlanComparator />} />
           <Route path="project/:projectId/specifications" element={<ProjectSpecifications />} />
           <Route path="project/:projectId/documents" element={<ProjectDocuments />} />
           <Route path="project/:projectId/photos" element={<ProjectPhotos />} />
+          
+          {/* Comparateur de Plans (global) */}
+          <Route path="plans/compare" element={<PlanComparator />} />
+          <Route path="plan-comparator" element={<PlanComparator />} />
           
           {/* Suivi */}
           <Route path="project/:projectId/echeancier" element={<ProjectEcheancier />} />
