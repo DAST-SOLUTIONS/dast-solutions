@@ -166,6 +166,11 @@ import AlertCenter from '@/pages/Alertes/AlertCenter'
 import PlanComparator from '@/pages/Plans/PlanComparator'
 
 // ============================================================================
+// IMPORT/EXPORT CENTER
+// ============================================================================
+import ImportExportCenter from '@/pages/ImportExport/ImportExportCenter'
+
+// ============================================================================
 // MODULE ESTIMATION (Base de données ProEst)
 // ============================================================================
 import CostDatabase from '@/pages/CostDatabase'
@@ -349,6 +354,11 @@ function App() {
           {/* ============ ALERTES & NOTIFICATIONS ============ */}
           <Route path="alertes" element={<AlertCenter />} />
           <Route path="notifications" element={<AlertCenter />} />
+
+          {/* ============ IMPORT/EXPORT ============ */}
+          <Route path="import-export" element={<ImportExportCenter />} />
+          <Route path="import" element={<ImportExportCenter />} />
+          <Route path="export" element={<ImportExportCenter />} />
 
           {/* ============ APPELS D'OFFRE (plateformes) ============ */}
           <Route path="appels-offre/seao" element={<SEAO />} />
