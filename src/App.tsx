@@ -30,8 +30,11 @@ const FieldReportsModule = lazy(() => import('./pages/FieldReports/FieldReportsM
 const MessagingModule = lazy(() => import('./pages/Messaging/MessagingModule'));
 const GeolocationModule = lazy(() => import('./pages/Geolocation/GeolocationModule'));
 
-// Additional Modules from combined file
-const AdditionalModules = lazy(() => import('./pages/Modules/AdditionalModules'));
+// Additional Individual Modules (with default exports)
+const PWAModule = lazy(() => import('./pages/Modules/PWAModule'));
+const NotificationsModule = lazy(() => import('./pages/Modules/NotificationsModule'));
+const TakeoffSyncModule = lazy(() => import('./pages/Modules/TakeoffSyncModule'));
+const AIRecognitionModule = lazy(() => import('./pages/Modules/AIRecognitionModule'));
 
 // Protected Route Component
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -46,59 +49,6 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   }
   
   return <>{children}</>;
-};
-
-// Wrapper components for AdditionalModules exports
-const PWAModuleWrapper: React.FC = () => {
-  const [Component, setComponent] = React.useState<React.ComponentType | null>(null);
-  
-  React.useEffect(() => {
-    import('./pages/Modules/AdditionalModules').then(mod => {
-      setComponent(() => mod.PWAModule);
-    });
-  }, []);
-  
-  if (!Component) return <LoadingSpinner />;
-  return <Component />;
-};
-
-const NotificationsModuleWrapper: React.FC = () => {
-  const [Component, setComponent] = React.useState<React.ComponentType | null>(null);
-  
-  React.useEffect(() => {
-    import('./pages/Modules/AdditionalModules').then(mod => {
-      setComponent(() => mod.NotificationsModule);
-    });
-  }, []);
-  
-  if (!Component) return <LoadingSpinner />;
-  return <Component />;
-};
-
-const TakeoffSyncModuleWrapper: React.FC = () => {
-  const [Component, setComponent] = React.useState<React.ComponentType | null>(null);
-  
-  React.useEffect(() => {
-    import('./pages/Modules/AdditionalModules').then(mod => {
-      setComponent(() => mod.TakeoffSyncModule);
-    });
-  }, []);
-  
-  if (!Component) return <LoadingSpinner />;
-  return <Component />;
-};
-
-const AIRecognitionModuleWrapper: React.FC = () => {
-  const [Component, setComponent] = React.useState<React.ComponentType | null>(null);
-  
-  React.useEffect(() => {
-    import('./pages/Modules/AdditionalModules').then(mod => {
-      setComponent(() => mod.AIRecognitionModule);
-    });
-  }, []);
-  
-  if (!Component) return <LoadingSpinner />;
-  return <Component />;
 };
 
 function App() {
@@ -141,10 +91,10 @@ function App() {
                       <Route path="/field-reports" element={<FieldReportsModule />} />
                       <Route path="/messaging" element={<MessagingModule />} />
                       <Route path="/geolocation" element={<GeolocationModule />} />
-                      <Route path="/pwa" element={<PWAModuleWrapper />} />
-                      <Route path="/notifications" element={<NotificationsModuleWrapper />} />
-                      <Route path="/takeoff-sync" element={<TakeoffSyncModuleWrapper />} />
-                      <Route path="/ai-recognition" element={<AIRecognitionModuleWrapper />} />
+                      <Route path="/pwa" element={<PWAModule />} />
+                      <Route path="/notifications" element={<NotificationsModule />} />
+                      <Route path="/takeoff-sync" element={<TakeoffSyncModule />} />
+                      <Route path="/ai-recognition" element={<AIRecognitionModule />} />
                       
                       {/* Catch all */}
                       <Route path="*" element={<Navigate to="/" replace />} />

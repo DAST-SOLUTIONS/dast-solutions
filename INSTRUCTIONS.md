@@ -1,110 +1,116 @@
-# DAST Solutions - CORRECTION ENTREPRENEURS & PERSONNEL CCQ
+# DAST Solutions - Améliorations 10-19
+## Instructions d'installation
 
-## ⚠️ PROBLÈME IDENTIFIÉ
+### ÉTAPE 1: Copier les dossiers de pages
 
-Tu avais **deux migrations différentes** qui créaient la table `entrepreneurs` avec des structures **incompatibles**:
-- Une ancienne avec `company_name`, `contact_name`...
-- La nouvelle avec `nom`, `neq`, `rbq_licence`...
+Copie ces dossiers dans ton `src/pages/`:
+- `Teams/` 
+- `CRM/`
+- `Invoicing/`
+- `FieldReports/`
+- `Messaging/`
+- `Geolocation/`
+- `Modules/` (contient PWAModule, NotificationsModule, TakeoffSyncModule, AIRecognitionModule)
 
-La première exécutée a gagné car `IF NOT EXISTS` empêche la recréation.
+### ÉTAPE 2: Modifier ton App.tsx
 
----
+Ajoute ces imports en haut du fichier (après tes autres imports lazy):
 
-## 📋 ÉTAPES DE CORRECTION
+```tsx
+// Améliorations 10-19
+const TeamsModule = lazy(() => import('./pages/Teams/TeamsModule'));
+const CRMModule = lazy(() => import('./pages/CRM/CRMModule'));
+const InvoicingModule = lazy(() => import('./pages/Invoicing/InvoicingModule'));
+const FieldReportsModule = lazy(() => import('./pages/FieldReports/FieldReportsModule'));
+const MessagingModule = lazy(() => import('./pages/Messaging/MessagingModule'));
+const GeolocationModule = lazy(() => import('./pages/Geolocation/GeolocationModule'));
+const PWAModule = lazy(() => import('./pages/Modules/PWAModule'));
+const NotificationsModule = lazy(() => import('./pages/Modules/NotificationsModule'));
+const TakeoffSyncModule = lazy(() => import('./pages/Modules/TakeoffSyncModule'));
+const AIRecognitionModule = lazy(() => import('./pages/Modules/AIRecognitionModule'));
+```
 
-### ÉTAPE 1: Exécuter la migration SQL (Supabase)
+Puis ajoute ces routes dans ton `<Routes>` (après tes routes existantes):
 
-1. Ouvrir **Supabase Dashboard** → **SQL Editor**
-2. Copier-coller le contenu de `FIX_ENTREPRENEURS_PERSONNEL.sql`
-3. Cliquer **Run**
-4. Vérifier que tu vois:
-   - `✅ MIGRATION TERMINÉE!`
-   - 7 tables listées
-   - 36 métiers CCQ
+```tsx
+{/* Améliorations 10-19 */}
+<Route path="/teams" element={<TeamsModule />} />
+<Route path="/crm" element={<CRMModule />} />
+<Route path="/invoicing" element={<InvoicingModule />} />
+<Route path="/field-reports" element={<FieldReportsModule />} />
+<Route path="/messaging" element={<MessagingModule />} />
+<Route path="/geolocation" element={<GeolocationModule />} />
+<Route path="/pwa" element={<PWAModule />} />
+<Route path="/notifications" element={<NotificationsModule />} />
+<Route path="/takeoff-sync" element={<TakeoffSyncModule />} />
+<Route path="/ai-recognition" element={<AIRecognitionModule />} />
+```
 
-### ÉTAPE 2: Remplacer les fichiers React
+### ÉTAPE 3: Ajouter les liens de navigation (optionnel)
 
-Copier les fichiers du dossier `src/` vers ton projet:
+Dans ton Sidebar/Layout, ajoute ces items de navigation:
 
-| Fichier source | Destination |
-|----------------|-------------|
-| `src/hooks/useEntrepreneursCRUD.ts` | `C:\dast-solutions\DAST Solutions\src\hooks\useEntrepreneursCRUD.ts` |
-| `src/hooks/usePersonnelCCQ.ts` | `C:\dast-solutions\DAST Solutions\src\hooks\usePersonnelCCQ.ts` |
-| `src/pages/Entrepreneurs/RBQ.tsx` | `C:\dast-solutions\DAST Solutions\src\pages\Entrepreneurs\RBQ.tsx` |
-| `src/pages/Entrepreneurs/Personnel.tsx` | `C:\dast-solutions\DAST Solutions\src\pages\Entrepreneurs\Personnel.tsx` |
+```tsx
+// Imports à ajouter
+import { Users, Target, FileText, ClipboardList, MessageSquare, MapPin, Bell, Smartphone, Link2, Brain } from 'lucide-react';
 
-### ÉTAPE 3: Déployer sur Vercel
+// Items de navigation à ajouter
+{ path: '/teams', label: 'Équipes', icon: Users },
+{ path: '/crm', label: 'CRM', icon: Target },
+{ path: '/invoicing', label: 'Facturation', icon: FileText },
+{ path: '/field-reports', label: 'Rapports terrain', icon: ClipboardList },
+{ path: '/messaging', label: 'Messagerie', icon: MessageSquare },
+{ path: '/geolocation', label: 'Géolocalisation', icon: MapPin },
+{ path: '/notifications', label: 'Notifications', icon: Bell },
+{ path: '/pwa', label: 'App Mobile', icon: Smartphone },
+{ path: '/takeoff-sync', label: 'Takeoff → Soumission', icon: Link2 },
+{ path: '/ai-recognition', label: 'IA Reconnaissance', icon: Brain },
+```
 
-Dans **Git Bash**:
+### ÉTAPE 4: Git Push
 
 ```bash
-cd /c/dast-solutions/"DAST Solutions"
 git add .
-git commit -m "Fix: Entrepreneurs RBQ et Personnel CCQ connectés à Supabase"
-git push
+git commit -m "Ajout améliorations 10-19"
+git push origin main
 ```
 
 ---
 
-## ✅ VÉRIFICATION
-
-Après déploiement, tu devrais pouvoir:
-
-### Page Entrepreneurs RBQ (`/entrepreneurs/rbq`)
-- Voir 0 entrepreneurs (normal, base vide)
-- Cliquer "Ajouter" pour créer un entrepreneur
-- Remplir nom, NEQ, licence RBQ, spécialités
-- Voir l'entrepreneur apparaître dans la liste
-- Ajouter des évaluations
-- Filtrer par spécialité et statut RBQ
-
-### Page Personnel CCQ (`/entrepreneurs/personnel`)
-- Voir 0 employés (normal, base vide)
-- Cliquer "Nouvel employé" pour créer
-- Sélectionner un métier CCQ (36 disponibles avec taux 2024-2025)
-- Voir le calcul automatique: Base + 13% vacances + 15.5% avantages
-- Ajouter des certifications (ASP, SIMDUT, etc.)
-- Voir les alertes de certifications expirantes
-
----
-
-## 🗂️ STRUCTURE DES TABLES CRÉÉES
+## Structure des fichiers
 
 ```
-metiers_ccq (36 métiers avec taux horaires)
-├── entrepreneurs
-│   ├── entrepreneur_contacts
-│   └── entrepreneur_evaluations
-└── personnel_ccq
-    ├── personnel_certifications
-    └── personnel_assignations
+src/pages/
+├── Teams/
+│   └── TeamsModule.tsx       (#10 - Équipes & Feuilles de temps)
+├── CRM/
+│   └── CRMModule.tsx         (#13 - CRM Pipeline)
+├── Invoicing/
+│   └── InvoicingModule.tsx   (#14 - Facturation)
+├── FieldReports/
+│   └── FieldReportsModule.tsx (#16 - Rapports terrain)
+├── Messaging/
+│   └── MessagingModule.tsx   (#17 - Messagerie)
+├── Geolocation/
+│   └── GeolocationModule.tsx (#18 - Géolocalisation)
+└── Modules/
+    ├── PWAModule.tsx         (#11 - App Mobile)
+    ├── NotificationsModule.tsx (#12 - Notifications)
+    ├── TakeoffSyncModule.tsx (#15 - Takeoff→Soumission)
+    └── AIRecognitionModule.tsx (#19 - IA Reconnaissance)
 ```
 
----
+## Routes disponibles
 
-## 🔧 EN CAS DE PROBLÈME
-
-Si l'erreur persiste après la migration:
-
-1. Vérifier dans Supabase → Table Editor que les tables existent
-2. Vérifier que `entrepreneurs` a bien une colonne `user_id`
-3. Vérifier que `personnel_ccq` a bien une colonne `user_id`
-
-Pour voir la structure d'une table:
-```sql
-SELECT column_name, data_type 
-FROM information_schema.columns 
-WHERE table_name = 'entrepreneurs';
-```
-
----
-
-## 📊 PROCHAINES ÉTAPES APRÈS CORRECTION
-
-| Étape | Description | Status |
-|-------|-------------|--------|
-| 1.3 | CRUD Entrepreneurs RBQ | ✅ Corrigé |
-| 1.3 | CRUD Personnel CCQ | ✅ Corrigé |
-| 2.RBQ | Vérification licence RBQ (API) | ⏳ À venir |
-| 3 | Connecter Dashboard aux vraies données | ⏳ À venir |
-| 4 | Import données 3000+ projets | ⏳ À venir |
+| Route | Module |
+|-------|--------|
+| /teams | Gestion des équipes |
+| /crm | CRM Pipeline |
+| /invoicing | Facturation |
+| /field-reports | Rapports terrain |
+| /messaging | Messagerie |
+| /geolocation | Géolocalisation |
+| /pwa | App Mobile PWA |
+| /notifications | Notifications |
+| /takeoff-sync | Takeoff → Soumission |
+| /ai-recognition | IA Reconnaissance |
