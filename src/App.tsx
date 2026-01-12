@@ -161,6 +161,11 @@ import SoumissionAnalytics from '@/pages/Soumissions/SoumissionAnalytics'
 import AlertCenter from '@/pages/Alertes/AlertCenter'
 
 // ============================================================================
+// MODULE FOURNISSEURS (Amélioration #9)
+// ============================================================================
+import FournisseursModule from '@/pages/Fournisseurs/FournisseursModule'
+
+// ============================================================================
 // COMPARATEUR DE PLANS
 // ============================================================================
 import PlanComparator from '@/pages/Plans/PlanComparator'
@@ -301,6 +306,17 @@ function App() {
           <Route path="project/:projectId/change-orders-v2" element={<ChangeOrdersAdvanced />} />
           <Route path="project/:projectId/payment-applications" element={<PaymentApplications />} />
 
+          {/* Gestion de projet - Routes alias pour sidebar */}
+          <Route path="gestion/:projectId/budget" element={<BudgetAdvanced />} />
+          <Route path="gestion/:projectId/change-orders" element={<ChangeOrdersAdvanced />} />
+          <Route path="gestion/:projectId/rfi" element={<GestionRFI />} />
+          <Route path="gestion/:projectId/submittals" element={<GestionSubmittals />} />
+          <Route path="gestion/:projectId/reunions" element={<GestionReunions />} />
+          <Route path="gestion/:projectId/journal" element={<ProjectJournal />} />
+          <Route path="gestion/:projectId/inspections" element={<GestionInspections />} />
+          <Route path="gestion/:projectId/punch-list" element={<GestionPunchList />} />
+          <Route path="gestion/:projectId/payments" element={<PaymentApplications />} />
+
           {/* Phase 4: Paie Standard et CCQ */}
           <Route path="paie/standard" element={<PayrollStandard />} />
           <Route path="paie/ccq" element={<PayrollCCQ />} />
@@ -311,6 +327,7 @@ function App() {
           {/* Phase 6: Soumissions & Achats */}
           <Route path="soumissions" element={<Soumissions />} />
           <Route path="achats" element={<BonsCommande />} />
+          <Route path="achats/bons-commande" element={<BonsCommande />} />
           <Route path="project/:projectId/soumissions" element={<Soumissions />} />
           <Route path="project/:projectId/achats" element={<BonsCommande />} />
 
@@ -356,7 +373,19 @@ function App() {
           <Route path="entrepreneurs/personnel" element={<Personnel />} />
           <Route path="entrepreneurs/equipes" element={<EquipesTravail />} />
           <Route path="clients" element={<Clients />} />
-          <Route path="fournisseurs" element={<Clients />} />
+
+          {/* ============ FOURNISSEURS (Amélioration #9) ============ */}
+          <Route path="fournisseurs" element={<FournisseursModule />} />
+          <Route path="fournisseurs/:type" element={<FournisseursModule />} />
+          <Route path="fournisseurs/sous-traitants" element={<FournisseursModule />} />
+          <Route path="fournisseurs/materiaux" element={<FournisseursModule />} />
+          <Route path="fournisseurs/equipements" element={<FournisseursModule />} />
+          <Route path="suppliers" element={<FournisseursModule />} />
+
+          {/* ============ COMPARATEUR DE PLANS ============ */}
+          <Route path="plans/comparator" element={<PlanComparator />} />
+          <Route path="comparateur-plans" element={<PlanComparator />} />
+          <Route path="project/:projectId/comparateur" element={<PlanComparator />} />
 
           {/* ============ RH & PAIE ============ */}
           <Route path="rh/employes" element={<Personnel />} />
