@@ -181,6 +181,11 @@ import ReportCenter from '@/pages/Rapports/ReportCenter'
 import IntegrationCenter from '@/pages/Integrations/IntegrationCenter'
 
 // ============================================================================
+// MODULE DE PLANIFICATION
+// ============================================================================
+import PlanningModule from '@/pages/Planning/PlanningModule'
+
+// ============================================================================
 // MODULE ESTIMATION (Base de données ProEst)
 // ============================================================================
 import CostDatabase from '@/pages/CostDatabase'
@@ -381,6 +386,13 @@ function App() {
           <Route path="webhooks" element={<IntegrationCenter />} />
           <Route path="ccq" element={<IntegrationCenter />} />
           <Route path="rbq" element={<IntegrationCenter />} />
+
+          {/* ============ PLANIFICATION ============ */}
+          <Route path="planning" element={<PlanningModule />} />
+          <Route path="planning/:projectId" element={<PlanningModule />} />
+          <Route path="gantt" element={<PlanningModule />} />
+          <Route path="calendrier" element={<PlanningModule />} />
+          <Route path="schedule" element={<PlanningModule />} />
 
           {/* ============ APPELS D'OFFRE (plateformes) ============ */}
           <Route path="appels-offre/seao" element={<SEAO />} />
