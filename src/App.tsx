@@ -50,6 +50,13 @@ const AssistantIAModule = lazy(() => import('./pages/AssistantIA/AssistantIAModu
 const PredictionCoutsModule = lazy(() => import('./pages/PredictionCouts/PredictionCoutsModule'));
 const ComparaisonSoumissionsModule = lazy(() => import('./pages/ComparaisonSoumissions/ComparaisonSoumissionsModule'));
 
+// Phase 5 Modules (36-40) - NOUVEAUX
+const GarantiesModule = lazy(() => import('./pages/Garanties/GarantiesModule'));
+const ReclamationsModule = lazy(() => import('./pages/Reclamations/ReclamationsModule'));
+const SSTModule = lazy(() => import('./pages/SST/SSTModule'));
+const BudgetTempsReelModule = lazy(() => import('./pages/BudgetTempsReel/BudgetTempsReelModule'));
+const PhotothequeModule = lazy(() => import('./pages/Phototheque/PhotothequeModule'));
+
 // Protected Route Component
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, loading } = useAuth();
@@ -182,6 +189,13 @@ function App() {
                       <Route path="/assistant-ia" element={<AssistantIAModule />} />
                       <Route path="/prediction-couts" element={<PredictionCoutsModule />} />
                       <Route path="/comparaison-soumissions" element={<ComparaisonSoumissionsModule />} />
+                      
+                      {/* Phase 5 - Modules 36-40 NOUVEAUX */}
+                      <Route path="/garanties" element={<GarantiesModule />} />
+                      <Route path="/reclamations" element={<ReclamationsModule />} />
+                      <Route path="/sst" element={<SSTModule />} />
+                      <Route path="/budget-temps-reel" element={<BudgetTempsReelModule />} />
+                      <Route path="/phototheque" element={<PhotothequeModule />} />
                       
                       {/* Catch all */}
                       <Route path="*" element={<Navigate to="/" replace />} />

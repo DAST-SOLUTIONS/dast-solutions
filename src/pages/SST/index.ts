@@ -1,1 +1,2 @@
-export { default as SST } from './SST'
+import SSTModule from './SSTModule';
+export default SSTModule;

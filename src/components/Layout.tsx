@@ -46,6 +46,12 @@ import {
   Bot,
   TrendingUp,
   Scale,
+  // Icons pour Phase 5 (36-40)
+  ShieldCheck,
+  Gavel,
+  HardHat as HardHatIcon,
+  Wallet,
+  Camera,
 } from 'lucide-react';
 
 interface NavItem {
@@ -125,6 +131,16 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       items: [
         { id: 'ccq', label: 'CCQ Taux Horaires', icon: HardHat, path: '/ccq' },
         { id: 'dashboard-bi', label: 'Dashboard BI', icon: PieChart, path: '/dashboard-bi' },
+      ],
+    },
+    {
+      title: 'Administration',
+      items: [
+        { id: 'garanties', label: 'Garanties & Assurances', icon: ShieldCheck, path: '/garanties' },
+        { id: 'reclamations', label: 'Réclamations', icon: Gavel, path: '/reclamations' },
+        { id: 'sst', label: 'Sécurité SST', icon: HardHatIcon, path: '/sst' },
+        { id: 'budget-temps-reel', label: 'Budget Temps Réel', icon: Wallet, path: '/budget-temps-reel' },
+        { id: 'phototheque', label: 'Photothèque', icon: Camera, path: '/phototheque' },
       ],
     },
     {
