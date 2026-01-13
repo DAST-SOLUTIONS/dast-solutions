@@ -36,6 +36,18 @@ const NotificationsModule = lazy(() => import('./pages/Modules/NotificationsModu
 const TakeoffSyncModule = lazy(() => import('./pages/Modules/TakeoffSyncModule'));
 const AIRecognitionModule = lazy(() => import('./pages/Modules/AIRecognitionModule'));
 
+// Phase 3 Modules (20-29) - NOUVEAUX
+const CCQModule = lazy(() => import('./pages/CCQ/CCQModule'));
+const CalendrierModule = lazy(() => import('./pages/Calendrier/CalendrierModule'));
+const PortailClientModule = lazy(() => import('./pages/PortailClient/PortailClientModule'));
+const BonsCommandeModule = lazy(() => import('./pages/BonsCommandeAvances/BonsCommandeModule'));
+const DashboardBIModule = lazy(() => import('./pages/DashboardBI/DashboardBIModule'));
+const RFIModule = lazy(() => import('./pages/RFI/RFIModule'));
+const SEAOModule = lazy(() => import('./pages/SEAO/SEAOModule'));
+const ContratsModule = lazy(() => import('./pages/Contrats/ContratsModule'));
+const InspectionsModule = lazy(() => import('./pages/Inspections/InspectionsModule'));
+const MultiProjetsModule = lazy(() => import('./pages/MultiProjets/MultiProjetsModule'));
+
 // Protected Route Component
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, loading } = useAuth();
@@ -95,6 +107,18 @@ function App() {
                       <Route path="/notifications" element={<NotificationsModule />} />
                       <Route path="/takeoff-sync" element={<TakeoffSyncModule />} />
                       <Route path="/ai-recognition" element={<AIRecognitionModule />} />
+                      
+                      {/* Phase 3 - Améliorations 20-29 NOUVEAUX */}
+                      <Route path="/ccq" element={<CCQModule />} />
+                      <Route path="/calendrier" element={<CalendrierModule />} />
+                      <Route path="/portail-client" element={<PortailClientModule />} />
+                      <Route path="/bons-commande" element={<BonsCommandeModule />} />
+                      <Route path="/dashboard-bi" element={<DashboardBIModule />} />
+                      <Route path="/rfi" element={<RFIModule />} />
+                      <Route path="/seao" element={<SEAOModule />} />
+                      <Route path="/contrats" element={<ContratsModule />} />
+                      <Route path="/inspections" element={<InspectionsModule />} />
+                      <Route path="/multi-projets" element={<MultiProjetsModule />} />
                       
                       {/* Catch all */}
                       <Route path="*" element={<Navigate to="/" replace />} />
