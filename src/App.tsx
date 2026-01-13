@@ -30,9 +30,6 @@ const FieldReportsModule = lazy(() => import('./pages/FieldReports/FieldReportsM
 const MessagingModule = lazy(() => import('./pages/Messaging/MessagingModule'));
 const GeolocationModule = lazy(() => import('./pages/Geolocation/GeolocationModule'));
 
-// Additional Modules from combined file
-const AdditionalModules = lazy(() => import('./pages/Modules/AdditionalModules'));
-
 // Phase 3 Modules (20-29) - NOUVEAUX
 const CCQModule = lazy(() => import('./pages/CCQ/CCQModule'));
 const CalendrierModule = lazy(() => import('./pages/Calendrier/CalendrierModule'));
