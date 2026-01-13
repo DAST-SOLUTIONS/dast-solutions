@@ -2,7 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { 
   Brain, Upload, FileText, Zap, CheckCircle, Clock, AlertTriangle,
   Eye, Download, Settings, Play, Pause, RefreshCw, Layers, 
-  Ruler, Square, Circle, Triangle, Grid3X3, ChevronRight,
+  Ruler, Square, Circle, Triangle, Grid, ChevronRight,
   Sparkles, Target, Box, BarChart3, X, Image, File
 } from 'lucide-react';
 
@@ -96,7 +96,7 @@ const AITakeoffModule: React.FC = () => {
     switch (type) {
       case 'surface': return <Square size={16} className="text-blue-500" />;
       case 'lineaire': return <Ruler size={16} className="text-green-500" />;
-      case 'comptage': return <Grid3X3 size={16} className="text-purple-500" />;
+      case 'comptage': return <Grid size={16} className="text-purple-500" />;
       case 'volume': return <Box size={16} className="text-orange-500" />;
       default: return <Target size={16} />;
     }

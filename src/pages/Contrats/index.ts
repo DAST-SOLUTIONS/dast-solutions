@@ -1,1 +1,2 @@
-export { default } from './';
+import ContratsModule from './ContratsModule';
+export default ContratsModule;

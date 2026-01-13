@@ -1,1 +1,2 @@
-export { default } from './';
+import InspectionsModule from './InspectionsModule';
+export default InspectionsModule;

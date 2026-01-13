@@ -1,1 +1,2 @@
-export { default } from './';
+import AITakeoffModule from './AITakeoffModule';
+export default AITakeoffModule;

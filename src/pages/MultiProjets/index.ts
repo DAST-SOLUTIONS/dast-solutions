@@ -1,1 +1,2 @@
-export { default } from './';
+import MultiProjetsModule from './MultiProjetsModule';
+export default MultiProjetsModule;

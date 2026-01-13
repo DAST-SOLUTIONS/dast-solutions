@@ -1,1 +1,2 @@
-export { default } from './';
+import AssistantIAModule from './AssistantIAModule';
+export default AssistantIAModule;

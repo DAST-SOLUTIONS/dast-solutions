@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { 
   ScanLine, Upload, FileText, CheckCircle, Clock, AlertTriangle,
-  Eye, Download, Settings, Zap, RefreshCw, Layers, Grid3X3,
+  Eye, Download, Settings, Zap, RefreshCw, Layers, Grid,
   Table, FileSpreadsheet, Copy, Check, X, Sparkles, Target,
   Building2, DollarSign, Calendar, User, Hash, ChevronRight
 } from 'lucide-react';
@@ -284,7 +284,7 @@ const OCRDocumentsModule: React.FC = () => {
               <div className="bg-white rounded-xl shadow-sm border">
                 <div className="p-4 border-b flex items-center justify-between">
                   <h3 className="font-semibold flex items-center gap-2">
-                    <Grid3X3 size={18} className="text-orange-600" />
+                    <Grid size={18} className="text-orange-600" />
                     Champs extraits
                   </h3>
                   <button className="text-sm text-blue-600 hover:underline flex items-center gap-1">

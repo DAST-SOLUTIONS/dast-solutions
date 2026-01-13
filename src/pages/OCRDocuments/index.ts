@@ -1,1 +1,2 @@
-export { default } from './';
+import OCRDocumentsModule from './OCRDocumentsModule';
+export default OCRDocumentsModule;

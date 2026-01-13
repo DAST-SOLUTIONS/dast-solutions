@@ -1,1 +1,2 @@
-export { default } from './';
+import BonsCommandeModule from './BonsCommandeModule';
+export default BonsCommandeModule;

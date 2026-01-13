@@ -1,1 +1,2 @@
-export { default } from './';
+import PredictionCoutsModule from './PredictionCoutsModule';
+export default PredictionCoutsModule;

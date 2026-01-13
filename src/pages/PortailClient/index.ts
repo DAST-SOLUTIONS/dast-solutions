@@ -1,1 +1,2 @@
-export { default } from './';
+import PortailClientModule from './PortailClientModule';
+export default PortailClientModule;

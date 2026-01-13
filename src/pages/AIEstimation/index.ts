@@ -1,1 +1,2 @@
-export { default } from './';
+import AIEstimationModule from './AIEstimationModule';
+export default AIEstimationModule;

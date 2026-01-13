@@ -1,1 +1,2 @@
-export { default } from './';
+import RFIModule from './RFIModule';
+export default RFIModule;

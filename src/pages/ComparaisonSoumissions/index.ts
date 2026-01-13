@@ -1,1 +1,2 @@
-export { default } from './';
+import ComparaisonSoumissionsModule from './ComparaisonSoumissionsModule';
+export default ComparaisonSoumissionsModule;

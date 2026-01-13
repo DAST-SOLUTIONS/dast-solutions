@@ -1,1 +1,2 @@
-export { default } from './';
+import SEAOModule from './SEAOModule';
+export default SEAOModule;
