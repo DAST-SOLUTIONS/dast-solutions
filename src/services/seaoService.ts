@@ -4,29 +4,13 @@
 
 import { supabase } from '../lib/supabase/client';
 
-// Type pour compatibilité avec SEAO.tsx (format snake_case)
-export interface AppelOffreSEAO {
+// Types exportés
+export interface SEAODocument {
   id: string;
-  numero_seao: string;
-  titre: string;
-  organisme: string;
-  type: 'construction' | 'services' | 'approvisionnement';
-  categorie: string;
-  region: string;
-  ville?: string;
-  date_publication: string;
-  date_ouverture: string;
-  date_fermeture: string;
-  estimation_min?: number;
-  estimation_max?: number;
-  estimation_budget?: number;
-  budget_affiche?: string;
-  description: string;
-  documents?: any[];
-  statut: 'ouvert' | 'ferme' | 'annule' | 'attribue';
-  url_seao: string;
-  is_favori?: boolean;
-  exigences_rbq?: string[];
+  nom: string;
+  type: string;
+  url: string;
+  taille: number;
 }
 
 export interface SEAOSearchParams {
@@ -39,6 +23,35 @@ export interface SEAOSearchParams {
   montantMax?: number;
   statut?: string;
 }
+
+// Type principal pour compatibilité avec SEAO.tsx (format snake_case)
+export interface AppelOffreSEAO {
+  id: string;
+  numero_seao: string;
+  titre: string;
+  organisme: string;
+  organisme_type?: string;
+  type: 'construction' | 'services' | 'approvisionnement';
+  categorie: string;
+  region: string;
+  ville?: string;
+  date_publication: string;
+  date_ouverture: string;
+  date_fermeture: string;
+  estimation_min?: number;
+  estimation_max?: number;
+  estimation_budget?: number;
+  budget_affiche?: string;
+  description: string;
+  documents?: SEAODocument[];
+  statut: 'ouvert' | 'ferme' | 'annule' | 'attribue';
+  url_seao: string;
+  is_favori?: boolean;
+  exigences_rbq?: string[];
+}
+
+// Alias pour compatibilité avec anciens imports
+export type SEAOAppelOffre = AppelOffreSEAO;
 
 // Constantes exportées
 export const CATEGORIES_CIBLES = [
@@ -73,6 +86,7 @@ const MOCK_APPELS: AppelOffreSEAO[] = [
     numero_seao: 'SEAO-2026-001',
     titre: 'Rénovation de l\'école primaire Saint-Jean',
     organisme: 'Commission scolaire de Montréal',
+    organisme_type: 'Commission scolaire',
     type: 'construction',
     categorie: 'batiment',
     region: 'Montréal',
@@ -92,6 +106,7 @@ const MOCK_APPELS: AppelOffreSEAO[] = [
     numero_seao: 'SEAO-2026-002',
     titre: 'Construction d\'un nouveau centre sportif',
     organisme: 'Ville de Laval',
+    organisme_type: 'Municipal',
     type: 'construction',
     categorie: 'batiment',
     region: 'Laval',
@@ -111,6 +126,7 @@ const MOCK_APPELS: AppelOffreSEAO[] = [
     numero_seao: 'SEAO-2026-003',
     titre: 'Réfection de la chaussée - Boulevard Henri-Bourassa',
     organisme: 'Ville de Québec',
+    organisme_type: 'Municipal',
     type: 'construction',
     categorie: 'genie_civil',
     region: 'Québec',
@@ -241,6 +257,7 @@ class SEAOService {
       numero_seao: row.numero_seao,
       titre: row.titre,
       organisme: row.organisme,
+      organisme_type: row.organisme_type,
       type: row.type,
       categorie: row.categorie,
       region: row.region,
