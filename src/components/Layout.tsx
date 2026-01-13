@@ -18,7 +18,7 @@ import {
   Plug,
   Calendar,
   Truck,
-  // Nouveaux icons pour 10-19
+  // Icons pour 10-19
   Users,
   Target,
   ClipboardList,
@@ -28,6 +28,24 @@ import {
   Smartphone,
   Link2,
   Brain,
+  // Icons pour Phase 3 (20-29)
+  HardHat,
+  CalendarDays,
+  UserCircle,
+  ShoppingCart,
+  PieChart,
+  HelpCircle,
+  Globe,
+  FileSignature,
+  ClipboardCheck,
+  Layers,
+  // Icons pour Phase 4 IA (30-35)
+  Sparkles,
+  DollarSign,
+  ScanLine,
+  Bot,
+  TrendingUp,
+  Scale,
 } from 'lucide-react';
 
 interface NavItem {
@@ -55,6 +73,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       items: [
         { id: 'dashboard', label: 'Tableau de bord', icon: LayoutDashboard, path: '/' },
         { id: 'projects', label: 'Projets', icon: FolderOpen, path: '/projects' },
+        { id: 'multi-projets', label: 'Multi-Projets', icon: Layers, path: '/multi-projets' },
         { id: 'takeoff', label: 'Takeoff', icon: Ruler, path: '/takeoff' },
         { id: 'estimating', label: 'Estimation', icon: Calculator, path: '/estimating' },
         { id: 'soumissions', label: 'Soumissions', icon: FileCheck, path: '/soumissions' },
@@ -64,8 +83,10 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       title: 'Planification',
       items: [
         { id: 'planning', label: 'Planning / Gantt', icon: Calendar, path: '/planning' },
+        { id: 'calendrier', label: 'Calendrier', icon: CalendarDays, path: '/calendrier' },
         { id: 'teams', label: 'Équipes', icon: Users, path: '/teams' },
         { id: 'field-reports', label: 'Rapports terrain', icon: ClipboardList, path: '/field-reports' },
+        { id: 'inspections', label: 'Inspections Qualité', icon: ClipboardCheck, path: '/inspections' },
         { id: 'geolocation', label: 'Géolocalisation', icon: MapPin, path: '/geolocation' },
       ],
     },
@@ -73,8 +94,37 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       title: 'Affaires',
       items: [
         { id: 'crm', label: 'CRM', icon: Target, path: '/crm' },
+        { id: 'portail-client', label: 'Portail Client', icon: UserCircle, path: '/portail-client' },
         { id: 'invoicing', label: 'Facturation', icon: FileText, path: '/invoicing' },
+        { id: 'contrats', label: 'Contrats & Avenants', icon: FileSignature, path: '/contrats' },
+        { id: 'bons-commande', label: 'Bons de Commande', icon: ShoppingCart, path: '/bons-commande' },
         { id: 'fournisseurs', label: 'Fournisseurs', icon: Truck, path: '/fournisseurs' },
+      ],
+    },
+    {
+      title: 'Appels d\'offres',
+      items: [
+        { id: 'seao', label: 'SEAO Québec', icon: Globe, path: '/seao' },
+        { id: 'rfi', label: 'RFI / Questions', icon: HelpCircle, path: '/rfi' },
+        { id: 'comparaison', label: 'Comparaison Soumissions', icon: Scale, path: '/comparaison-soumissions' },
+      ],
+    },
+    {
+      title: 'Intelligence Artificielle',
+      items: [
+        { id: 'ai-takeoff', label: 'AI Takeoff Auto', icon: Sparkles, path: '/ai-takeoff', badge: 'IA' },
+        { id: 'ai-estimation', label: 'AI Estimation', icon: DollarSign, path: '/ai-estimation', badge: 'IA' },
+        { id: 'ocr-documents', label: 'OCR Documents', icon: ScanLine, path: '/ocr-documents' },
+        { id: 'assistant-ia', label: 'Assistant IA', icon: Bot, path: '/assistant-ia', badge: 'IA' },
+        { id: 'prediction-couts', label: 'Prédiction Coûts', icon: TrendingUp, path: '/prediction-couts' },
+        { id: 'ai-recognition', label: 'IA Reconnaissance', icon: Brain, path: '/ai-recognition' },
+      ],
+    },
+    {
+      title: 'Québec',
+      items: [
+        { id: 'ccq', label: 'CCQ Taux Horaires', icon: HardHat, path: '/ccq' },
+        { id: 'dashboard-bi', label: 'Dashboard BI', icon: PieChart, path: '/dashboard-bi' },
       ],
     },
     {
@@ -89,7 +139,6 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       items: [
         { id: 'reports', label: 'Centre Rapports', icon: BarChart3, path: '/reports' },
         { id: 'takeoff-sync', label: 'Takeoff → Soumission', icon: Link2, path: '/takeoff-sync' },
-        { id: 'ai-recognition', label: 'IA Reconnaissance', icon: Brain, path: '/ai-recognition' },
         { id: 'integrations', label: 'Intégrations', icon: Plug, path: '/integrations' },
       ],
     },
@@ -171,7 +220,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                     <span className="font-medium">{item.label}</span>
                   )}
                   {!sidebarCollapsed && item.badge && (
-                    <span className="ml-auto text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full">
+                    <span className="ml-auto text-xs bg-purple-100 text-purple-600 px-2 py-0.5 rounded-full">
                       {item.badge}
                     </span>
                   )}

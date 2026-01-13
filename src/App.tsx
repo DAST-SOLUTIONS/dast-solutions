@@ -22,7 +22,7 @@ const IntegrationCenter = lazy(() => import('./pages/Integrations/IntegrationCen
 const PlanningModule = lazy(() => import('./pages/Planning/PlanningModule'));
 const FournisseursModule = lazy(() => import('./pages/Fournisseurs/FournisseursModule'));
 
-// Phase 2 Modules (10-19) - NOUVEAUX
+// Phase 2 Modules (10-19)
 const TeamsModule = lazy(() => import('./pages/Teams/TeamsModule'));
 const CRMModule = lazy(() => import('./pages/CRM/CRMModule'));
 const InvoicingModule = lazy(() => import('./pages/Invoicing/InvoicingModule'));
@@ -30,11 +30,8 @@ const FieldReportsModule = lazy(() => import('./pages/FieldReports/FieldReportsM
 const MessagingModule = lazy(() => import('./pages/Messaging/MessagingModule'));
 const GeolocationModule = lazy(() => import('./pages/Geolocation/GeolocationModule'));
 
-// Additional Individual Modules (with default exports)
-const PWAModule = lazy(() => import('./pages/Modules/PWAModule'));
-const NotificationsModule = lazy(() => import('./pages/Modules/NotificationsModule'));
-const TakeoffSyncModule = lazy(() => import('./pages/Modules/TakeoffSyncModule'));
-const AIRecognitionModule = lazy(() => import('./pages/Modules/AIRecognitionModule'));
+// Additional Modules from combined file
+const AdditionalModules = lazy(() => import('./pages/Modules/AdditionalModules'));
 
 // Phase 3 Modules (20-29) - NOUVEAUX
 const CCQModule = lazy(() => import('./pages/CCQ/CCQModule'));
@@ -71,6 +68,59 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   return <>{children}</>;
 };
 
+// Wrapper components for AdditionalModules exports
+const PWAModuleWrapper: React.FC = () => {
+  const [Component, setComponent] = React.useState<React.ComponentType | null>(null);
+  
+  React.useEffect(() => {
+    import('./pages/Modules/AdditionalModules').then(mod => {
+      setComponent(() => mod.PWAModule);
+    });
+  }, []);
+  
+  if (!Component) return <LoadingSpinner />;
+  return <Component />;
+};
+
+const NotificationsModuleWrapper: React.FC = () => {
+  const [Component, setComponent] = React.useState<React.ComponentType | null>(null);
+  
+  React.useEffect(() => {
+    import('./pages/Modules/AdditionalModules').then(mod => {
+      setComponent(() => mod.NotificationsModule);
+    });
+  }, []);
+  
+  if (!Component) return <LoadingSpinner />;
+  return <Component />;
+};
+
+const TakeoffSyncModuleWrapper: React.FC = () => {
+  const [Component, setComponent] = React.useState<React.ComponentType | null>(null);
+  
+  React.useEffect(() => {
+    import('./pages/Modules/AdditionalModules').then(mod => {
+      setComponent(() => mod.TakeoffSyncModule);
+    });
+  }, []);
+  
+  if (!Component) return <LoadingSpinner />;
+  return <Component />;
+};
+
+const AIRecognitionModuleWrapper: React.FC = () => {
+  const [Component, setComponent] = React.useState<React.ComponentType | null>(null);
+  
+  React.useEffect(() => {
+    import('./pages/Modules/AdditionalModules').then(mod => {
+      setComponent(() => mod.AIRecognitionModule);
+    });
+  }, []);
+  
+  if (!Component) return <LoadingSpinner />;
+  return <Component />;
+};
+
 function App() {
   return (
     <AuthProvider>
@@ -104,17 +154,17 @@ function App() {
                       <Route path="/planning" element={<PlanningModule />} />
                       <Route path="/fournisseurs" element={<FournisseursModule />} />
                       
-                      {/* Phase 2 - Améliorations 10-19 NOUVEAUX */}
+                      {/* Phase 2 - Améliorations 10-19 */}
                       <Route path="/teams" element={<TeamsModule />} />
                       <Route path="/crm" element={<CRMModule />} />
                       <Route path="/invoicing" element={<InvoicingModule />} />
                       <Route path="/field-reports" element={<FieldReportsModule />} />
                       <Route path="/messaging" element={<MessagingModule />} />
                       <Route path="/geolocation" element={<GeolocationModule />} />
-                      <Route path="/pwa" element={<PWAModule />} />
-                      <Route path="/notifications" element={<NotificationsModule />} />
-                      <Route path="/takeoff-sync" element={<TakeoffSyncModule />} />
-                      <Route path="/ai-recognition" element={<AIRecognitionModule />} />
+                      <Route path="/pwa" element={<PWAModuleWrapper />} />
+                      <Route path="/notifications" element={<NotificationsModuleWrapper />} />
+                      <Route path="/takeoff-sync" element={<TakeoffSyncModuleWrapper />} />
+                      <Route path="/ai-recognition" element={<AIRecognitionModuleWrapper />} />
                       
                       {/* Phase 3 - Améliorations 20-29 NOUVEAUX */}
                       <Route path="/ccq" element={<CCQModule />} />
