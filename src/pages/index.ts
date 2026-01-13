@@ -1,2 +1,2 @@
-export { default as Soumissions } from './Soumissions'
-export { default as BonsCommande } from './BonsCommande'
+// Pages Import/Export - Index
+export { default as ImportExportCenter } from './ImportExportCenter'
