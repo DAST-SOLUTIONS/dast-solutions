@@ -38,7 +38,6 @@ export function usePWA() {
           console.log('[PWA] Service Worker registered');
           setRegistration(reg);
 
-          // Vérifier les mises à jour
           reg.addEventListener('updatefound', () => {
             const newWorker = reg.installing;
             if (newWorker) {
@@ -70,7 +69,6 @@ export function usePWA() {
     window.addEventListener('beforeinstallprompt', handleBeforeInstall);
     window.addEventListener('appinstalled', handleAppInstalled);
 
-    // Vérifier si déjà installé (standalone mode)
     if (window.matchMedia('(display-mode: standalone)').matches) {
       setStatus(prev => ({ ...prev, isInstalled: true }));
     }
@@ -131,29 +129,34 @@ export function usePWA() {
     }
 
     try {
-      // Demander la permission
       const permission = await Notification.requestPermission();
       if (permission !== 'granted') {
         console.warn('[PWA] Notification permission denied');
         return null;
       }
 
-      // S'abonner
+      const vapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY || '';
+      if (!vapidKey) {
+        console.warn('[PWA] VAPID key not configured');
+        return null;
+      }
+
+      // Convertir la clé VAPID en ArrayBuffer
+      const applicationServerKey = urlBase64ToUint8Array(vapidKey);
+
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(
-          import.meta.env.VITE_VAPID_PUBLIC_KEY || ''
-        )
+        applicationServerKey: applicationServerKey.buffer as ArrayBuffer
       });
 
       // Sauvegarder l'abonnement en base
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        await supabase.from('push_subscriptions').upsert({
-          user_id: user.id,
+      const { data: userData } = await supabase.auth.getUser();
+      if (userData.user) {
+        await (supabase.from('push_subscriptions').upsert({
+          user_id: userData.user.id,
           subscription: JSON.stringify(subscription),
           updated_at: new Date().toISOString()
-        }, { onConflict: 'user_id' });
+        } as any) as any);
       }
 
       setStatus(prev => ({ ...prev, pushSubscription: subscription }));
@@ -170,9 +173,9 @@ export function usePWA() {
       try {
         await status.pushSubscription.unsubscribe();
         
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          await supabase.from('push_subscriptions').delete().eq('user_id', user.id);
+        const { data: userData } = await supabase.auth.getUser();
+        if (userData.user) {
+          await supabase.from('push_subscriptions').delete().eq('user_id', userData.user.id);
         }
 
         setStatus(prev => ({ ...prev, pushSubscription: null }));
@@ -209,7 +212,6 @@ export function usePWA() {
 export function useOfflineStorage() {
   const [pendingCount, setPendingCount] = useState(0);
 
-  // Sauvegarder une action pour sync ultérieur
   const saveForSync = useCallback(async (action: {
     type: string;
     table: string;
@@ -226,17 +228,15 @@ export function useOfflineStorage() {
       localStorage.setItem('pending_sync', JSON.stringify(pending));
       setPendingCount(pending.length);
 
-      // Déclencher un background sync si disponible
-      if ('serviceWorker' in navigator && 'sync' in (navigator.serviceWorker as any)) {
+      if ('serviceWorker' in navigator && 'SyncManager' in window) {
         const reg = await navigator.serviceWorker.ready;
-        await (reg as any).sync.register('sync-data');
+        await (reg as any).sync?.register('sync-data');
       }
     } catch (error) {
       console.error('[Offline] Save error:', error);
     }
   }, []);
 
-  // Synchroniser les données en attente
   const syncPending = useCallback(async () => {
     if (!navigator.onLine) return false;
 
@@ -246,9 +246,9 @@ export function useOfflineStorage() {
       for (const item of pending) {
         try {
           if (item.type === 'insert') {
-            await supabase.from(item.table).insert(item.data);
+            await (supabase.from(item.table).insert(item.data) as any);
           } else if (item.type === 'update') {
-            await supabase.from(item.table).update(item.data).eq('id', item.data.id);
+            await (supabase.from(item.table).update(item.data).eq('id', item.data.id) as any);
           } else if (item.type === 'delete') {
             await supabase.from(item.table).delete().eq('id', item.data.id);
           }
@@ -266,13 +266,11 @@ export function useOfflineStorage() {
     }
   }, []);
 
-  // Charger le nombre d'items en attente
   useEffect(() => {
     const pending = JSON.parse(localStorage.getItem('pending_sync') || '[]');
     setPendingCount(pending.length);
   }, []);
 
-  // Sync automatique quand on revient en ligne
   useEffect(() => {
     const handleOnline = () => {
       if (pendingCount > 0) {

@@ -1,14 +1,9 @@
 /**
- * Service IA - Intégration OpenAI GPT-4 Vision et Claude pour:
- * - OCR de documents (factures, devis)
- * - Analyse de plans de construction
- * - Takeoff automatique
- * - Assistant projet
+ * Service IA - Intégration OpenAI GPT-4 Vision et Claude
  */
 
 import { supabase } from '../lib/supabase/client';
 
-// Types pour les réponses IA
 export interface OCRResult {
   success: boolean;
   document: {
@@ -71,32 +66,8 @@ export interface ChatResponse {
 }
 
 class AIService {
-  private openaiApiKey: string | null = null;
-  private claudeApiKey: string | null = null;
-
-  constructor() {
-    // Les clés API sont stockées de manière sécurisée dans Supabase
-    this.loadApiKeys();
-  }
-
-  private async loadApiKeys() {
-    try {
-      const { data } = await supabase
-        .from('settings')
-        .select('openai_api_key, claude_api_key')
-        .single();
-      
-      if (data) {
-        this.openaiApiKey = data.openai_api_key;
-        this.claudeApiKey = data.claude_api_key;
-      }
-    } catch (error) {
-      console.log('API keys will be loaded from Edge Functions');
-    }
-  }
-
   /**
-   * OCR d'un document (facture, devis) via OpenAI Vision
+   * OCR d'un document (facture, devis)
    */
   async ocrDocument(file: File | string): Promise<OCRResult> {
     try {
@@ -108,7 +79,6 @@ class AIService {
         base64Image = file;
       }
 
-      // Appel à l'Edge Function pour OCR
       const { data, error } = await supabase.functions.invoke('ai-ocr', {
         body: {
           image: base64Image,
@@ -137,7 +107,7 @@ class AIService {
   }
 
   /**
-   * Analyse d'un plan de construction pour takeoff automatique
+   * Analyse d'un plan de construction
    */
   async analyzePlan(file: File | string, options?: {
     detectTypes?: ('surface' | 'lineaire' | 'comptage' | 'volume')[];
@@ -155,7 +125,6 @@ class AIService {
 
       const startTime = Date.now();
 
-      // Appel à l'Edge Function pour analyse de plan
       const { data, error } = await supabase.functions.invoke('ai-takeoff', {
         body: {
           image: base64Image,
@@ -187,7 +156,7 @@ class AIService {
   }
 
   /**
-   * Chat avec l'assistant IA projet
+   * Chat avec l'assistant IA
    */
   async chat(messages: ChatMessage[], projectContext?: {
     projectId?: string;
@@ -196,10 +165,8 @@ class AIService {
     progress?: number;
   }): Promise<ChatResponse> {
     try {
-      // Construire le contexte système
       const systemMessage = this.buildSystemPrompt(projectContext);
 
-      // Appel à l'Edge Function pour chat
       const { data, error } = await supabase.functions.invoke('ai-chat', {
         body: {
           messages: [
@@ -249,11 +216,9 @@ class AIService {
       });
 
       if (error) throw error;
-
       return data;
     } catch (error) {
       console.error('Erreur prédiction:', error);
-      // Calcul simple en fallback
       const burnRate = projectData.depensesActuelles / (projectData.avancement / 100);
       const predictedFinal = burnRate;
       const overrunAmount = predictedFinal - projectData.budgetInitial;
@@ -270,7 +235,7 @@ class AIService {
   }
 
   /**
-   * Comparer des soumissions automatiquement
+   * Comparer des soumissions
    */
   async compareBids(bids: {
     id: string;
@@ -289,12 +254,10 @@ class AIService {
       });
 
       if (error) throw error;
-
       return data;
     } catch (error) {
       console.error('Erreur comparaison:', error);
       
-      // Fallback: classement simple par prix
       const sorted = [...bids].sort((a, b) => a.amount - b.amount);
       return {
         ranking: sorted.map((bid, index) => ({
@@ -309,25 +272,18 @@ class AIService {
     }
   }
 
-  /**
-   * Convertir un fichier en base64
-   */
   private fileToBase64(file: File): Promise<string> {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.readAsDataURL(file);
       reader.onload = () => {
         const result = reader.result as string;
-        // Enlever le préfixe data:image/...;base64,
         resolve(result.split(',')[1]);
       };
       reader.onerror = reject;
     });
   }
 
-  /**
-   * Construire le prompt système pour l'assistant
-   */
   private buildSystemPrompt(context?: {
     projectId?: string;
     projectName?: string;

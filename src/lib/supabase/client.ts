@@ -1,30 +1,20 @@
 /**
- * Client Supabase avec configuration et types
+ * Client Supabase avec configuration
  */
 
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { Database } from './types';
+import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://lrarkyavsybywknmuxil.supabase.co';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
-// Client Supabase typé
-export const supabase: SupabaseClient<Database> = createClient<Database>(
-  supabaseUrl,
-  supabaseAnonKey,
-  {
-    auth: {
-      autoRefreshToken: true,
-      persistSession: true,
-      detectSessionInUrl: true
-    },
-    realtime: {
-      params: {
-        eventsPerSecond: 10
-      }
-    }
+// Client Supabase
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true
   }
-);
+});
 
 // Helper pour vérifier la connexion
 export const checkConnection = async (): Promise<boolean> => {
@@ -42,7 +32,7 @@ export const auth = {
     return supabase.auth.signInWithPassword({ email, password });
   },
   
-  signUp: async (email: string, password: string, metadata?: Record<string, any>) => {
+  signUp: async (email: string, password: string, metadata?: Record<string, unknown>) => {
     return supabase.auth.signUp({ 
       email, 
       password,
@@ -62,7 +52,7 @@ export const auth = {
     return supabase.auth.getSession();
   },
   
-  onAuthStateChange: (callback: (event: string, session: any) => void) => {
+  onAuthStateChange: (callback: Parameters<typeof supabase.auth.onAuthStateChange>[0]) => {
     return supabase.auth.onAuthStateChange(callback);
   },
 
@@ -90,41 +80,12 @@ export const storage = {
     return supabase.storage.from(bucket).getPublicUrl(path);
   },
   
-  delete: async (bucket: string, paths: string[]) => {
+  remove: async (bucket: string, paths: string[]) => {
     return supabase.storage.from(bucket).remove(paths);
   },
   
   list: async (bucket: string, path?: string) => {
     return supabase.storage.from(bucket).list(path);
-  }
-};
-
-// Helper pour les realtime subscriptions
-export const realtime = {
-  subscribeToTable: (
-    table: string,
-    callback: (payload: any) => void,
-    filter?: { column: string; value: string }
-  ) => {
-    let channel = supabase.channel(`${table}_changes`);
-    
-    const config: any = {
-      event: '*',
-      schema: 'public',
-      table: table
-    };
-    
-    if (filter) {
-      config.filter = `${filter.column}=eq.${filter.value}`;
-    }
-    
-    return channel
-      .on('postgres_changes', config, callback)
-      .subscribe();
-  },
-  
-  unsubscribe: (channel: any) => {
-    supabase.removeChannel(channel);
   }
 };
 
