@@ -1,200 +1,94 @@
-/// <reference lib="webworker" />
+/**
+ * Service Worker pour DAST Solutions PWA
+ * Gère le cache, le mode offline et les notifications push
+ */
 
-const CACHE_NAME = 'dast-v1'
-const OFFLINE_URL = '/offline.html'
+const CACHE_NAME = 'dast-v1';
+const STATIC_CACHE = 'dast-static-v1';
+const DYNAMIC_CACHE = 'dast-dynamic-v1';
 
-// Assets to cache immediately on install
-const PRECACHE_ASSETS = [
+// Ressources statiques à cacher
+const STATIC_ASSETS = [
   '/',
   '/index.html',
-  '/offline.html',
   '/manifest.json',
-  '/icons/icon-192x192.png',
-  '/icons/icon-512x512.png'
-]
+  '/favicon.ico'
+];
 
-// Install event - precache essential assets
+// Installation
 self.addEventListener('install', (event) => {
+  console.log('[SW] Installing...');
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      console.log('[SW] Precaching assets')
-      return cache.addAll(PRECACHE_ASSETS)
-    })
-  )
-  // Force waiting SW to become active
-  self.skipWaiting()
-})
+    caches.open(STATIC_CACHE)
+      .then((cache) => cache.addAll(STATIC_ASSETS))
+      .then(() => self.skipWaiting())
+  );
+});
 
-// Activate event - clean up old caches
+// Activation
 self.addEventListener('activate', (event) => {
+  console.log('[SW] Activating...');
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames
-          .filter((name) => name !== CACHE_NAME)
-          .map((name) => {
-            console.log('[SW] Deleting old cache:', name)
-            return caches.delete(name)
-          })
-      )
-    })
-  )
-  // Take control of all pages immediately
-  self.clients.claim()
-})
+    caches.keys()
+      .then((keys) => Promise.all(
+        keys.filter((k) => k !== STATIC_CACHE && k !== DYNAMIC_CACHE)
+            .map((k) => caches.delete(k))
+      ))
+      .then(() => self.clients.claim())
+  );
+});
 
-// Fetch event - network first with cache fallback
+// Fetch avec stratégie Network First
 self.addEventListener('fetch', (event) => {
-  const { request } = event
-  const url = new URL(request.url)
+  if (event.request.method !== 'GET') return;
 
-  // Skip non-GET requests
-  if (request.method !== 'GET') return
-
-  // Skip chrome-extension and other non-http(s) requests
-  if (!url.protocol.startsWith('http')) return
-
-  // Skip API requests (they should be handled by the app)
-  if (url.pathname.startsWith('/api/') || url.hostname.includes('supabase')) {
-    return
-  }
-
-  // For navigation requests, try network first
-  if (request.mode === 'navigate') {
-    event.respondWith(
-      fetch(request)
-        .then((response) => {
-          // Cache the page
-          const responseClone = response.clone()
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(request, responseClone)
-          })
-          return response
-        })
-        .catch(() => {
-          // Return cached page or offline page
-          return caches.match(request).then((cachedResponse) => {
-            return cachedResponse || caches.match(OFFLINE_URL)
-          })
-        })
-    )
-    return
-  }
-
-  // For static assets (JS, CSS, images), use cache-first strategy
-  if (
-    request.destination === 'script' ||
-    request.destination === 'style' ||
-    request.destination === 'image' ||
-    request.destination === 'font'
-  ) {
-    event.respondWith(
-      caches.match(request).then((cachedResponse) => {
-        if (cachedResponse) {
-          // Return cached response and update cache in background
-          fetch(request)
-            .then((response) => {
-              caches.open(CACHE_NAME).then((cache) => {
-                cache.put(request, response)
-              })
-            })
-            .catch(() => {})
-          return cachedResponse
-        }
-
-        // Not in cache, fetch from network
-        return fetch(request).then((response) => {
-          const responseClone = response.clone()
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(request, responseClone)
-          })
-          return response
-        })
-      })
-    )
-    return
-  }
-
-  // Default: network first
   event.respondWith(
-    fetch(request)
+    fetch(event.request)
       .then((response) => {
-        const responseClone = response.clone()
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(request, responseClone)
-        })
-        return response
-      })
-      .catch(() => {
-        return caches.match(request)
-      })
-  )
-})
-
-// Background sync for offline data
-self.addEventListener('sync', (event) => {
-  if (event.tag === 'sync-rapports') {
-    event.waitUntil(syncRapports())
-  }
-})
-
-async function syncRapports() {
-  // Get all pending rapports from IndexedDB
-  // This would be implemented with actual IndexedDB logic
-  console.log('[SW] Syncing offline rapports...')
-}
-
-// Push notifications (for future use)
-self.addEventListener('push', (event) => {
-  if (!event.data) return
-
-  const data = event.data.json()
-  const options = {
-    body: data.body || 'Nouvelle notification',
-    icon: '/icons/icon-192x192.png',
-    badge: '/icons/badge-72x72.png',
-    vibrate: [100, 50, 100],
-    data: {
-      url: data.url || '/'
-    },
-    actions: [
-      { action: 'open', title: 'Ouvrir' },
-      { action: 'close', title: 'Fermer' }
-    ]
-  }
-
-  event.waitUntil(
-    self.registration.showNotification(data.title || 'DAST Solutions', options)
-  )
-})
-
-// Notification click handler
-self.addEventListener('notificationclick', (event) => {
-  event.notification.close()
-
-  if (event.action === 'close') return
-
-  const url = event.notification.data?.url || '/'
-  
-  event.waitUntil(
-    self.clients.matchAll({ type: 'window' }).then((clients) => {
-      // Focus existing window if open
-      for (const client of clients) {
-        if (client.url === url && 'focus' in client) {
-          return client.focus()
+        if (response.ok) {
+          const clone = response.clone();
+          caches.open(DYNAMIC_CACHE).then((cache) => cache.put(event.request, clone));
         }
-      }
-      // Open new window
-      return self.clients.openWindow(url)
+        return response;
+      })
+      .catch(() => caches.match(event.request))
+  );
+});
+
+// Push Notifications
+self.addEventListener('push', (event) => {
+  const data = event.data?.json() || { title: 'DAST', body: 'Notification' };
+  event.waitUntil(
+    self.registration.showNotification(data.title, {
+      body: data.body,
+      icon: '/logo192.png',
+      badge: '/logo192.png',
+      data: { url: data.url || '/' }
     })
-  )
-})
+  );
+});
 
-// Message handler for communication with main app
-self.addEventListener('message', (event) => {
-  if (event.data === 'skipWaiting') {
-    self.skipWaiting()
+// Clic notification
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  event.waitUntil(clients.openWindow(event.notification.data?.url || '/'));
+});
+
+// Background Sync
+self.addEventListener('sync', (event) => {
+  if (event.tag === 'sync-data') {
+    event.waitUntil(syncPendingData());
   }
-})
+});
 
-export {}
+async function syncPendingData() {
+  const pending = JSON.parse(localStorage.getItem('pending_sync') || '[]');
+  for (const item of pending) {
+    try {
+      await fetch(item.url, { method: item.method, body: JSON.stringify(item.data) });
+    } catch (e) {
+      console.error('[SW] Sync failed:', e);
+    }
+  }
+  localStorage.removeItem('pending_sync');
+}
