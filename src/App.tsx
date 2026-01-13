@@ -48,6 +48,14 @@ const ContratsModule = lazy(() => import('./pages/Contrats/ContratsModule'));
 const InspectionsModule = lazy(() => import('./pages/Inspections/InspectionsModule'));
 const MultiProjetsModule = lazy(() => import('./pages/MultiProjets/MultiProjetsModule'));
 
+// Phase 4 Modules IA (30-35) - NOUVEAUX
+const AITakeoffModule = lazy(() => import('./pages/AITakeoff/AITakeoffModule'));
+const AIEstimationModule = lazy(() => import('./pages/AIEstimation/AIEstimationModule'));
+const OCRDocumentsModule = lazy(() => import('./pages/OCRDocuments/OCRDocumentsModule'));
+const AssistantIAModule = lazy(() => import('./pages/AssistantIA/AssistantIAModule'));
+const PredictionCoutsModule = lazy(() => import('./pages/PredictionCouts/PredictionCoutsModule'));
+const ComparaisonSoumissionsModule = lazy(() => import('./pages/ComparaisonSoumissions/ComparaisonSoumissionsModule'));
+
 // Protected Route Component
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, loading } = useAuth();
@@ -119,6 +127,14 @@ function App() {
                       <Route path="/contrats" element={<ContratsModule />} />
                       <Route path="/inspections" element={<InspectionsModule />} />
                       <Route path="/multi-projets" element={<MultiProjetsModule />} />
+                      
+                      {/* Phase 4 - Modules IA 30-35 NOUVEAUX */}
+                      <Route path="/ai-takeoff" element={<AITakeoffModule />} />
+                      <Route path="/ai-estimation" element={<AIEstimationModule />} />
+                      <Route path="/ocr-documents" element={<OCRDocumentsModule />} />
+                      <Route path="/assistant-ia" element={<AssistantIAModule />} />
+                      <Route path="/prediction-couts" element={<PredictionCoutsModule />} />
+                      <Route path="/comparaison-soumissions" element={<ComparaisonSoumissionsModule />} />
                       
                       {/* Catch all */}
                       <Route path="*" element={<Navigate to="/" replace />} />
