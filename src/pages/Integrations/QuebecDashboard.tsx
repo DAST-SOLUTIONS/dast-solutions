@@ -1,29 +1,26 @@
 /**
  * Dashboard Intégrations Québec
  * Interface unifiée pour RBQ, CCQ, Paie, Appels d'offres, Associations
- * Version: 14 janvier 2026
+ * Version: 14 janvier 2026 - Types corrigés
  */
 import { useState, useEffect } from 'react';
 import { 
-  Shield, HardHat, DollarSign, Briefcase, Users, Building2,
-  CheckCircle, XCircle, Clock, AlertTriangle, Search, 
+  Shield, HardHat, Briefcase, Building2,
+  CheckCircle, XCircle, Search, 
   TrendingUp, Calendar, MapPin, ExternalLink, RefreshCw,
-  FileText, Award, Phone, Mail, Globe, ChevronRight,
-  Calculator, Wallet, Receipt, Download
+  Award, Phone, Globe, ChevronRight, Calculator
 } from 'lucide-react';
 
 // Services
 import { 
-  rbqService, verifyRBQLicense, getRBQVerificationUrl,
-  RBQ_CATEGORIES, RBQ_REGIONS,
+  verifyRBQLicense, getRBQVerificationUrl,
+  RBQ_CATEGORIES,
   type RBQVerificationResult
 } from '@/services/rbqService';
 import { 
-  ccqServiceEnhanced, 
   CCQ_TAUX_2025_2026, CCQ_METIERS, CCQ_SECTEURS 
 } from '@/services/ccqServiceEnhanced';
 import { 
-  paieService, 
   TAUX_GOUVERNEMENT_2025 
 } from '@/services/paieService';
 import { 
@@ -31,13 +28,10 @@ import {
   type AppelOffre 
 } from '@/services/appelsOffresCanadaService';
 import { 
-  associationsService, 
   ASSOCIATIONS_QUEBEC 
 } from '@/services/associationsService';
 
-// ============ COMPOSANTS ============
-
-// Widget RBQ
+// ============ WIDGET RBQ ============
 function RBQWidget() {
   const [licenseNumber, setLicenseNumber] = useState('');
   const [result, setResult] = useState<RBQVerificationResult | null>(null);
@@ -49,7 +43,7 @@ function RBQWidget() {
     try {
       const res = await verifyRBQLicense(licenseNumber);
       setResult(res);
-    } catch (error) {
+    } catch {
       setResult({ success: false, error: 'Erreur de vérification' });
     }
     setLoading(false);
@@ -73,7 +67,7 @@ function RBQWidget() {
           placeholder="Numéro de licence (ex: 1234-5678-90)"
           value={licenseNumber}
           onChange={(e) => setLicenseNumber(e.target.value)}
-          className="flex-1 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          className="flex-1 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
         />
         <button
           onClick={handleVerify}
@@ -97,7 +91,6 @@ function RBQWidget() {
                 <p><strong>Entreprise:</strong> {result.data?.companyName}</p>
                 <p><strong>Statut:</strong> {result.data?.status}</p>
                 <p><strong>Expiration:</strong> {result.data?.expirationDate}</p>
-                <p><strong>Catégories:</strong> {result.data?.categories?.join(', ')}</p>
               </div>
               {result.licenseNumber && (
                 <a 
@@ -120,28 +113,19 @@ function RBQWidget() {
       )}
 
       <div className="mt-4 pt-4 border-t">
-        <p className="text-xs text-gray-500 mb-2">Catégories RBQ disponibles:</p>
-        <div className="flex flex-wrap gap-1">
-          {Object.entries(RBQ_CATEGORIES).slice(0, 6).map(([code, cat]) => (
-            <span key={code} className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-xs">
-              {code}: {cat.nom.substring(0, 20)}...
-            </span>
-          ))}
-          <span className="px-2 py-0.5 bg-gray-200 text-gray-700 rounded text-xs">
-            +{Object.keys(RBQ_CATEGORIES).length - 6} autres
-          </span>
-        </div>
+        <p className="text-xs text-gray-500 mb-2">Catégories RBQ: {Object.keys(RBQ_CATEGORIES).length} disponibles</p>
       </div>
     </div>
   );
 }
 
-// Widget CCQ Taux
+// ============ WIDGET CCQ TAUX ============
 function CCQTauxWidget() {
   const [selectedSecteur, setSelectedSecteur] = useState<string>('CI');
   const [selectedMetier, setSelectedMetier] = useState<string>('electricien');
 
-  const taux = CCQ_TAUX_2025_2026[selectedSecteur as keyof typeof CCQ_TAUX_2025_2026]?.[selectedMetier];
+  const tauxSecteur = CCQ_TAUX_2025_2026[selectedSecteur as keyof typeof CCQ_TAUX_2025_2026];
+  const taux = tauxSecteur ? tauxSecteur[selectedMetier] : null;
 
   return (
     <div className="bg-white rounded-xl shadow-sm border p-6">
@@ -161,8 +145,8 @@ function CCQTauxWidget() {
           onChange={(e) => setSelectedSecteur(e.target.value)}
           className="px-3 py-2 border rounded-lg text-sm"
         >
-          {Object.entries(CCQ_SECTEURS).map(([code, nom]) => (
-            <option key={code} value={code}>{code} - {nom}</option>
+          {Object.entries(CCQ_SECTEURS).map(([code, data]) => (
+            <option key={code} value={code}>{code} - {data.nom}</option>
           ))}
         </select>
         <select
@@ -170,8 +154,8 @@ function CCQTauxWidget() {
           onChange={(e) => setSelectedMetier(e.target.value)}
           className="px-3 py-2 border rounded-lg text-sm"
         >
-          {Object.entries(CCQ_METIERS).map(([code, metier]) => (
-            <option key={code} value={code}>{metier.nom}</option>
+          {CCQ_METIERS.map((metier) => (
+            <option key={metier.code} value={metier.code.toLowerCase()}>{metier.nom}</option>
           ))}
         </select>
       </div>
@@ -185,7 +169,7 @@ function CCQTauxWidget() {
             </div>
             <div>
               <p className="text-xs text-gray-500">Coût total employeur</p>
-              <p className="text-2xl font-bold text-orange-600">{taux.cout_total_employeur.toFixed(2)}$/h</p>
+              <p className="text-2xl font-bold text-orange-600">{taux.total_employeur.toFixed(2)}$/h</p>
             </div>
           </div>
           
@@ -210,18 +194,27 @@ function CCQTauxWidget() {
 
       <div className="mt-4 pt-4 border-t">
         <p className="text-xs text-gray-500">
-          {Object.keys(CCQ_METIERS).length} métiers • 4 secteurs • Mise à jour 2025-2026
+          {CCQ_METIERS.length} métiers • 4 secteurs
         </p>
       </div>
     </div>
   );
 }
 
-// Widget Calculatrice Paie
+// ============ WIDGET CALCULATRICE PAIE ============
 function PaieCalculatorWidget() {
   const [heures, setHeures] = useState(40);
   const [tauxHoraire, setTauxHoraire] = useState(50);
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<{
+    salaireBrut: number;
+    rrq: number;
+    rqap: number;
+    ae: number;
+    impotEstime: number;
+    totalDeductions: number;
+    salaireNet: number;
+    coutTotal: number;
+  } | null>(null);
 
   const calculer = () => {
     const salaireBrut = heures * tauxHoraire;
@@ -230,14 +223,11 @@ function PaieCalculatorWidget() {
     const rrq = salaireBrut * taux.rrq.taux_employe;
     const rqap = salaireBrut * taux.rqap.taux_employe;
     const ae = salaireBrut * taux.ae.taux_employe;
-    
-    // Impôt estimé (simplifié)
     const impotEstime = salaireBrut * 0.25;
     
     const totalDeductions = rrq + rqap + ae + impotEstime;
     const salaireNet = salaireBrut - totalDeductions;
     
-    // Contributions employeur
     const rrqEmployeur = salaireBrut * taux.rrq.taux_employeur;
     const rqapEmployeur = salaireBrut * taux.rqap.taux_employeur;
     const aeEmployeur = salaireBrut * taux.ae.taux_employeur;
@@ -247,12 +237,8 @@ function PaieCalculatorWidget() {
     const totalEmployeur = rrqEmployeur + rqapEmployeur + aeEmployeur + fss + cnt;
     
     setResult({
-      salaireBrut,
-      rrq, rqap, ae, impotEstime,
-      totalDeductions,
-      salaireNet,
-      rrqEmployeur, rqapEmployeur, aeEmployeur, fss, cnt,
-      totalEmployeur,
+      salaireBrut, rrq, rqap, ae, impotEstime,
+      totalDeductions, salaireNet,
       coutTotal: salaireBrut + totalEmployeur
     });
   };
@@ -308,25 +294,21 @@ function PaieCalculatorWidget() {
           </div>
           
           <div className="bg-red-50 rounded-lg p-3 space-y-1">
-            <p className="text-xs font-medium text-red-700 mb-2">Déductions employé</p>
+            <p className="text-xs font-medium text-red-700 mb-2">Déductions</p>
             <div className="flex justify-between text-xs">
-              <span>RRQ ({(TAUX_GOUVERNEMENT_2025.rrq.taux_employe * 100).toFixed(2)}%)</span>
+              <span>RRQ</span>
               <span>{result.rrq.toFixed(2)} $</span>
             </div>
             <div className="flex justify-between text-xs">
-              <span>RQAP ({(TAUX_GOUVERNEMENT_2025.rqap.taux_employe * 100).toFixed(3)}%)</span>
+              <span>RQAP</span>
               <span>{result.rqap.toFixed(2)} $</span>
             </div>
             <div className="flex justify-between text-xs">
-              <span>AE ({(TAUX_GOUVERNEMENT_2025.ae.taux_employe * 100).toFixed(2)}%)</span>
+              <span>AE</span>
               <span>{result.ae.toFixed(2)} $</span>
             </div>
-            <div className="flex justify-between text-xs">
-              <span>Impôts (estimé ~25%)</span>
-              <span>{result.impotEstime.toFixed(2)} $</span>
-            </div>
             <div className="flex justify-between text-xs font-medium pt-1 border-t mt-1">
-              <span>Total déductions</span>
+              <span>Total</span>
               <span className="text-red-700">-{result.totalDeductions.toFixed(2)} $</span>
             </div>
           </div>
@@ -338,19 +320,10 @@ function PaieCalculatorWidget() {
             </div>
           </div>
 
-          <div className="bg-purple-50 rounded-lg p-3 space-y-1">
-            <p className="text-xs font-medium text-purple-700 mb-2">Contributions employeur</p>
-            <div className="flex justify-between text-xs">
-              <span>RRQ + RQAP + AE</span>
-              <span>{(result.rrqEmployeur + result.rqapEmployeur + result.aeEmployeur).toFixed(2)} $</span>
-            </div>
-            <div className="flex justify-between text-xs">
-              <span>FSS + CNT</span>
-              <span>{(result.fss + result.cnt).toFixed(2)} $</span>
-            </div>
-            <div className="flex justify-between text-xs font-medium pt-1 border-t mt-1">
-              <span>Coût total employeur</span>
-              <span className="text-purple-700">{result.coutTotal.toFixed(2)} $</span>
+          <div className="bg-purple-50 rounded-lg p-3">
+            <div className="flex justify-between items-center">
+              <span className="text-sm font-medium text-purple-700">Coût employeur</span>
+              <span className="text-lg font-bold text-purple-700">{result.coutTotal.toFixed(2)} $</span>
             </div>
           </div>
         </div>
@@ -359,7 +332,7 @@ function PaieCalculatorWidget() {
   );
 }
 
-// Widget Appels d'offres
+// ============ WIDGET APPELS D'OFFRES ============
 function AppelsOffresWidget() {
   const [appels, setAppels] = useState<AppelOffre[]>([]);
   const [loading, setLoading] = useState(true);
@@ -367,14 +340,13 @@ function AppelsOffresWidget() {
   useEffect(() => {
     const loadAppels = async () => {
       try {
-        const results = await appelsOffresCanadaService.rechercherToutesSources({
+        const results = await appelsOffresCanadaService.rechercher({
           province: 'QC',
-          categories: ['construction'],
           statut: 'ouvert'
         });
         setAppels(results.slice(0, 5));
       } catch (error) {
-        console.error('Erreur chargement appels:', error);
+        console.error('Erreur:', error);
       }
       setLoading(false);
     };
@@ -393,9 +365,6 @@ function AppelsOffresWidget() {
             <p className="text-xs text-gray-500">SEAO • MERX • BuyGC • Bonfire</p>
           </div>
         </div>
-        <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs font-medium">
-          Multi-sources
-        </span>
       </div>
 
       {loading ? (
@@ -405,7 +374,7 @@ function AppelsOffresWidget() {
       ) : appels.length > 0 ? (
         <div className="space-y-3">
           {appels.map((appel) => (
-            <div key={appel.id} className="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition cursor-pointer">
+            <div key={appel.id} className="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <p className="text-sm font-medium text-gray-900 line-clamp-1">{appel.titre}</p>
@@ -434,16 +403,10 @@ function AppelsOffresWidget() {
           ))}
         </div>
       ) : (
-        <p className="text-center text-gray-500 text-sm py-4">Aucun appel d'offres trouvé</p>
+        <p className="text-center text-gray-500 text-sm py-4">Aucun appel d'offres</p>
       )}
 
-      <div className="mt-4 pt-4 border-t flex justify-between items-center">
-        <div className="flex gap-2">
-          <span className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded text-xs">SEAO</span>
-          <span className="px-2 py-0.5 bg-red-50 text-red-600 rounded text-xs">MERX</span>
-          <span className="px-2 py-0.5 bg-green-50 text-green-600 rounded text-xs">BuyGC</span>
-          <span className="px-2 py-0.5 bg-orange-50 text-orange-600 rounded text-xs">Bonfire</span>
-        </div>
+      <div className="mt-4 pt-4 border-t">
         <a href="/appels-offres" className="text-sm text-purple-600 hover:underline flex items-center gap-1">
           Voir tout <ChevronRight size={14} />
         </a>
@@ -452,21 +415,8 @@ function AppelsOffresWidget() {
   );
 }
 
-// Widget Associations
+// ============ WIDGET ASSOCIATIONS ============
 function AssociationsWidget() {
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
-
-  const categories = [
-    { id: 'all', label: 'Toutes' },
-    { id: 'employer', label: 'Patronales' },
-    { id: 'estimating', label: 'Estimation' },
-    { id: 'certification', label: 'Certifications' }
-  ];
-
-  const filteredAssociations = selectedCategory === 'all' 
-    ? ASSOCIATIONS_QUEBEC 
-    : ASSOCIATIONS_QUEBEC.filter(a => a.type === selectedCategory);
-
   return (
     <div className="bg-white rounded-xl shadow-sm border p-6">
       <div className="flex items-center gap-3 mb-4">
@@ -475,33 +425,17 @@ function AssociationsWidget() {
         </div>
         <div>
           <h3 className="font-semibold text-gray-900">Associations professionnelles</h3>
-          <p className="text-xs text-gray-500">{ASSOCIATIONS_QUEBEC.length} associations québécoises</p>
+          <p className="text-xs text-gray-500">{ASSOCIATIONS_QUEBEC.length} associations</p>
         </div>
       </div>
 
-      <div className="flex gap-2 mb-4 overflow-x-auto">
-        {categories.map(cat => (
-          <button
-            key={cat.id}
-            onClick={() => setSelectedCategory(cat.id)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition ${
-              selectedCategory === cat.id 
-                ? 'bg-teal-600 text-white' 
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            }`}
-          >
-            {cat.label}
-          </button>
-        ))}
-      </div>
-
       <div className="space-y-2 max-h-64 overflow-y-auto">
-        {filteredAssociations.slice(0, 6).map((assoc) => (
+        {ASSOCIATIONS_QUEBEC.slice(0, 6).map((assoc) => (
           <div key={assoc.id} className="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-900">{assoc.sigle}</p>
-                <p className="text-xs text-gray-500 line-clamp-1">{assoc.nom}</p>
+                <p className="text-sm font-medium text-gray-900">{assoc.acronyme}</p>
+                <p className="text-xs text-gray-500 line-clamp-1">{assoc.nom_complet}</p>
               </div>
               <div className="flex gap-1">
                 {assoc.telephone && (
@@ -520,14 +454,9 @@ function AssociationsWidget() {
               <div className="flex gap-1 mt-2">
                 {assoc.certifications.slice(0, 2).map((cert, i) => (
                   <span key={i} className="px-2 py-0.5 bg-teal-100 text-teal-700 rounded text-xs">
-                    {cert.sigle}
+                    {cert.acronyme}
                   </span>
                 ))}
-                {assoc.certifications.length > 2 && (
-                  <span className="px-2 py-0.5 bg-gray-200 text-gray-600 rounded text-xs">
-                    +{assoc.certifications.length - 2}
-                  </span>
-                )}
               </div>
             )}
           </div>
@@ -536,14 +465,14 @@ function AssociationsWidget() {
 
       <div className="mt-4 pt-4 border-t">
         <a href="/ressources/associations" className="text-sm text-teal-600 hover:underline flex items-center gap-1">
-          Voir toutes les associations <ChevronRight size={14} />
+          Voir toutes <ChevronRight size={14} />
         </a>
       </div>
     </div>
   );
 }
 
-// Statistiques rapides
+// ============ STATS RAPIDES ============
 function QuickStats() {
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
@@ -554,7 +483,7 @@ function QuickStats() {
       </div>
       <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl p-4 text-white">
         <HardHat size={24} className="opacity-80 mb-2" />
-        <p className="text-2xl font-bold">{Object.keys(CCQ_METIERS).length}</p>
+        <p className="text-2xl font-bold">{CCQ_METIERS.length}</p>
         <p className="text-sm opacity-90">Métiers CCQ</p>
       </div>
       <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-4 text-white">
@@ -572,12 +501,10 @@ function QuickStats() {
 }
 
 // ============ PAGE PRINCIPALE ============
-
 export default function QuebecDashboard() {
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
         <div className="mb-6">
           <div className="flex items-center gap-3 mb-2">
             <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-600 to-teal-500 flex items-center justify-center">
@@ -590,10 +517,8 @@ export default function QuebecDashboard() {
           </div>
         </div>
 
-        {/* Stats rapides */}
         <QuickStats />
 
-        {/* Widgets Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <RBQWidget />
           <CCQTauxWidget />
@@ -601,7 +526,6 @@ export default function QuebecDashboard() {
           <AppelsOffresWidget />
           <AssociationsWidget />
           
-          {/* Widget Info */}
           <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl shadow-sm p-6 text-white">
             <h3 className="font-semibold mb-4 flex items-center gap-2">
               <TrendingUp size={20} />
@@ -610,30 +534,25 @@ export default function QuebecDashboard() {
             <ul className="space-y-3 text-sm">
               <li className="flex items-start gap-2">
                 <CheckCircle size={16} className="text-green-400 mt-0.5 flex-shrink-0" />
-                <span>Données officielles RBQ en temps réel avec cache intelligent</span>
+                <span>Données officielles RBQ en temps réel</span>
               </li>
               <li className="flex items-start gap-2">
                 <CheckCircle size={16} className="text-green-400 mt-0.5 flex-shrink-0" />
-                <span>Taux CCQ 2025-2026 pour 20 métiers et 4 secteurs</span>
+                <span>Taux CCQ 2025-2026 pour {CCQ_METIERS.length} métiers</span>
               </li>
               <li className="flex items-start gap-2">
                 <CheckCircle size={16} className="text-green-400 mt-0.5 flex-shrink-0" />
-                <span>Calcul de paie complet avec DAS Québec (RRQ, RQAP, AE, FSS)</span>
+                <span>Calcul de paie complet avec DAS Québec</span>
               </li>
               <li className="flex items-start gap-2">
                 <CheckCircle size={16} className="text-green-400 mt-0.5 flex-shrink-0" />
-                <span>Agrégation multi-sources: SEAO, MERX, BuyGC, Bonfire</span>
+                <span>Agrégation: SEAO, MERX, BuyGC, Bonfire</span>
               </li>
               <li className="flex items-start gap-2">
                 <CheckCircle size={16} className="text-green-400 mt-0.5 flex-shrink-0" />
-                <span>12 associations professionnelles avec certifications</span>
+                <span>{ASSOCIATIONS_QUEBEC.length} associations avec certifications</span>
               </li>
             </ul>
-            <div className="mt-6 pt-4 border-t border-gray-700">
-              <p className="text-xs text-gray-400">
-                Conçu spécifiquement pour le marché de la construction au Québec
-              </p>
-            </div>
           </div>
         </div>
       </div>
