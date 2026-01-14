@@ -1,177 +1,89 @@
 /**
- * DAST Solutions - Hook Clients CRM
+ * Hook useClients - Gestion des clients
  */
-import { useState, useEffect, useCallback } from 'react'
-import { supabase } from '@/lib/supabase'
+import { useState, useEffect, useCallback } from 'react';
+import { supabase } from '@/lib/supabase/client';
 
 export interface Client {
-  id: string
-  type: 'particulier' | 'entreprise'
-  name: string
-  company?: string
-  contact_name?: string
-  contact_title?: string
-  email?: string
-  phone?: string
-  mobile?: string
-  address?: string
-  city?: string
-  province: string
-  postal_code?: string
-  country: string
-  credit_limit?: number
-  payment_terms: number
-  tax_exempt: boolean
-  category?: string
-  source?: string
-  tags?: string[]
-  notes?: string
-  status: 'actif' | 'inactif' | 'prospect'
-  total_projects: number
-  total_revenue: number
-  last_project_date?: string
-  created_at: string
-  updated_at: string
+  id: string;
+  name: string;
+  contact_name?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  city?: string;
+  province?: string;
+  postal_code?: string;
+  notes?: string;
+  created_at: string;
+  user_id: string;
 }
 
-export const CLIENT_CATEGORIES = [
-  { value: 'residentiel', label: 'Résidentiel' },
-  { value: 'commercial', label: 'Commercial' },
-  { value: 'institutionnel', label: 'Institutionnel' },
-  { value: 'industriel', label: 'Industriel' },
-  { value: 'gouvernemental', label: 'Gouvernemental' }
-]
-
-export const CLIENT_SOURCES = [
-  { value: 'reference', label: 'Référence' },
-  { value: 'web', label: 'Site web' },
-  { value: 'appel', label: 'Appel entrant' },
-  { value: 'seao', label: 'SEAO' },
-  { value: 'reseau', label: 'Réseautage' },
-  { value: 'publicite', label: 'Publicité' },
-  { value: 'autre', label: 'Autre' }
-]
-
 export function useClients() {
-  const [clients, setClients] = useState<Client[]>([])
-  const [loading, setLoading] = useState(true)
+  const [clients, setClients] = useState<Client[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchClients = useCallback(async () => {
+    setLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-      const { data, error } = await supabase
+      const { data, error: fetchError } = await supabase
         .from('clients')
         .select('*')
         .eq('user_id', user.id)
-        .order('name')
+        .order('name');
 
-      if (error) throw error
-      setClients(data || [])
-    } catch (err) {
-      console.error('Erreur chargement clients:', err)
+      if (fetchError) throw fetchError;
+      setClients(data || []);
+    } catch (err: any) {
+      setError(err.message);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [])
+  }, []);
 
   useEffect(() => {
-    fetchClients()
-  }, [fetchClients])
+    fetchClients();
+  }, [fetchClients]);
 
-  const createClient = async (client: Partial<Client>): Promise<Client | null> => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return null
+  const createClient = async (data: Partial<Client>) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Non authentifié');
 
-      const { data, error } = await supabase
-        .from('clients')
-        .insert({
-          user_id: user.id,
-          ...client,
-          type: client.type || 'entreprise',
-          province: client.province || 'QC',
-          country: client.country || 'Canada',
-          payment_terms: client.payment_terms || 30,
-          tax_exempt: client.tax_exempt || false,
-          status: client.status || 'actif',
-          total_projects: 0,
-          total_revenue: 0
-        })
-        .select()
-        .single()
+    const { data: newClient, error } = await supabase
+      .from('clients')
+      .insert([{ ...data, user_id: user.id }])
+      .select()
+      .single();
 
-      if (error) throw error
-      await fetchClients()
-      return data
-    } catch (err) {
-      console.error('Erreur création client:', err)
-      return null
-    }
-  }
+    if (error) throw error;
+    setClients(prev => [...prev, newClient]);
+    return newClient;
+  };
 
-  const updateClient = async (id: string, updates: Partial<Client>): Promise<boolean> => {
-    try {
-      const { error } = await supabase
-        .from('clients')
-        .update({ ...updates, updated_at: new Date().toISOString() })
-        .eq('id', id)
+  const updateClient = async (id: string, data: Partial<Client>) => {
+    const { data: updated, error } = await supabase
+      .from('clients')
+      .update(data)
+      .eq('id', id)
+      .select()
+      .single();
 
-      if (error) throw error
-      await fetchClients()
-      return true
-    } catch (err) {
-      console.error('Erreur mise à jour client:', err)
-      return false
-    }
-  }
+    if (error) throw error;
+    setClients(prev => prev.map(c => c.id === id ? updated : c));
+    return updated;
+  };
 
-  const deleteClient = async (id: string): Promise<boolean> => {
-    try {
-      const { error } = await supabase
-        .from('clients')
-        .delete()
-        .eq('id', id)
+  const deleteClient = async (id: string) => {
+    const { error } = await supabase.from('clients').delete().eq('id', id);
+    if (error) throw error;
+    setClients(prev => prev.filter(c => c.id !== id));
+  };
 
-      if (error) throw error
-      await fetchClients()
-      return true
-    } catch (err) {
-      console.error('Erreur suppression client:', err)
-      return false
-    }
-  }
-
-  const getStats = () => {
-    const total = clients.length
-    const actifs = clients.filter(c => c.status === 'actif').length
-    const prospects = clients.filter(c => c.status === 'prospect').length
-    const totalRevenue = clients.reduce((sum, c) => sum + (c.total_revenue || 0), 0)
-    
-    return { total, actifs, prospects, totalRevenue }
-  }
-
-  const searchClients = (query: string): Client[] => {
-    const q = query.toLowerCase()
-    return clients.filter(c =>
-      c.name.toLowerCase().includes(q) ||
-      c.company?.toLowerCase().includes(q) ||
-      c.email?.toLowerCase().includes(q) ||
-      c.phone?.includes(q)
-    )
-  }
-
-  return {
-    clients,
-    loading,
-    createClient,
-    updateClient,
-    deleteClient,
-    getStats,
-    searchClients,
-    refetch: fetchClients
-  }
+  return { clients, loading, error, createClient, updateClient, deleteClient, refresh: fetchClients };
 }
 
-export default useClients
+export default useClients;

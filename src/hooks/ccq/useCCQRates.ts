@@ -1,114 +1,70 @@
-import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
-import type { CCQHourlyRate, CCQTrade, CCQSector, CurrentCCQRate } from '@/types/ccq-types'
+/**
+ * Hook useCCQRates - Taux horaires CCQ
+ */
+import { useState, useCallback } from 'react';
+import { 
+  CCQ_TAUX_2025_2026, 
+  CCQ_METIERS, 
+  CCQ_SECTEURS,
+  type CCQTauxHoraire 
+} from '@/services/ccqServiceEnhanced';
 
 export function useCCQRates() {
-  const [rates, setRates] = useState<CCQHourlyRate[]>([])
-  const [trades, setTrades] = useState<CCQTrade[]>([])
-  const [sectors, setSectors] = useState<CCQSector[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [selectedSecteur, setSelectedSecteur] = useState<string>('CI');
+  const [selectedMetier, setSelectedMetier] = useState<string>('electricien');
 
-  // Charger les métiers
-  const fetchTrades = async () => {
-    const { data, error } = await supabase
-      .from('ccq_trades')
-      .select('*')
-      .eq('is_active', true)
-      .order('name_fr')
-    
-    if (error) throw error
-    setTrades(data || [])
-  }
+  const getTaux = useCallback((secteur: string, metier: string): CCQTauxHoraire | null => {
+    const tauxSecteur = CCQ_TAUX_2025_2026[secteur as keyof typeof CCQ_TAUX_2025_2026];
+    return tauxSecteur ? tauxSecteur[metier] || null : null;
+  }, []);
 
-  // Charger les secteurs
-  const fetchSectors = async () => {
-    const { data, error } = await supabase
-      .from('ccq_sectors')
-      .select('*')
-      .eq('is_active', true)
-      .order('name_fr')
-    
-    if (error) throw error
-    setSectors(data || [])
-  }
+  const currentTaux = getTaux(selectedSecteur, selectedMetier);
 
-  // Charger les taux actuels
-  const fetchCurrentRates = async () => {
-    const { data, error } = await supabase
-      .from('v_ccq_current_rates')
-      .select('*')
-    
-    if (error) throw error
-    setRates(data || [])
-  }
-
-  // Obtenir le taux pour un métier/secteur spécifique
-  const getRate = async (tradeCode: string, sectorCode: string): Promise<CurrentCCQRate | null> => {
-    const { data, error } = await supabase
-      .from('v_ccq_current_rates')
-      .select('*')
-      .eq('trade_code', tradeCode)
-      .eq('sector_code', sectorCode)
-      .single()
-    
-    if (error) {
-      console.error('Error fetching rate:', error)
-      return null
-    }
-    
-    return data
-  }
-
-  // Calculer le coût total d'un employé
-  const calculateEmployeeCost = async (
-    tradeCode: string,
-    sectorCode: string,
-    hoursWorked: number,
-    date?: string
+  const calculateCost = useCallback((
+    secteur: string, 
+    metier: string, 
+    heures: number, 
+    nombreTravailleurs: number = 1
   ) => {
-    const { data, error } = await supabase.rpc('calculate_total_employee_cost', {
-      p_trade_code: tradeCode,
-      p_sector_code: sectorCode,
-      p_hours_worked: hoursWorked,
-      p_date: date || new Date().toISOString()
-    })
-    
-    if (error) throw error
-    return data
-  }
+    const taux = getTaux(secteur, metier);
+    if (!taux) return null;
 
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        setLoading(true)
-        await Promise.all([
-          fetchTrades(),
-          fetchSectors(),
-          fetchCurrentRates()
-        ])
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load CCQ data')
-      } finally {
-        setLoading(false)
-      }
-    }
+    return {
+      tauxBase: taux.taux_base,
+      totalEmployeur: taux.total_employeur,
+      coutTotal: taux.total_employeur * heures * nombreTravailleurs,
+      heures,
+      nombreTravailleurs
+    };
+  }, [getTaux]);
+
+  const getAllRatesForSecteur = useCallback((secteur: string) => {
+    const tauxSecteur = CCQ_TAUX_2025_2026[secteur as keyof typeof CCQ_TAUX_2025_2026];
+    if (!tauxSecteur) return [];
     
-    loadData()
-  }, [])
+    return Object.entries(tauxSecteur).map(([code, taux]) => {
+      const metier = CCQ_METIERS.find(m => m.code.toLowerCase() === code);
+      return {
+        code,
+        nom: metier?.nom || code,
+        ...taux
+      };
+    });
+  }, []);
 
   return {
-    rates,
-    trades,
-    sectors,
-    loading,
-    error,
-    getRate,
-    calculateEmployeeCost,
-    refetch: () => {
-      fetchTrades()
-      fetchSectors()
-      fetchCurrentRates()
-    }
-  }
+    selectedSecteur,
+    setSelectedSecteur,
+    selectedMetier,
+    setSelectedMetier,
+    currentTaux,
+    getTaux,
+    calculateCost,
+    getAllRatesForSecteur,
+    metiers: CCQ_METIERS,
+    secteurs: CCQ_SECTEURS,
+    taux: CCQ_TAUX_2025_2026
+  };
 }
+
+export default useCCQRates;

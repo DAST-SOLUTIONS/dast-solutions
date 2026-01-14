@@ -1,162 +1,118 @@
-import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
-import { useAuth } from './useAuth'
+/**
+ * Hook useProjects - Gestion des projets
+ */
+import { useState, useEffect, useCallback } from 'react';
+import { supabase } from '@/lib/supabase/client';
 
 export interface Project {
-  id: string
-  name: string
-  description: string | null
-  status: string
-  created_at: string
-  updated_at: string
-  project_type: string | null
-  client_name: string | null
-  project_number: string | null
-  address: string | null
-  start_date: string | null
-  end_date: string | null
-  project_value: number | null
-  timezone: string | null
+  id: string;
+  name: string;
+  description?: string;
+  client_id?: string;
+  client_name?: string;
+  status: 'draft' | 'planning' | 'active' | 'on_hold' | 'completed' | 'cancelled';
+  budget?: number;
+  start_date?: string;
+  end_date?: string;
+  address?: string;
+  city?: string;
+  province?: string;
+  postal_code?: string;
+  created_at: string;
+  updated_at: string;
+  user_id: string;
 }
 
-export function useProjects() {
-  const { user } = useAuth()
-  const [projects, setProjects] = useState<Project[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+export interface UseProjectsReturn {
+  projects: Project[];
+  loading: boolean;
+  error: string | null;
+  createProject: (data: Partial<Project>) => Promise<Project>;
+  updateProject: (id: string, data: Partial<Project>) => Promise<Project>;
+  deleteProject: (id: string) => Promise<void>;
+  getProject: (id: string) => Promise<Project | null>;
+  refresh: () => Promise<void>;
+}
 
-  const fetchProjects = async () => {
-    if (!user) {
-      setLoading(false)
-      return
-    }
+export function useProjects(): UseProjectsReturn {
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
+  const fetchProjects = useCallback(async () => {
+    setLoading(true);
+    setError(null);
     try {
-      setLoading(true)
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Non authentifié');
+
       const { data, error: fetchError } = await supabase
         .from('projects')
         .select('*')
         .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
+        .order('updated_at', { ascending: false });
 
-      if (fetchError) throw fetchError
-      setProjects(data || [])
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to fetch projects'
-      setError(message)
+      if (fetchError) throw fetchError;
+      setProjects(data || []);
+    } catch (err: any) {
+      setError(err.message);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  }, []);
 
   useEffect(() => {
-    fetchProjects()
+    fetchProjects();
+  }, [fetchProjects]);
 
-    if (!user) return
+  const createProject = useCallback(async (data: Partial<Project>): Promise<Project> => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Non authentifié');
 
-    // Subscribe to real-time changes
-    const channel = supabase
-      .channel(`projects:${user.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'projects',
-          filter: `user_id=eq.${user.id}`,
-        },
-        () => {
-          fetchProjects()
-        }
-      )
-      .subscribe()
-
-    return () => {
-      supabase.removeChannel(channel)
-    }
-  }, [user])
-
-  const createProject = async (
-  name: string,
-  description?: string,
-  projectType?: string,
-  clientName?: string,
-  projectNumber?: string,
-  address?: string,
-  startDate?: string,
-  endDate?: string,
-  projectValue?: number,
-  timezone?: string
-) => {
-  if (!user) throw new Error('Not authenticated')
-
-  try {
-    const { data, error: createError } = await supabase
+    const { data: newProject, error } = await supabase
       .from('projects')
-      .insert([
-        {
-          user_id: user.id,
-          name,
-          description: description || null,
-          project_type: projectType || 'Résidentiel',
-          client_name: clientName || null,
-          project_number: projectNumber || null,
-          address: address || null,
-          start_date: startDate || null,
-          end_date: endDate || null,
-          project_value: projectValue || null,
-          timezone: timezone || 'America/Toronto',
-        },
-      ])
+      .insert([{ ...data, user_id: user.id }])
       .select()
-      .single()
+      .single();
 
-    if (createError) throw createError
-    return data
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'Failed to create project'
-    setError(message)
-    throw err
-  }
-}
+    if (error) throw error;
+    setProjects(prev => [newProject, ...prev]);
+    return newProject;
+  }, []);
 
-  const updateProject = async (
-  projectId: string,
-  updates: Partial<Project>
-) => {
-  try {
-    const { data, error: updateError } = await supabase
+  const updateProject = useCallback(async (id: string, data: Partial<Project>): Promise<Project> => {
+    const { data: updated, error } = await supabase
       .from('projects')
-      .update(updates)
-      .eq('id', projectId)
-      .eq('user_id', user?.id)
+      .update(data)
+      .eq('id', id)
       .select()
-      .single()
+      .single();
 
-    if (updateError) throw updateError
-    return data
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'Failed to update project'
-    setError(message)
-    throw err
-  }
-}
+    if (error) throw error;
+    setProjects(prev => prev.map(p => p.id === id ? updated : p));
+    return updated;
+  }, []);
 
-  const deleteProject = async (projectId: string) => {
-    try {
-      const { error: deleteError } = await supabase
-        .from('projects')
-        .delete()
-        .eq('id', projectId)
-        .eq('user_id', user?.id)
+  const deleteProject = useCallback(async (id: string): Promise<void> => {
+    const { error } = await supabase
+      .from('projects')
+      .delete()
+      .eq('id', id);
 
-      if (deleteError) throw deleteError
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to delete project'
-      setError(message)
-      throw err
-    }
-  }
+    if (error) throw error;
+    setProjects(prev => prev.filter(p => p.id !== id));
+  }, []);
+
+  const getProject = useCallback(async (id: string): Promise<Project | null> => {
+    const { data, error } = await supabase
+      .from('projects')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error) return null;
+    return data;
+  }, []);
 
   return {
     projects,
@@ -165,6 +121,9 @@ export function useProjects() {
     createProject,
     updateProject,
     deleteProject,
-    refetch: fetchProjects,
-  }
+    getProject,
+    refresh: fetchProjects
+  };
 }
+
+export default useProjects;

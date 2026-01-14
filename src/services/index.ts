@@ -112,3 +112,12 @@ export {
   TABLES_IMPOT_QUEBEC_2025,
   EXEMPTIONS_2025
 } from './paieService';
+
+// ============ SERVICES ADDITIONNELS ============
+export { aiTakeoffService, type AITakeoffResult, type AIDetectedItem } from './aiTakeoffService';
+export { pdfSoumissionService, type SoumissionPDFData } from './pdfSoumissionService';
+export { pdfSoumissionAdvanced } from './pdfSoumissionAdvanced';
+export { pdfFactureService, type FacturePDFData } from './pdfFactureService';
+export { excelService } from './excelService';
+export { excelServiceAdvanced } from './excelServiceAdvanced';
+export { emailService, EMAIL_TEMPLATES, type EmailOptions, type EmailTemplate } from './emailService';

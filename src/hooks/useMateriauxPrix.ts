@@ -1,136 +1,106 @@
 /**
- * DAST Solutions - Hook Matériaux & Prix
+ * Hook useMateriauxPrix - Prix des matériaux au Québec
  */
-import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
-import type { Materiau, MateriauCategorie, Productivite, PrixHistorique } from '@/types/modules'
+import { useState, useEffect, useCallback } from 'react';
+import { supabase } from '@/lib/supabase/client';
 
-export function useMateriauxPrix() {
-  const [materiaux, setMateriaux] = useState<Materiau[]>([])
-  const [categories, setCategories] = useState<MateriauCategorie[]>([])
-  const [productivites, setProductivites] = useState<Productivite[]>([])
-  const [loading, setLoading] = useState(true)
-
-  const fetchAll = async () => {
-    try {
-      setLoading(true)
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-
-      const [matRes, catRes, prodRes] = await Promise.all([
-        supabase.from('materiaux_catalogue').select('*').eq('user_id', user.id).order('nom'),
-        supabase.from('materiaux_categories').select('*').order('code'),
-        supabase.from('materiaux_productivites').select('*').eq('user_id', user.id).order('nom')
-      ])
-
-      if (matRes.data) setMateriaux(matRes.data)
-      if (catRes.data) setCategories(catRes.data)
-      if (prodRes.data) setProductivites(prodRes.data)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => { fetchAll() }, [])
-
-  // MATÉRIAUX
-  const createMateriau = async (data: Partial<Materiau>) => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return null
-    const { data: result } = await supabase
-      .from('materiaux_catalogue')
-      .insert({ ...data, user_id: user.id })
-      .select()
-      .single()
-    if (result) setMateriaux([...materiaux, result])
-    return result
-  }
-
-  const updateMateriau = async (id: string, data: Partial<Materiau>) => {
-    const { error } = await supabase.from('materiaux_catalogue').update(data).eq('id', id)
-    if (!error) setMateriaux(materiaux.map(m => m.id === id ? { ...m, ...data } : m))
-    return !error
-  }
-
-  const deleteMateriau = async (id: string) => {
-    const { error } = await supabase.from('materiaux_catalogue').delete().eq('id', id)
-    if (!error) setMateriaux(materiaux.filter(m => m.id !== id))
-    return !error
-  }
-
-  const toggleFavori = async (id: string) => {
-    const mat = materiaux.find(m => m.id === id)
-    if (!mat) return false
-    return updateMateriau(id, { favori: !mat.favori })
-  }
-
-  const getHistoriquePrix = async (materiauId: string): Promise<PrixHistorique[]> => {
-    const { data } = await supabase
-      .from('materiaux_prix_historique')
-      .select('*')
-      .eq('materiau_id', materiauId)
-      .order('date_prix', { ascending: false })
-      .limit(20)
-    return data || []
-  }
-
-  // PRODUCTIVITÉS
-  const createProductivite = async (data: Partial<Productivite>) => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return null
-    const { data: result } = await supabase
-      .from('materiaux_productivites')
-      .insert({ ...data, user_id: user.id })
-      .select()
-      .single()
-    if (result) setProductivites([...productivites, result])
-    return result
-  }
-
-  const updateProductivite = async (id: string, data: Partial<Productivite>) => {
-    const { error } = await supabase.from('materiaux_productivites').update(data).eq('id', id)
-    if (!error) setProductivites(productivites.map(p => p.id === id ? { ...p, ...data } : p))
-    return !error
-  }
-
-  const deleteProductivite = async (id: string) => {
-    const { error } = await supabase.from('materiaux_productivites').delete().eq('id', id)
-    if (!error) setProductivites(productivites.filter(p => p.id !== id))
-    return !error
-  }
-
-  // CALCULS
-  const calculerCoutMateriau = (materiauId: string, quantite: number, facteurPerte?: number) => {
-    const mat = materiaux.find(m => m.id === materiauId)
-    if (!mat) return { quantite_brute: quantite, cout_total: 0 }
-    const perte = facteurPerte ?? mat.facteur_perte ?? 0
-    const quantiteBrute = quantite * (1 + perte / 100)
-    const coutTotal = quantiteBrute * mat.prix_unitaire
-    return { quantite_brute: quantiteBrute, cout_total: coutTotal }
-  }
-
-  const calculerMainOeuvre = (productiviteId: string, quantite: number, tauxHoraire: number, complexite: string = 'simple') => {
-    const prod = productivites.find(p => p.id === productiviteId)
-    if (!prod) return { heures: 0, cout_total: 0 }
-    
-    const facteur = complexite === 'simple' ? prod.facteur_simple :
-                    complexite === 'moyen' ? prod.facteur_moyen :
-                    complexite === 'complexe' ? prod.facteur_complexe :
-                    prod.facteur_tres_complexe
-    
-    const heures = (quantite / prod.quantite_par_heure) * facteur
-    const coutTotal = heures * tauxHoraire
-    return { heures, cout_total: coutTotal }
-  }
-
-  return {
-    materiaux, categories, productivites, loading,
-    refetch: fetchAll,
-    createMateriau, updateMateriau, deleteMateriau, toggleFavori,
-    getHistoriquePrix,
-    createProductivite, updateProductivite, deleteProductivite,
-    calculerCoutMateriau, calculerMainOeuvre
-  }
+export interface MateriauxPrix {
+  id: string;
+  code: string;
+  nom: string;
+  categorie: string;
+  sous_categorie?: string;
+  unite: string;
+  prix_base: number;
+  prix_montreal?: number;
+  prix_quebec_city?: number;
+  prix_sherbrooke?: number;
+  fournisseur?: string;
+  date_mise_a_jour: string;
+  source?: string;
 }
 
-export default useMateriauxPrix
+// Prix de base pour matériaux courants au Québec (2025)
+export const MATERIAUX_QUEBEC: MateriauxPrix[] = [
+  { id: '1', code: 'BET-30', nom: 'Béton 30 MPa', categorie: 'Béton', unite: 'm³', prix_base: 185, prix_montreal: 190, prix_quebec_city: 180, date_mise_a_jour: '2025-01-01', source: 'Prix moyen Québec' },
+  { id: '2', code: 'BET-25', nom: 'Béton 25 MPa', categorie: 'Béton', unite: 'm³', prix_base: 175, prix_montreal: 180, prix_quebec_city: 170, date_mise_a_jour: '2025-01-01', source: 'Prix moyen Québec' },
+  { id: '3', code: 'ARM-10M', nom: 'Armature 10M', categorie: 'Acier', unite: 'kg', prix_base: 1.85, prix_montreal: 1.90, date_mise_a_jour: '2025-01-01', source: 'Prix moyen Québec' },
+  { id: '4', code: 'ARM-15M', nom: 'Armature 15M', categorie: 'Acier', unite: 'kg', prix_base: 1.80, prix_montreal: 1.85, date_mise_a_jour: '2025-01-01', source: 'Prix moyen Québec' },
+  { id: '5', code: 'BRI-STD', nom: 'Brique standard', categorie: 'Maçonnerie', unite: 'unité', prix_base: 0.85, prix_montreal: 0.90, date_mise_a_jour: '2025-01-01', source: 'Prix moyen Québec' },
+  { id: '6', code: 'BLC-STD', nom: 'Bloc de béton 20cm', categorie: 'Maçonnerie', unite: 'unité', prix_base: 3.25, prix_montreal: 3.40, date_mise_a_jour: '2025-01-01', source: 'Prix moyen Québec' },
+  { id: '7', code: 'ISO-R20', nom: 'Isolant R-20', categorie: 'Isolation', unite: 'm²', prix_base: 8.50, prix_montreal: 8.75, date_mise_a_jour: '2025-01-01', source: 'Prix moyen Québec' },
+  { id: '8', code: 'GYP-12', nom: 'Gypse 1/2"', categorie: 'Finition', unite: 'feuille', prix_base: 14.50, prix_montreal: 15.00, date_mise_a_jour: '2025-01-01', source: 'Prix moyen Québec' },
+  { id: '9', code: 'BOS-2X4', nom: 'Bois 2x4 8\'', categorie: 'Bois', unite: 'pièce', prix_base: 6.25, prix_montreal: 6.50, date_mise_a_jour: '2025-01-01', source: 'Prix moyen Québec' },
+  { id: '10', code: 'BOS-2X6', nom: 'Bois 2x6 8\'', categorie: 'Bois', unite: 'pièce', prix_base: 9.75, prix_montreal: 10.00, date_mise_a_jour: '2025-01-01', source: 'Prix moyen Québec' },
+];
+
+export function useMateriauxPrix() {
+  const [materiaux, setMateriaux] = useState<MateriauxPrix[]>(MATERIAUX_QUEBEC);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [regionFilter, setRegionFilter] = useState('prix_base');
+
+  const fetchMateriaux = useCallback(async () => {
+    setLoading(true);
+    try {
+      const { data, error: fetchError } = await supabase
+        .from('materiaux_prix')
+        .select('*')
+        .order('nom');
+
+      if (fetchError) {
+        // Use default data if table doesn't exist
+        setMateriaux(MATERIAUX_QUEBEC);
+      } else {
+        setMateriaux(data?.length ? data : MATERIAUX_QUEBEC);
+      }
+    } catch {
+      setMateriaux(MATERIAUX_QUEBEC);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchMateriaux();
+  }, [fetchMateriaux]);
+
+  const filteredMateriaux = materiaux.filter(m => {
+    const matchesSearch = !searchTerm || 
+      m.nom.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      m.code?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCategory = categoryFilter === 'all' || m.categorie === categoryFilter;
+    return matchesSearch && matchesCategory;
+  });
+
+  const categories = [...new Set(materiaux.map(m => m.categorie))].filter(Boolean);
+
+  const getPrix = (materiau: MateriauxPrix): number => {
+    switch (regionFilter) {
+      case 'prix_montreal': return materiau.prix_montreal || materiau.prix_base;
+      case 'prix_quebec_city': return materiau.prix_quebec_city || materiau.prix_base;
+      case 'prix_sherbrooke': return materiau.prix_sherbrooke || materiau.prix_base;
+      default: return materiau.prix_base;
+    }
+  };
+
+  return {
+    materiaux: filteredMateriaux,
+    allMateriaux: materiaux,
+    categories,
+    loading,
+    error,
+    searchTerm,
+    setSearchTerm,
+    categoryFilter,
+    setCategoryFilter,
+    regionFilter,
+    setRegionFilter,
+    getPrix,
+    refresh: fetchMateriaux
+  };
+}
+
+export default useMateriauxPrix;

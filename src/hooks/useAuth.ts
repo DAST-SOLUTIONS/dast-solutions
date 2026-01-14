@@ -1,134 +1,163 @@
-import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
-import type { User } from '@supabase/supabase-js'
+/**
+ * Hook useAuth - Authentification utilisateur
+ */
+import { useState, useEffect, useCallback } from 'react';
+import { supabase } from '@/lib/supabase/client';
+import type { User, Session } from '@supabase/supabase-js';
 
-export interface UserProfile {
-  id: string
-  email: string
-  fullName: string | null
-  avatar?: string
+export interface AuthUser {
+  id: string;
+  email: string;
+  full_name?: string;
+  avatar_url?: string;
+  company_name?: string;
+  role?: string;
 }
 
-export function useAuth() {
-  const [user, setUser] = useState<User | null>(null)
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+export interface UseAuthReturn {
+  user: AuthUser | null;
+  session: Session | null;
+  loading: boolean;
+  error: string | null;
+  signIn: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string, metadata?: Record<string, any>) => Promise<void>;
+  signOut: () => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
+  updateProfile: (data: Partial<AuthUser>) => Promise<void>;
+}
+
+export function useAuth(): UseAuthReturn {
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session }, error }) => {
-      if (error) {
-        console.error('Auth error:', error)
-        setError(error.message)
-      }
-      setUser(session?.user ?? null)
-      
-      // Extract full_name from user metadata
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
       if (session?.user) {
-        const fullName = session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'User'
-        setUserProfile({
+        setUser({
           id: session.user.id,
           email: session.user.email || '',
-          fullName: fullName,
-        })
+          full_name: session.user.user_metadata?.full_name,
+          avatar_url: session.user.user_metadata?.avatar_url,
+          company_name: session.user.user_metadata?.company_name,
+          role: session.user.user_metadata?.role
+        });
       }
-      
-      setLoading(false)
-    })
+      setLoading(false);
+    });
 
     // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
-      
-      if (session?.user) {
-        const fullName = session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'User'
-        setUserProfile({
-          id: session.user.id,
-          email: session.user.email || '',
-          fullName: fullName,
-        })
-      } else {
-        setUserProfile(null)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        setSession(session);
+        if (session?.user) {
+          setUser({
+            id: session.user.id,
+            email: session.user.email || '',
+            full_name: session.user.user_metadata?.full_name,
+            avatar_url: session.user.user_metadata?.avatar_url,
+            company_name: session.user.user_metadata?.company_name,
+            role: session.user.user_metadata?.role
+          });
+        } else {
+          setUser(null);
+        }
+        setLoading(false);
       }
-    })
+    );
 
-    return () => subscription?.unsubscribe()
-  }, [])
+    return () => subscription.unsubscribe();
+  }, []);
 
-  const signUp = async (email: string, password: string, fullName: string) => {
-    setError(null)
+  const signIn = useCallback(async (email: string, password: string) => {
+    setError(null);
+    setLoading(true);
     try {
-      const { data, error: signUpError } = await supabase.auth.signUp({
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+    } catch (err: any) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const signUp = useCallback(async (email: string, password: string, metadata?: Record<string, any>) => {
+    setError(null);
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.signUp({
         email,
         password,
-        options: {
-          data: {
-            full_name: fullName,
-          },
-        },
-      })
-
-      if (signUpError) throw signUpError
-      return data
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Sign up failed'
-      setError(message)
-      throw err
+        options: { data: metadata }
+      });
+      if (error) throw error;
+    } catch (err: any) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setLoading(false);
     }
-  }
+  }, []);
 
-  const signIn = async (email: string, password: string) => {
-    setError(null)
+  const signOut = useCallback(async () => {
+    setError(null);
     try {
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
-
-      if (signInError) throw signInError
-      return data
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Sign in failed'
-      setError(message)
-      throw err
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+    } catch (err: any) {
+      setError(err.message);
+      throw err;
     }
-  }
+  }, []);
 
-  const signOut = async () => {
-    setError(null)
+  const resetPassword = useCallback(async (email: string) => {
+    setError(null);
     try {
-      const { error } = await supabase.auth.signOut()
-      if (error) throw error
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Sign out failed'
-      setError(message)
-      throw err
+      const { error } = await supabase.auth.resetPasswordForEmail(email);
+      if (error) throw error;
+    } catch (err: any) {
+      setError(err.message);
+      throw err;
     }
-  }
+  }, []);
 
-  const resetPassword = async (email: string) => {
-    setError(null)
+  const updateProfile = useCallback(async (data: Partial<AuthUser>) => {
+    setError(null);
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email)
-      if (error) throw error
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Password reset failed'
-      setError(message)
-      throw err
+      const { error } = await supabase.auth.updateUser({
+        data: {
+          full_name: data.full_name,
+          avatar_url: data.avatar_url,
+          company_name: data.company_name,
+          role: data.role
+        }
+      });
+      if (error) throw error;
+      if (user) {
+        setUser({ ...user, ...data });
+      }
+    } catch (err: any) {
+      setError(err.message);
+      throw err;
     }
-  }
+  }, [user]);
 
   return {
     user,
-    userProfile,
+    session,
     loading,
     error,
-    signUp,
     signIn,
+    signUp,
     signOut,
     resetPassword,
-  }
+    updateProfile
+  };
 }
+
+export default useAuth;
