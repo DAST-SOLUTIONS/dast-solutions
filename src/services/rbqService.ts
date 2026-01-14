@@ -398,6 +398,23 @@ export const rbqService = new RBQService();
 export interface RBQVerificationResult {
   success: boolean;
   valid: boolean;
+  verified?: boolean; // Alias pour valid
+  data?: {
+    licenseNumber?: string;
+    companyName?: string;
+    status?: string;
+    categories?: RBQCategorie[];
+    expirationDate?: string;
+    address?: string;
+    city?: string;
+    postalCode?: string;
+    phone?: string;
+    email?: string;
+    website?: string;
+    infractions?: RBQInfraction[];
+    cautionnement?: number;
+    neq?: string;
+  };
   entrepreneur?: RBQEntrepreneur;
   licenseNumber?: string;
   companyName?: string;
@@ -419,27 +436,47 @@ export async function verifyRBQLicense(licenseNumber: string): Promise<RBQVerifi
       return {
         success: false,
         valid: false,
+        verified: false,
         message: 'Licence non trouvée'
       };
     }
 
+    const isValid = entrepreneur.licence.statut === 'valide';
+
     return {
       success: true,
-      valid: entrepreneur.licence.statut === 'valide',
+      valid: isValid,
+      verified: isValid,
       entrepreneur,
       licenseNumber: entrepreneur.licence.numero,
       companyName: entrepreneur.nom_entreprise,
       categories: entrepreneur.licence.categorie,
       status: entrepreneur.licence.statut,
       expirationDate: entrepreneur.licence.date_expiration,
-      message: entrepreneur.licence.statut === 'valide' 
-        ? 'Licence valide' 
-        : `Licence ${entrepreneur.licence.statut}`
+      message: isValid ? 'Licence valide' : `Licence ${entrepreneur.licence.statut}`,
+      // Format data pour compatibilité avec le code existant
+      data: {
+        licenseNumber: entrepreneur.licence.numero,
+        companyName: entrepreneur.nom_entreprise,
+        status: entrepreneur.licence.statut,
+        categories: entrepreneur.licence.categorie,
+        expirationDate: entrepreneur.licence.date_expiration,
+        address: entrepreneur.adresse,
+        city: entrepreneur.ville,
+        postalCode: entrepreneur.code_postal,
+        phone: entrepreneur.telephone,
+        email: entrepreneur.courriel,
+        website: entrepreneur.site_web,
+        infractions: entrepreneur.infractions,
+        cautionnement: entrepreneur.licence.cautionnement,
+        neq: entrepreneur.neq
+      }
     };
   } catch (error) {
     return {
       success: false,
       valid: false,
+      verified: false,
       error: error instanceof Error ? error.message : 'Erreur de vérification'
     };
   }

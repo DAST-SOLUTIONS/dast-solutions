@@ -374,3 +374,203 @@ COMMENT ON TABLE rbq_entrepreneurs IS 'Cache des entrepreneurs RBQ avec licences
 COMMENT ON TABLE seao_appels_offres IS 'Appels d''offres du Système électronique d''appels d''offres du Québec';
 COMMENT ON TABLE ccq_taux_horaires IS 'Taux horaires CCQ par métier, secteur et classification';
 COMMENT ON TABLE soumissions IS 'Suivi des soumissions aux appels d''offres';
+
+-- ============================================================
+-- TABLES PAIE
+-- ============================================================
+
+-- Table Employés
+CREATE TABLE IF NOT EXISTS employes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  numero_employe VARCHAR(50) UNIQUE NOT NULL,
+  nom VARCHAR(100) NOT NULL,
+  prenom VARCHAR(100) NOT NULL,
+  date_naissance DATE,
+  nas_encrypted TEXT, -- Crypté
+  adresse TEXT,
+  ville VARCHAR(100),
+  code_postal VARCHAR(10),
+  telephone VARCHAR(20),
+  courriel VARCHAR(255),
+  date_embauche DATE NOT NULL,
+  type_employe VARCHAR(20) DEFAULT 'standard' CHECK (type_employe IN ('ccq', 'standard', 'cadre')),
+  -- CCQ
+  numero_ccq VARCHAR(20),
+  metier_ccq VARCHAR(100),
+  classification_ccq VARCHAR(20) CHECK (classification_ccq IN ('apprenti', 'compagnon', 'occupation')),
+  niveau_apprenti INTEGER CHECK (niveau_apprenti BETWEEN 1 AND 5),
+  secteur_ccq VARCHAR(5) CHECK (secteur_ccq IN ('IC', 'CI', 'GC', 'RE')),
+  -- Standard
+  taux_horaire NUMERIC(10,2),
+  salaire_annuel NUMERIC(12,2),
+  -- Bancaire
+  transit_bancaire VARCHAR(10),
+  institution_bancaire VARCHAR(5),
+  compte_bancaire VARCHAR(20),
+  -- Déductions
+  td1_federal NUMERIC(10,2),
+  tp1_provincial NUMERIC(10,2),
+  exonere_ae BOOLEAN DEFAULT false,
+  exonere_rqap BOOLEAN DEFAULT false,
+  cotisation_syndicale NUMERIC(10,2) DEFAULT 0,
+  pension_employeur NUMERIC(10,2) DEFAULT 0,
+  assurance_collective NUMERIC(10,2) DEFAULT 0,
+  -- RBQ (pour vérification)
+  rbq_licence VARCHAR(20),
+  rbq_statut VARCHAR(20),
+  rbq_categories JSONB,
+  rbq_derniere_verification TIMESTAMPTZ,
+  -- Statut
+  statut VARCHAR(20) DEFAULT 'actif' CHECK (statut IN ('actif', 'inactif', 'termine')),
+  date_fin_emploi DATE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_employes_user ON employes(user_id);
+CREATE INDEX IF NOT EXISTS idx_employes_numero ON employes(numero_employe);
+CREATE INDEX IF NOT EXISTS idx_employes_type ON employes(type_employe);
+CREATE INDEX IF NOT EXISTS idx_employes_statut ON employes(statut);
+
+-- Table Périodes de paie
+CREATE TABLE IF NOT EXISTS periodes_paie (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  numero INTEGER NOT NULL,
+  annee INTEGER NOT NULL,
+  date_debut DATE NOT NULL,
+  date_fin DATE NOT NULL,
+  date_paiement DATE NOT NULL,
+  type VARCHAR(20) DEFAULT 'bi_hebdomadaire' CHECK (type IN ('hebdomadaire', 'bi_hebdomadaire', 'mensuel')),
+  statut VARCHAR(20) DEFAULT 'ouverte' CHECK (statut IN ('ouverte', 'fermee', 'payee')),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(user_id, annee, numero)
+);
+
+CREATE INDEX IF NOT EXISTS idx_periodes_user ON periodes_paie(user_id);
+CREATE INDEX IF NOT EXISTS idx_periodes_annee ON periodes_paie(annee);
+CREATE INDEX IF NOT EXISTS idx_periodes_statut ON periodes_paie(statut);
+
+-- Table Feuilles de temps
+CREATE TABLE IF NOT EXISTS feuilles_temps (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  employe_id UUID REFERENCES employes(id) ON DELETE CASCADE,
+  periode_id UUID REFERENCES periodes_paie(id) ON DELETE CASCADE,
+  projet_id UUID REFERENCES projects(id) ON DELETE SET NULL,
+  date DATE NOT NULL,
+  heures_regulieres NUMERIC(5,2) DEFAULT 0,
+  heures_supplementaires NUMERIC(5,2) DEFAULT 0,
+  heures_doubles NUMERIC(5,2) DEFAULT 0,
+  heures_feries NUMERIC(5,2) DEFAULT 0,
+  prime_deplacement NUMERIC(10,2) DEFAULT 0,
+  prime_hauteur NUMERIC(10,2) DEFAULT 0,
+  prime_nuit NUMERIC(10,2) DEFAULT 0,
+  notes TEXT,
+  statut VARCHAR(20) DEFAULT 'brouillon' CHECK (statut IN ('brouillon', 'soumis', 'approuve', 'refuse')),
+  approuve_par UUID REFERENCES auth.users(id),
+  date_approbation TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_feuilles_employe ON feuilles_temps(employe_id);
+CREATE INDEX IF NOT EXISTS idx_feuilles_periode ON feuilles_temps(periode_id);
+CREATE INDEX IF NOT EXISTS idx_feuilles_projet ON feuilles_temps(projet_id);
+CREATE INDEX IF NOT EXISTS idx_feuilles_date ON feuilles_temps(date);
+CREATE INDEX IF NOT EXISTS idx_feuilles_statut ON feuilles_temps(statut);
+
+-- Table Calculs de paie
+CREATE TABLE IF NOT EXISTS calculs_paie (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  employe_id UUID REFERENCES employes(id) ON DELETE CASCADE,
+  periode_id UUID REFERENCES periodes_paie(id) ON DELETE CASCADE,
+  -- Heures
+  heures_regulieres NUMERIC(6,2) DEFAULT 0,
+  heures_supplementaires NUMERIC(6,2) DEFAULT 0,
+  heures_doubles NUMERIC(6,2) DEFAULT 0,
+  heures_feries NUMERIC(6,2) DEFAULT 0,
+  total_heures NUMERIC(6,2) DEFAULT 0,
+  -- Gains
+  salaire_regulier NUMERIC(12,2) DEFAULT 0,
+  salaire_supplementaire NUMERIC(12,2) DEFAULT 0,
+  salaire_double NUMERIC(12,2) DEFAULT 0,
+  salaire_ferie NUMERIC(12,2) DEFAULT 0,
+  primes NUMERIC(12,2) DEFAULT 0,
+  salaire_brut NUMERIC(12,2) DEFAULT 0,
+  vacances_ccq NUMERIC(12,2) DEFAULT 0,
+  conges_feries_ccq NUMERIC(12,2) DEFAULT 0,
+  -- Déductions
+  impot_federal NUMERIC(12,2) DEFAULT 0,
+  impot_provincial NUMERIC(12,2) DEFAULT 0,
+  rqap_employe NUMERIC(12,2) DEFAULT 0,
+  ae_employe NUMERIC(12,2) DEFAULT 0,
+  rrq_employe NUMERIC(12,2) DEFAULT 0,
+  cotisation_syndicale NUMERIC(12,2) DEFAULT 0,
+  assurance_employe NUMERIC(12,2) DEFAULT 0,
+  autres_deductions NUMERIC(12,2) DEFAULT 0,
+  total_deductions NUMERIC(12,2) DEFAULT 0,
+  salaire_net NUMERIC(12,2) DEFAULT 0,
+  -- Employeur
+  rqap_employeur NUMERIC(12,2) DEFAULT 0,
+  ae_employeur NUMERIC(12,2) DEFAULT 0,
+  rrq_employeur NUMERIC(12,2) DEFAULT 0,
+  fss_employeur NUMERIC(12,2) DEFAULT 0,
+  cnt_employeur NUMERIC(12,2) DEFAULT 0,
+  ccq_avantages NUMERIC(12,2) DEFAULT 0,
+  ccq_retraite NUMERIC(12,2) DEFAULT 0,
+  ccq_formation NUMERIC(12,2) DEFAULT 0,
+  total_employeur NUMERIC(12,2) DEFAULT 0,
+  cout_total NUMERIC(12,2) DEFAULT 0,
+  -- Paiement
+  paye BOOLEAN DEFAULT false,
+  date_paiement TIMESTAMPTZ,
+  numero_cheque VARCHAR(50),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(employe_id, periode_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_calculs_employe ON calculs_paie(employe_id);
+CREATE INDEX IF NOT EXISTS idx_calculs_periode ON calculs_paie(periode_id);
+CREATE INDEX IF NOT EXISTS idx_calculs_paye ON calculs_paie(paye);
+
+-- RLS pour tables paie
+ALTER TABLE employes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE periodes_paie ENABLE ROW LEVEL SECURITY;
+ALTER TABLE feuilles_temps ENABLE ROW LEVEL SECURITY;
+ALTER TABLE calculs_paie ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view own employees" ON employes
+  FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can manage own employees" ON employes
+  FOR ALL USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can view own periods" ON periodes_paie
+  FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can manage own periods" ON periodes_paie
+  FOR ALL USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can view timesheets" ON feuilles_temps
+  FOR SELECT USING (
+    EXISTS (SELECT 1 FROM employes e WHERE e.id = employe_id AND e.user_id = auth.uid())
+  );
+CREATE POLICY "Users can manage timesheets" ON feuilles_temps
+  FOR ALL USING (
+    EXISTS (SELECT 1 FROM employes e WHERE e.id = employe_id AND e.user_id = auth.uid())
+  );
+
+CREATE POLICY "Users can view payroll calcs" ON calculs_paie
+  FOR SELECT USING (
+    EXISTS (SELECT 1 FROM employes e WHERE e.id = employe_id AND e.user_id = auth.uid())
+  );
+CREATE POLICY "Users can manage payroll calcs" ON calculs_paie
+  FOR ALL USING (
+    EXISTS (SELECT 1 FROM employes e WHERE e.id = employe_id AND e.user_id = auth.uid())
+  );
+
+COMMENT ON TABLE employes IS 'Employés avec info CCQ, déductions et coordonnées bancaires';
+COMMENT ON TABLE periodes_paie IS 'Périodes de paie (hebdo, bi-hebdo, mensuel)';
+COMMENT ON TABLE feuilles_temps IS 'Feuilles de temps par employé et projet';
+COMMENT ON TABLE calculs_paie IS 'Calculs de paie détaillés avec déductions et contributions';

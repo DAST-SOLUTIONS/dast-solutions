@@ -13,6 +13,7 @@ export { rbqService } from './rbqService';
 export { ccqServiceEnhanced } from './ccqServiceEnhanced';
 export { appelsOffresCanadaService } from './appelsOffresCanadaService';
 export { associationsService, ASSOCIATIONS_QUEBEC } from './associationsService';
+export { paieService } from './paieService';
 
 // ============ TYPES SEAO ============
 export type { 
@@ -95,3 +96,19 @@ export type {
   ChatMessage, 
   ChatResponse 
 } from './aiService';
+
+// ============ TYPES PAIE ============
+export type {
+  Employe,
+  PeriodePaie,
+  FeuilleTemps,
+  CalculPaie,
+  TalentPaieParams
+} from './paieService';
+
+export {
+  TAUX_GOUVERNEMENT_2025,
+  TABLES_IMPOT_FEDERAL_2025,
+  TABLES_IMPOT_QUEBEC_2025,
+  EXEMPTIONS_2025
+} from './paieService';
