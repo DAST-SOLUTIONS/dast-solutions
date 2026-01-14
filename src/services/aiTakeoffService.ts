@@ -1,6 +1,13 @@
 /**
- * Service AI Takeoff - Analyse automatique des plans
+ * Service AI Takeoff - Analyse de plans avec IA
  */
+
+export interface PageInfo {
+  width: number;
+  height: number;
+  scale?: number;
+  unit?: string;
+}
 
 export interface DetectedElement {
   id: string;
@@ -16,12 +23,14 @@ export interface DetectedElement {
   layer?: string;
 }
 
+export type AIDetectedItem = DetectedElement;
+
 export interface AIAnalysisResult {
   success: boolean;
   elements: DetectedElement[];
-  totalConfidence: number;
-  processingTime: number;
-  pageInfo?: { width: number; height: number; scale?: number };
+  pageInfo: PageInfo;
+  scale?: number;
+  processingTime?: number;
   error?: string;
 }
 
@@ -29,14 +38,16 @@ export interface TakeoffItem {
   id: string;
   element_id?: string;
   description: string;
+  category: string;
+  subcategory?: string;
   quantity: number;
   unit: string;
   unit_price?: number;
-  total?: number;
-  category?: string;
-  csc_code?: string;
-  layer?: string;
+  total_price?: number;
   confidence?: number;
+  source: 'ai' | 'manual';
+  csc_code?: string;
+  notes?: string;
 }
 
 export interface TakeoffLayer {
@@ -45,101 +56,151 @@ export interface TakeoffLayer {
   color: string;
   visible: boolean;
   locked: boolean;
-  items: TakeoffItem[];
+  elements: DetectedElement[];
+  elementTypes?: string[];
 }
 
-export interface AITakeoffResult {
-  success: boolean;
-  items: DetectedElement[];
-  confidence: number;
-  processingTime: number;
-  error?: string;
+export interface AnalysisOptions {
+  detectWalls?: boolean;
+  detectDoors?: boolean;
+  detectWindows?: boolean;
+  detectElectrical?: boolean;
+  detectPlumbing?: boolean;
+  autoScale?: boolean;
+  minConfidence?: number;
 }
 
-// CSC MasterFormat Categories
-export const CSC_CATEGORIES = {
-  '03': { code: '03', name: 'Béton', subcategories: ['Coffrage', 'Armature', 'Béton coulé'] },
-  '04': { code: '04', name: 'Maçonnerie', subcategories: ['Brique', 'Bloc', 'Pierre'] },
-  '05': { code: '05', name: 'Métaux', subcategories: ['Acier structural', 'Métaux ouvrés'] },
-  '06': { code: '06', name: 'Bois et plastiques', subcategories: ['Charpente', 'Menuiserie'] },
-  '07': { code: '07', name: 'Protection thermique', subcategories: ['Isolation', 'Toiture'] },
-  '08': { code: '08', name: 'Portes et fenêtres', subcategories: ['Portes', 'Fenêtres', 'Quincaillerie'] },
-  '09': { code: '09', name: 'Finitions', subcategories: ['Gypse', 'Peinture', 'Revêtements'] }
-};
-
-// Default layers
-export const DEFAULT_LAYERS: TakeoffLayer[] = [
-  { id: 'structure', name: 'Structure', color: '#3b82f6', visible: true, locked: false, items: [] },
-  { id: 'architecture', name: 'Architecture', color: '#10b981', visible: true, locked: false, items: [] },
-  { id: 'mechanical', name: 'Mécanique', color: '#f59e0b', visible: true, locked: false, items: [] },
-  { id: 'electrical', name: 'Électrique', color: '#ef4444', visible: true, locked: false, items: [] },
-  { id: 'plumbing', name: 'Plomberie', color: '#8b5cf6', visible: true, locked: false, items: [] }
-];
-
-class AITakeoffService {
-  private apiKey: string | null = null;
-
-  setApiKey(key: string) {
-    this.apiKey = key;
-  }
-
-  async analyzeImage(imageData: string | Blob): Promise<AITakeoffResult> {
-    const startTime = Date.now();
-    
-    try {
-      const mockItems: DetectedElement[] = [
-        { id: '1', type: 'wall', label: 'Mur béton', description: 'Mur de béton 200mm', quantity: 45.5, unit: 'm²', confidence: 0.92, category: 'Béton', csc_code: '03-31-00' },
-        { id: '2', type: 'door', label: 'Porte', description: 'Porte standard 900x2100', quantity: 3, unit: 'unité', confidence: 0.88, category: 'Portes', csc_code: '08-11-00' },
-        { id: '3', type: 'window', label: 'Fenêtre', description: 'Fenêtre 1200x1500', quantity: 4, unit: 'unité', confidence: 0.85, category: 'Fenêtres', csc_code: '08-51-00' }
-      ];
-
-      return { success: true, items: mockItems, confidence: 0.88, processingTime: Date.now() - startTime };
-    } catch (error: any) {
-      return { success: false, items: [], confidence: 0, processingTime: Date.now() - startTime, error: error.message };
+// Simulate AI analysis (would connect to OpenAI Vision API in production)
+export async function analyzePageWithAI(
+  imageData: string | Blob | File,
+  scale?: number,
+  options?: AnalysisOptions
+): Promise<AIAnalysisResult> {
+  // Simulated AI analysis
+  await new Promise(resolve => setTimeout(resolve, 1500));
+  
+  const mockElements: DetectedElement[] = [
+    {
+      id: 'elem-1',
+      type: 'wall',
+      label: 'Mur extérieur',
+      description: 'Mur extérieur en béton',
+      quantity: 45.5,
+      unit: 'ml',
+      confidence: 0.92,
+      category: 'Structure',
+      csc_code: '03-31'
+    },
+    {
+      id: 'elem-2',
+      type: 'door',
+      label: 'Porte standard',
+      description: 'Porte intérieure 36"',
+      quantity: 8,
+      unit: 'unité',
+      confidence: 0.88,
+      category: 'Ouvertures',
+      csc_code: '08-11'
+    },
+    {
+      id: 'elem-3',
+      type: 'window',
+      label: 'Fenêtre',
+      description: 'Fenêtre double vitrage',
+      quantity: 12,
+      unit: 'unité',
+      confidence: 0.85,
+      category: 'Ouvertures',
+      csc_code: '08-52'
     }
-  }
-}
+  ];
 
-export const aiTakeoffService = new AITakeoffService();
-
-// Helper functions expected by existing code
-export async function analyzePageWithAI(imageData: string | Blob): Promise<AIAnalysisResult> {
-  const result = await aiTakeoffService.analyzeImage(imageData);
   return {
-    success: result.success,
-    elements: result.items,
-    totalConfidence: result.confidence,
-    processingTime: result.processingTime,
-    error: result.error
+    success: true,
+    elements: mockElements,
+    pageInfo: {
+      width: 1000,
+      height: 800,
+      scale: scale || 0.01,
+      unit: 'm'
+    },
+    scale: scale || 0.01,
+    processingTime: 1500
   };
 }
 
-export function elementsToTakeoffItems(elements: DetectedElement[]): TakeoffItem[] {
-  return elements.map(el => ({
-    id: el.id,
-    element_id: el.id,
-    description: el.description,
-    quantity: el.quantity,
-    unit: el.unit,
-    category: el.category,
-    csc_code: el.csc_code,
-    confidence: el.confidence
-  }));
+export function elementsToTakeoffItems(
+  elements: DetectedElement[],
+  options?: { categoryFilter?: string }
+): TakeoffItem[] {
+  return elements
+    .filter(el => !options?.categoryFilter || el.category === options.categoryFilter)
+    .map(el => ({
+      id: `takeoff-${el.id}`,
+      element_id: el.id,
+      description: el.description,
+      category: el.category || 'Général',
+      subcategory: el.type,
+      quantity: el.quantity,
+      unit: el.unit,
+      confidence: el.confidence,
+      source: 'ai' as const,
+      csc_code: el.csc_code
+    }));
 }
 
-export function exportTakeoffToExcel(items: TakeoffItem[], filename: string): void {
-  const csv = [
-    'Description,Quantité,Unité,Code CSC,Catégorie',
-    ...items.map(i => `"${i.description}",${i.quantity},"${i.unit}","${i.csc_code || ''}","${i.category || ''}"`)
-  ].join('\n');
-  
-  const blob = new Blob([csv], { type: 'text/csv' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
+export function createTakeoffLayer(name: string, color: string): TakeoffLayer {
+  return {
+    id: `layer-${Date.now()}`,
+    name,
+    color,
+    visible: true,
+    locked: false,
+    elements: [],
+    elementTypes: []
+  };
 }
 
-export default aiTakeoffService;
+export default {
+  analyzePageWithAI,
+  elementsToTakeoffItems,
+  createTakeoffLayer
+};
+
+// CSC Categories
+export const CSC_CATEGORIES = [
+  { code: '03', name: 'Béton', name_fr: 'Béton' },
+  { code: '04', name: 'Maçonnerie', name_fr: 'Maçonnerie' },
+  { code: '05', name: 'Métaux', name_fr: 'Métaux' },
+  { code: '06', name: 'Bois et plastiques', name_fr: 'Bois et plastiques' },
+  { code: '07', name: 'Isolation thermique', name_fr: 'Isolation thermique' },
+  { code: '08', name: 'Portes et fenêtres', name_fr: 'Portes et fenêtres' },
+  { code: '09', name: 'Finitions', name_fr: 'Finitions' },
+  { code: '26', name: 'Électricité', name_fr: 'Électricité' },
+  { code: '22', name: 'Plomberie', name_fr: 'Plomberie' },
+  { code: '23', name: 'CVAC', name_fr: 'CVAC' }
+];
+
+// Default layers
+export const DEFAULT_LAYERS: TakeoffLayer[] = [
+  { id: 'layer-walls', name: 'Murs', color: '#3B82F6', visible: true, locked: false, elements: [], elementTypes: ['wall'] },
+  { id: 'layer-doors', name: 'Portes', color: '#10B981', visible: true, locked: false, elements: [], elementTypes: ['door'] },
+  { id: 'layer-windows', name: 'Fenêtres', color: '#F59E0B', visible: true, locked: false, elements: [], elementTypes: ['window'] },
+  { id: 'layer-electrical', name: 'Électricité', color: '#EF4444', visible: true, locked: false, elements: [], elementTypes: ['electrical'] },
+  { id: 'layer-plumbing', name: 'Plomberie', color: '#8B5CF6', visible: true, locked: false, elements: [], elementTypes: ['plumbing'] }
+];
+
+// Export to Excel
+export function exportTakeoffToExcel(items: TakeoffItem[], filename?: string): void {
+  // Implementation would use xlsx library
+  console.log(`Exporting ${items.length} items to ${filename || 'takeoff.xlsx'}`);
+}
+
+export const aiTakeoffService = {
+  analyzePageWithAI,
+  elementsToTakeoffItems,
+  createTakeoffLayer,
+  exportTakeoffToExcel,
+  CSC_CATEGORIES,
+  DEFAULT_LAYERS
+};

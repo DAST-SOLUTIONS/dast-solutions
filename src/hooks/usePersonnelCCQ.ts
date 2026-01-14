@@ -5,6 +5,13 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase/client';
 import { CCQ_METIERS, CCQ_SECTEURS, CCQ_TAUX_2025_2026 } from '@/services/ccqServiceEnhanced';
 
+export interface MetierCCQ {
+  code: string;
+  nom: string;
+  secteurs?: string[];
+  description?: string;
+}
+
 export interface PersonnelCCQ {
   id: string;
   nom: string;
@@ -12,15 +19,72 @@ export interface PersonnelCCQ {
   numero_ccq?: string;
   metier_code: string;
   metier_nom?: string;
+  metier?: string;
   secteur: string;
   classification: 'compagnon' | 'apprenti_1' | 'apprenti_2' | 'apprenti_3' | 'apprenti_4';
   taux_horaire?: number;
+  taux_horaire_actuel?: number;
   telephone?: string;
   email?: string;
   date_embauche?: string;
+  date_naissance?: string;
   statut: 'actif' | 'inactif' | 'temporaire';
+  status?: string;
   notes?: string;
+  certifications?: PersonnelCertification[];
+  heures_travaillees_total?: number;
+  projets_assignes?: string[];
+  adresse_rue?: string;
+  adresse_ville?: string;
+  adresse_province?: string;
+  adresse_code_postal?: string;
   user_id: string;
+}
+
+export type Personnel = PersonnelCCQ;
+
+export interface PersonnelCertification {
+  id: string;
+  personnel_id: string;
+  type?: string;
+  nom: string;
+  numero?: string;
+  organisme?: string;
+  date_emission?: string;
+  date_obtention?: string;
+  date_expiration?: string;
+  status?: 'valide' | 'expire' | 'en_cours';
+}
+
+export interface CreatePersonnelParams {
+  nom: string;
+  prenom: string;
+  numero_ccq?: string;
+  metier_code: string;
+  metier_nom?: string;
+  secteur: string;
+  classification: PersonnelCCQ['classification'];
+  telephone?: string;
+  email?: string;
+  date_embauche?: string;
+  date_naissance?: string;
+  statut?: PersonnelCCQ['statut'];
+  notes?: string;
+  adresse_rue?: string;
+  adresse_ville?: string;
+  adresse_province?: string;
+  adresse_code_postal?: string;
+}
+
+export interface CreateCertificationParams {
+  personnel_id: string;
+  type?: string;
+  nom: string;
+  numero?: string;
+  organisme?: string;
+  date_emission?: string;
+  date_obtention?: string;
+  date_expiration?: string;
 }
 
 export function usePersonnelCCQ() {
@@ -42,14 +106,16 @@ export function usePersonnelCCQ() {
 
       if (fetchError) throw fetchError;
       
-      // Enrich with CCQ data
       const enriched = (data || []).map(p => {
         const metier = CCQ_METIERS.find(m => m.code === p.metier_code);
         const taux = CCQ_TAUX_2025_2026[p.secteur as keyof typeof CCQ_TAUX_2025_2026]?.[p.metier_code.toLowerCase()];
         return {
           ...p,
           metier_nom: metier?.nom,
-          taux_horaire: taux?.taux_base
+          metier: metier?.nom,
+          taux_horaire: taux?.taux_base,
+          taux_horaire_actuel: taux?.taux_base,
+          status: p.statut
         };
       });
       
@@ -65,13 +131,14 @@ export function usePersonnelCCQ() {
     fetchPersonnel();
   }, [fetchPersonnel]);
 
-  const createPersonnel = async (data: Partial<PersonnelCCQ>) => {
+  const createPersonnel = async (data: CreatePersonnelParams) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Non authentifié');
 
+    const { metier_nom, ...rest } = data;
     const { data: newItem, error } = await supabase
       .from('personnel_ccq')
-      .insert([{ ...data, user_id: user.id }])
+      .insert([{ ...rest, user_id: user.id }])
       .select()
       .single();
 
@@ -103,7 +170,6 @@ export function usePersonnelCCQ() {
     const taux = CCQ_TAUX_2025_2026[p.secteur as keyof typeof CCQ_TAUX_2025_2026]?.[p.metier_code.toLowerCase()];
     if (!taux) return null;
     
-    // Apply classification factor
     const factors: Record<string, number> = {
       compagnon: 1.0,
       apprenti_1: 0.50,
@@ -119,6 +185,38 @@ export function usePersonnelCCQ() {
     };
   };
 
+  const getTauxComplet = getTauxForPersonnel;
+
+  const calculerCoutComplet = (taux: number, metier?: MetierCCQ) => {
+    const m = metier || CCQ_METIERS[0];
+    return {
+      total: taux * 1.5,
+      tauxBase: taux,
+      vacances: taux * 0.13,
+      avantages: taux * 0.37,
+    };
+  };
+
+  const calculerChargesSociales = (taux: number, metier?: MetierCCQ) => {
+    return {
+      total: taux * 1.5,
+      tauxBase: taux,
+      vacances: taux * 0.13,
+      avantages: taux * 0.37
+    };
+  };
+
+  const addCertification = async (params: CreateCertificationParams) => {
+    const { data, error } = await supabase
+      .from('personnel_certifications')
+      .insert([params])
+      .select()
+      .single();
+    if (error) throw error;
+    await fetchPersonnel();
+    return data;
+  };
+
   const stats = {
     total: personnel.length,
     actifs: personnel.filter(p => p.statut === 'actif').length,
@@ -131,17 +229,25 @@ export function usePersonnelCCQ() {
     })).filter(m => m.count > 0)
   };
 
+  const getStats = () => stats;
+
   return {
     personnel,
     loading,
     error,
     stats,
+    getStats,
     metiers: CCQ_METIERS,
     secteurs: CCQ_SECTEURS,
     createPersonnel,
     updatePersonnel,
     deletePersonnel,
     getTauxForPersonnel,
+    getTauxComplet,
+    calculerCoutComplet,
+    calculerChargesSociales,
+    addCertification,
+    fetchPersonnel,
     refresh: fetchPersonnel
   };
 }

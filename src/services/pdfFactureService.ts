@@ -159,4 +159,33 @@ class PDFFactureService {
 }
 
 export const pdfFactureService = new PDFFactureService();
+
+// Helper functions for direct exports
+export async function generateFacturePDF(facture: FacturePDFData): Promise<Blob> {
+  return pdfFactureService.generatePDF(facture);
+}
+
+export async function downloadFacturePDF(facture: FacturePDFData): Promise<void> {
+  return pdfFactureService.downloadPDF(facture);
+}
+
+export async function openFacturePDFInNewTab(facture: FacturePDFData): Promise<void> {
+  const blob = await pdfFactureService.generatePDF(facture);
+  const url = URL.createObjectURL(blob);
+  window.open(url, '_blank');
+}
+
+export async function loadEntrepriseSettings(): Promise<FacturePDFData['company_info'] | null> {
+  // Load from localStorage or return default
+  const saved = localStorage.getItem('entreprise_settings');
+  if (saved) {
+    try {
+      return JSON.parse(saved);
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
 export default pdfFactureService;

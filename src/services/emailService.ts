@@ -154,4 +154,27 @@ class EmailService {
 }
 
 export const emailService = new EmailService();
+
+// Helper functions for direct exports
+export async function sendFactureEmail(facture: any, toEmail: string): Promise<{ success: boolean; error?: string }> {
+  return emailService.sendFacture(facture, toEmail);
+}
+
+export async function sendFactureRappel(facture: any, toEmail: string): Promise<{ success: boolean; error?: string }> {
+  const template = EMAIL_TEMPLATES.find(t => t.id === 'rappel_paiement')!;
+  const { subject, body } = emailService.parseTemplate(template, {
+    numero: facture.numero,
+    client_name: facture.client_name || 'Client',
+    montant_total: facture.montant_total?.toFixed(2) || '0.00',
+    date_echeance: facture.date_echeance || 'N/A',
+    company_name: 'DAST Solutions'
+  });
+  
+  return emailService.sendEmail({ to: toEmail, subject, body });
+}
+
+export async function sendSoumissionEmail(soumission: any, toEmail: string): Promise<{ success: boolean; error?: string }> {
+  return emailService.sendSoumission(soumission, toEmail);
+}
+
 export default emailService;

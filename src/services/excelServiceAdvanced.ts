@@ -1,87 +1,143 @@
 /**
- * Service Excel Avancé - Export/Import avec formatage
+ * Service Excel Advanced - Import/Export Excel pour estimations
  */
-import { excelService } from './excelService';
+import * as XLSX from 'xlsx';
 
-export interface ExcelAdvancedOptions {
-  filename: string;
-  sheets?: Array<{
-    name: string;
-    data: any[];
-    columns?: Array<{
-      header: string;
-      key: string;
-      width?: number;
-      format?: 'text' | 'number' | 'currency' | 'date' | 'percentage';
-    }>;
-  }>;
-  title?: string;
-  author?: string;
+export interface ExcelTemplate {
+  id: string;
+  name: string;
+  description: string;
+  estimation?: boolean;
 }
 
-class ExcelServiceAdvanced {
-  async exportWorkbook(options: ExcelAdvancedOptions): Promise<Blob> {
-    // For now, export first sheet as CSV
-    const firstSheet = options.sheets?.[0];
-    if (!firstSheet) {
-      return new Blob([''], { type: 'text/csv' });
-    }
+export const EXCEL_TEMPLATES: ExcelTemplate[] = [
+  { id: 'estimation', name: 'Estimation', description: 'Modèle d\'estimation de construction', estimation: true },
+  { id: 'soumission', name: 'Soumission', description: 'Modèle de soumission', estimation: false },
+  { id: 'facture', name: 'Facture', description: 'Modèle de facture', estimation: false },
+  { id: 'materiaux', name: 'Liste matériaux', description: 'Liste des matériaux', estimation: true }
+];
+
+export interface ExcelImportResult {
+  items: any[];
+  errors: string[];
+  success: boolean;
+}
+
+export class ExcelService {
+  // Export estimation to Excel
+  exportEstimation(estimation: any, filename?: string): void {
+    const items = estimation.items || [];
     
-    return excelService.exportToExcel(firstSheet.data, {
-      filename: options.filename,
-      sheetName: firstSheet.name,
-      headers: firstSheet.columns?.map(c => c.header)
+    const data = items.map((item: any, index: number) => ({
+      'No': item.numero || index + 1,
+      'Description': item.description,
+      'Catégorie': item.categorie || item.category || '',
+      'Quantité': item.quantite || item.quantity || 0,
+      'Unité': item.unite || item.unit || '',
+      'Prix unitaire': item.prix_unitaire || item.prixUnitaire || item.unit_price || 0,
+      'Total': item.montant || item.total || item.total_price || 0,
+      'Notes': item.notes || ''
+    }));
+    
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Estimation');
+    
+    const name = filename || `estimation-${Date.now()}.xlsx`;
+    XLSX.writeFile(wb, name);
+  }
+
+  // Import file
+  async importFile(file: File): Promise<ExcelImportResult> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      
+      reader.onload = (e) => {
+        try {
+          const data = new Uint8Array(e.target?.result as ArrayBuffer);
+          const workbook = XLSX.read(data, { type: 'array' });
+          const firstSheet = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[firstSheet];
+          const jsonData = XLSX.utils.sheet_to_json(worksheet);
+          
+          const items = jsonData.map((row: any, index: number) => ({
+            id: `import-${index}`,
+            numero: row['No'] || row['Numero'] || index + 1,
+            description: row['Description'] || row['description'] || '',
+            categorie: row['Catégorie'] || row['categorie'] || row['Category'] || '',
+            quantite: parseFloat(row['Quantité'] || row['quantite'] || row['Quantity'] || 0),
+            unite: row['Unité'] || row['unite'] || row['Unit'] || '',
+            prix_unitaire: parseFloat(row['Prix unitaire'] || row['prix_unitaire'] || row['Unit Price'] || 0),
+            prixUnitaire: parseFloat(row['Prix unitaire'] || row['prix_unitaire'] || row['Unit Price'] || 0),
+            montant: parseFloat(row['Total'] || row['montant'] || row['total'] || 0),
+            total: parseFloat(row['Total'] || row['montant'] || row['total'] || 0),
+            notes: row['Notes'] || row['notes'] || '',
+            source: 'imported' as const
+          }));
+          
+          resolve({
+            items,
+            errors: [],
+            success: true
+          });
+        } catch (error: any) {
+          resolve({
+            items: [],
+            errors: [error.message],
+            success: false
+          });
+        }
+      };
+      
+      reader.onerror = () => {
+        resolve({
+          items: [],
+          errors: ['Erreur lors de la lecture du fichier'],
+          success: false
+        });
+      };
+      
+      reader.readAsArrayBuffer(file);
     });
   }
 
-  async exportEstimation(items: any[], projectName: string): Promise<void> {
-    const data = items.map(item => ({
-      'Code': item.code || '',
-      'Description': item.description || '',
-      'Quantité': item.quantity || 0,
-      'Unité': item.unit || '',
-      'Prix unitaire': item.unit_price || 0,
-      'Matériaux': item.material_cost || 0,
-      'Main-d\'œuvre': item.labor_cost || 0,
-      'Total': item.total || 0
-    }));
-
-    excelService.downloadCSV(data, `estimation-${projectName}.csv`);
+  // Download template
+  downloadTemplate(templateId: string): void {
+    const template = EXCEL_TEMPLATES.find(t => t.id === templateId);
+    if (!template) return;
+    
+    let headers: string[];
+    switch (templateId) {
+      case 'estimation':
+        headers = ['No', 'Description', 'Catégorie', 'Quantité', 'Unité', 'Prix unitaire', 'Total', 'Notes'];
+        break;
+      case 'soumission':
+        headers = ['Description', 'Quantité', 'Unité', 'Prix unitaire', 'Montant'];
+        break;
+      case 'facture':
+        headers = ['Description', 'Quantité', 'Prix unitaire', 'Montant'];
+        break;
+      case 'materiaux':
+        headers = ['Code', 'Nom', 'Catégorie', 'Unité', 'Prix', 'Fournisseur'];
+        break;
+      default:
+        headers = ['Description', 'Quantité', 'Prix'];
+    }
+    
+    const ws = XLSX.utils.aoa_to_sheet([headers]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, template.name);
+    XLSX.writeFile(wb, `modele-${templateId}.xlsx`);
   }
 
-  async exportSoumission(soumission: any): Promise<void> {
-    const items = soumission.items?.map((item: any) => ({
-      'Description': item.description,
-      'Quantité': item.quantite,
-      'Unité': item.unite,
-      'Prix unitaire': item.prix_unitaire,
-      'Montant': item.montant
-    })) || [];
-
-    // Add totals
-    items.push({});
-    items.push({ 'Description': 'Sous-total HT', 'Montant': soumission.montant_ht });
-    items.push({ 'Description': 'TPS (5%)', 'Montant': soumission.tps });
-    items.push({ 'Description': 'TVQ (9.975%)', 'Montant': soumission.tvq });
-    items.push({ 'Description': 'TOTAL', 'Montant': soumission.montant_total });
-
-    excelService.downloadCSV(items, `soumission-${soumission.numero}.csv`);
-  }
-
-  async importEstimation(file: File): Promise<any[]> {
-    const data = await excelService.importFromExcel(file);
-    return data.map(row => ({
-      code: row['Code'],
-      description: row['Description'],
-      quantity: parseFloat(row['Quantité']) || 0,
-      unit: row['Unité'],
-      unit_price: parseFloat(row['Prix unitaire']) || 0,
-      material_cost: parseFloat(row['Matériaux']) || 0,
-      labor_cost: parseFloat(row['Main-d\'œuvre']) || 0,
-      total: parseFloat(row['Total']) || 0
-    }));
+  // Export items to Excel
+  exportItems(items: any[], filename: string): void {
+    const ws = XLSX.utils.json_to_sheet(items);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Data');
+    XLSX.writeFile(wb, filename);
   }
 }
 
-export const excelServiceAdvanced = new ExcelServiceAdvanced();
-export default excelServiceAdvanced;
+export const excelService = new ExcelService();
+export default excelService;

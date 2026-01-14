@@ -9,6 +9,7 @@ export interface AuthUser {
   id: string;
   email: string;
   full_name?: string;
+  fullName?: string; // Alias
   avatar_url?: string;
   company_name?: string;
   role?: string;
@@ -16,6 +17,7 @@ export interface AuthUser {
 
 export interface UseAuthReturn {
   user: AuthUser | null;
+  userProfile: AuthUser | null; // Alias for compatibility
   session: Session | null;
   loading: boolean;
   error: string | null;
@@ -37,10 +39,12 @@ export function useAuth(): UseAuthReturn {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       if (session?.user) {
+        const fullName = session.user.user_metadata?.full_name;
         setUser({
           id: session.user.id,
           email: session.user.email || '',
-          full_name: session.user.user_metadata?.full_name,
+          full_name: fullName,
+          fullName: fullName,
           avatar_url: session.user.user_metadata?.avatar_url,
           company_name: session.user.user_metadata?.company_name,
           role: session.user.user_metadata?.role
@@ -54,10 +58,12 @@ export function useAuth(): UseAuthReturn {
       async (event, session) => {
         setSession(session);
         if (session?.user) {
+          const fullName = session.user.user_metadata?.full_name;
           setUser({
             id: session.user.id,
             email: session.user.email || '',
-            full_name: session.user.user_metadata?.full_name,
+            full_name: fullName,
+            fullName: fullName,
             avatar_url: session.user.user_metadata?.avatar_url,
             company_name: session.user.user_metadata?.company_name,
             role: session.user.user_metadata?.role
@@ -149,6 +155,7 @@ export function useAuth(): UseAuthReturn {
 
   return {
     user,
+    userProfile: user, // Alias for compatibility
     session,
     loading,
     error,

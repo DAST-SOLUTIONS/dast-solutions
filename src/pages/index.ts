@@ -1,7 +1,4 @@
-// ===========================================
-// DAST Solutions - Pages Index
-// Note: Les imports sont faits directement via lazy loading dans App.tsx
-// Ce fichier est gardé vide pour éviter les conflits d'imports
-// ===========================================
-
-export {};
+// Pages Soumissions - Index
+export { default as SoumissionTemplates } from './SoumissionTemplates'
+export { default as SoumissionBuilderAdvanced } from './SoumissionBuilderAdvanced'
+export { default as SoumissionAnalytics } from './SoumissionAnalytics'

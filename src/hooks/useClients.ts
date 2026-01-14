@@ -7,14 +7,19 @@ import { supabase } from '@/lib/supabase/client';
 export interface Client {
   id: string;
   name: string;
-  contact_name?: string;
+  company_name?: string;
+  type: 'entreprise' | 'particulier' | 'company' | 'individual' | 'government';
   email?: string;
   phone?: string;
   address?: string;
   city?: string;
   province?: string;
   postal_code?: string;
+  contact_name?: string;
   notes?: string;
+  status: 'actif' | 'inactif' | 'prospect' | 'active' | 'inactive';
+  total_projects?: number;
+  total_revenue?: number;
   created_at: string;
   user_id: string;
 }
@@ -53,15 +58,15 @@ export function useClients() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Non authentifié');
 
-    const { data: newClient, error } = await supabase
+    const { data: newItem, error } = await supabase
       .from('clients')
       .insert([{ ...data, user_id: user.id }])
       .select()
       .single();
 
     if (error) throw error;
-    setClients(prev => [...prev, newClient]);
-    return newClient;
+    await fetchClients();
+    return newItem;
   };
 
   const updateClient = async (id: string, data: Partial<Client>) => {
@@ -73,7 +78,7 @@ export function useClients() {
       .single();
 
     if (error) throw error;
-    setClients(prev => prev.map(c => c.id === id ? updated : c));
+    await fetchClients();
     return updated;
   };
 
@@ -83,7 +88,39 @@ export function useClients() {
     setClients(prev => prev.filter(c => c.id !== id));
   };
 
-  return { clients, loading, error, createClient, updateClient, deleteClient, refresh: fetchClients };
+  const searchClients = (term: string): Client[] => {
+    if (!term) return clients;
+    const lower = term.toLowerCase();
+    return clients.filter(c =>
+      c.name?.toLowerCase().includes(lower) ||
+      c.company_name?.toLowerCase().includes(lower) ||
+      c.email?.toLowerCase().includes(lower)
+    );
+  };
+
+  const stats = {
+    total: clients.length,
+    active: clients.filter(c => c.status === 'actif' || c.status === 'active').length,
+    actifs: clients.filter(c => c.status === 'actif' || c.status === 'active').length,
+    prospect: clients.filter(c => c.status === 'prospect').length,
+    prospects: clients.filter(c => c.status === 'prospect').length,
+    totalRevenue: clients.reduce((sum, c) => sum + (c.total_revenue || 0), 0)
+  };
+
+  const getStats = () => stats;
+
+  return {
+    clients,
+    loading,
+    error,
+    stats,
+    getStats,
+    searchClients,
+    createClient,
+    updateClient,
+    deleteClient,
+    refresh: fetchClients
+  };
 }
 
 export default useClients;

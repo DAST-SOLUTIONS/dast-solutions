@@ -20,7 +20,7 @@ export function Login() {
 
     try {
       if (isSignUp) {
-        await signUp(email, password, fullName)
+        await signUp(email, password, { full_name: fullName })
       } else {
         await signIn(email, password)
       }

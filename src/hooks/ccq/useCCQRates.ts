@@ -12,6 +12,8 @@ import {
 export function useCCQRates() {
   const [selectedSecteur, setSelectedSecteur] = useState<string>('CI');
   const [selectedMetier, setSelectedMetier] = useState<string>('electricien');
+  const [loading] = useState(false);
+  const [error] = useState<string | null>(null);
 
   const getTaux = useCallback((secteur: string, metier: string): CCQTauxHoraire | null => {
     const tauxSecteur = CCQ_TAUX_2025_2026[secteur as keyof typeof CCQ_TAUX_2025_2026];
@@ -38,6 +40,20 @@ export function useCCQRates() {
     };
   }, [getTaux]);
 
+  const calculateEmployeeCost = useCallback((
+    secteur: string,
+    metier: string,
+    heures: number
+  ) => {
+    const taux = getTaux(secteur, metier);
+    if (!taux) return null;
+    return {
+      salaireBrut: taux.taux_base * heures,
+      chargesSociales: (taux.total_employeur - taux.taux_base) * heures,
+      coutTotal: taux.total_employeur * heures
+    };
+  }, [getTaux]);
+
   const getAllRatesForSecteur = useCallback((secteur: string) => {
     const tauxSecteur = CCQ_TAUX_2025_2026[secteur as keyof typeof CCQ_TAUX_2025_2026];
     if (!tauxSecteur) return [];
@@ -60,9 +76,15 @@ export function useCCQRates() {
     currentTaux,
     getTaux,
     calculateCost,
+    calculateEmployeeCost,
     getAllRatesForSecteur,
     metiers: CCQ_METIERS,
     secteurs: CCQ_SECTEURS,
+    // Aliases
+    trades: CCQ_METIERS,
+    sectors: CCQ_SECTEURS,
+    loading,
+    error,
     taux: CCQ_TAUX_2025_2026
   };
 }

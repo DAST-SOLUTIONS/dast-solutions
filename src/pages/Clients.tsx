@@ -1,635 +1,104 @@
-/**
- * DAST Solutions - Page Clients CRM
- */
-import { useState } from 'react'
-import { useClients, Client, CLIENT_CATEGORIES, CLIENT_SOURCES } from '@/hooks/useClients'
-import {
-  Users, Plus, Search, Edit, Trash2, X, Building2, User,
-  Phone, Mail, MapPin, DollarSign, FileText, Calendar,
-  Filter, Download, Upload, MoreVertical, Check
-} from 'lucide-react'
+import React, { useState } from 'react';
+import { Users, Plus, Search, Building2, User } from 'lucide-react';
+import { useClients, type Client } from '@/hooks/useClients';
 
-export default function ClientsPage() {
-  const { clients, loading, createClient, updateClient, deleteClient, getStats, searchClients } = useClients()
-  
-  const [showModal, setShowModal] = useState(false)
-  const [editingClient, setEditingClient] = useState<Client | null>(null)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [filterStatus, setFilterStatus] = useState<string>('')
-  const [filterCategory, setFilterCategory] = useState<string>('')
+export default function Clients() {
+  const { clients, loading, stats, createClient, updateClient, deleteClient } = useClients();
+  const [search, setSearch] = useState('');
+  const [showForm, setShowForm] = useState(false);
+  const [formData, setFormData] = useState<Partial<Client>>({ type: 'entreprise', status: 'actif' });
 
-  // Form state
-  const [form, setForm] = useState({
-    type: 'entreprise' as 'particulier' | 'entreprise',
-    name: '',
-    company: '',
-    contact_name: '',
-    contact_title: '',
-    email: '',
-    phone: '',
-    mobile: '',
-    address: '',
-    city: '',
-    province: 'QC',
-    postal_code: '',
-    credit_limit: '',
-    payment_terms: '30',
-    tax_exempt: false,
-    category: '',
-    source: '',
-    notes: '',
-    status: 'actif' as 'actif' | 'inactif' | 'prospect'
-  })
-
-  const stats = getStats()
-
-  const filteredClients = clients.filter(c => {
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase()
-      const matches = c.name.toLowerCase().includes(q) ||
-        c.company?.toLowerCase().includes(q) ||
-        c.email?.toLowerCase().includes(q)
-      if (!matches) return false
-    }
-    if (filterStatus && c.status !== filterStatus) return false
-    if (filterCategory && c.category !== filterCategory) return false
-    return true
-  })
-
-  const openModal = (client?: Client) => {
-    if (client) {
-      setEditingClient(client)
-      setForm({
-        type: client.type,
-        name: client.name,
-        company: client.company || '',
-        contact_name: client.contact_name || '',
-        contact_title: client.contact_title || '',
-        email: client.email || '',
-        phone: client.phone || '',
-        mobile: client.mobile || '',
-        address: client.address || '',
-        city: client.city || '',
-        province: client.province,
-        postal_code: client.postal_code || '',
-        credit_limit: client.credit_limit?.toString() || '',
-        payment_terms: client.payment_terms.toString(),
-        tax_exempt: client.tax_exempt,
-        category: client.category || '',
-        source: client.source || '',
-        notes: client.notes || '',
-        status: client.status
-      })
-    } else {
-      setEditingClient(null)
-      setForm({
-        type: 'entreprise',
-        name: '',
-        company: '',
-        contact_name: '',
-        contact_title: '',
-        email: '',
-        phone: '',
-        mobile: '',
-        address: '',
-        city: '',
-        province: 'QC',
-        postal_code: '',
-        credit_limit: '',
-        payment_terms: '30',
-        tax_exempt: false,
-        category: '',
-        source: '',
-        notes: '',
-        status: 'actif'
-      })
-    }
-    setShowModal(true)
-  }
+  const filtered = clients.filter(c => 
+    c.name?.toLowerCase().includes(search.toLowerCase()) ||
+    c.company_name?.toLowerCase().includes(search.toLowerCase())
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
-    const clientData = {
-      ...form,
-      credit_limit: form.credit_limit ? parseFloat(form.credit_limit) : undefined,
-      payment_terms: parseInt(form.payment_terms)
-    }
+    e.preventDefault();
+    await createClient(formData);
+    setShowForm(false);
+    setFormData({ type: 'entreprise', status: 'actif' });
+  };
 
-    if (editingClient) {
-      await updateClient(editingClient.id, clientData)
-    } else {
-      await createClient(clientData)
-    }
-    
-    setShowModal(false)
-  }
-
-  const handleDelete = async (id: string) => {
-    if (confirm('Supprimer ce client?')) {
-      await deleteClient(id)
-    }
-  }
-
-  const exportCSV = () => {
-    const headers = ['Nom', 'Entreprise', 'Email', 'Téléphone', 'Ville', 'Statut', 'Catégorie']
-    const rows = clients.map(c => [
-      c.name, c.company || '', c.email || '', c.phone || '', c.city || '', c.status, c.category || ''
-    ])
-    
-    const csv = [headers, ...rows].map(r => r.join(',')).join('\n')
-    const blob = new Blob([csv], { type: 'text/csv' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'clients.csv'
-    a.click()
-  }
+  if (loading) return <div className="p-8 text-center">Chargement...</div>;
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-start">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Clients</h1>
-          <p className="text-gray-600">Gestion de la relation client</p>
+    <div className="p-6 max-w-7xl mx-auto">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold flex items-center gap-2">
+          <Users className="w-7 h-7" /> Clients
+        </h1>
+        <button onClick={() => setShowForm(true)} className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+          <Plus className="w-4 h-4" /> Nouveau client
+        </button>
+      </div>
+
+      <div className="grid grid-cols-4 gap-4 mb-6">
+        <div className="bg-white p-4 rounded-lg shadow-sm border">
+          <p className="text-sm text-gray-500">Total</p>
+          <p className="text-2xl font-bold">{stats.total}</p>
         </div>
-        <div className="flex gap-2">
-          <button onClick={exportCSV} className="btn btn-secondary">
-            <Download size={16} className="mr-1" /> Exporter
-          </button>
-          <button onClick={() => openModal()} className="btn btn-primary">
-            <Plus size={16} className="mr-1" /> Nouveau client
-          </button>
+        <div className="bg-white p-4 rounded-lg shadow-sm border">
+          <p className="text-sm text-gray-500">Actifs</p>
+          <p className="text-2xl font-bold text-green-600">{stats.actifs}</p>
+        </div>
+        <div className="bg-white p-4 rounded-lg shadow-sm border">
+          <p className="text-sm text-gray-500">Prospects</p>
+          <p className="text-2xl font-bold text-blue-600">{stats.prospects}</p>
+        </div>
+        <div className="bg-white p-4 rounded-lg shadow-sm border">
+          <p className="text-sm text-gray-500">Revenus</p>
+          <p className="text-2xl font-bold">{stats.totalRevenue.toLocaleString()} $</p>
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-4 gap-4">
-        <div className="bg-white rounded-xl p-4 border">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
-              <Users className="text-blue-600" size={20} />
-            </div>
-            <div>
-              <p className="text-2xl font-bold">{stats.total}</p>
-              <p className="text-sm text-gray-500">Total clients</p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-white rounded-xl p-4 border">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
-              <Check className="text-green-600" size={20} />
-            </div>
-            <div>
-              <p className="text-2xl font-bold">{stats.actifs}</p>
-              <p className="text-sm text-gray-500">Clients actifs</p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-white rounded-xl p-4 border">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center">
-              <User className="text-amber-600" size={20} />
-            </div>
-            <div>
-              <p className="text-2xl font-bold">{stats.prospects}</p>
-              <p className="text-sm text-gray-500">Prospects</p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-white rounded-xl p-4 border">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-teal-100 flex items-center justify-center">
-              <DollarSign className="text-teal-600" size={20} />
-            </div>
-            <div>
-              <p className="text-2xl font-bold">
-                {stats.totalRevenue.toLocaleString('fr-CA', { style: 'currency', currency: 'CAD', maximumFractionDigits: 0 })}
-              </p>
-              <p className="text-sm text-gray-500">Revenus totaux</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Filtres */}
-      <div className="bg-white rounded-xl border p-4">
-        <div className="flex gap-4 items-center">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+      <div className="bg-white rounded-lg shadow-sm border">
+        <div className="p-4 border-b">
+          <div className="relative">
+            <Search className="w-5 h-5 absolute left-3 top-2.5 text-gray-400" />
             <input
               type="text"
-              placeholder="Rechercher un client..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Rechercher..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border rounded-lg"
             />
           </div>
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            className="px-3 py-2 border rounded-lg"
-          >
-            <option value="">Tous les statuts</option>
-            <option value="actif">Actif</option>
-            <option value="prospect">Prospect</option>
-            <option value="inactif">Inactif</option>
-          </select>
-          <select
-            value={filterCategory}
-            onChange={(e) => setFilterCategory(e.target.value)}
-            className="px-3 py-2 border rounded-lg"
-          >
-            <option value="">Toutes catégories</option>
-            {CLIENT_CATEGORIES.map(c => (
-              <option key={c.value} value={c.value}>{c.label}</option>
-            ))}
-          </select>
+        </div>
+        <div className="divide-y">
+          {filtered.map(client => (
+            <div key={client.id} className="p-4 hover:bg-gray-50 flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                {client.type === 'entreprise' ? <Building2 className="w-5 h-5 text-gray-400" /> : <User className="w-5 h-5 text-gray-400" />}
+                <div>
+                  <p className="font-medium">{client.name || client.company_name}</p>
+                  <p className="text-sm text-gray-500">{client.email}</p>
+                </div>
+              </div>
+              <span className={`px-2 py-1 rounded text-sm ${client.status === 'actif' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                {client.status}
+              </span>
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* Liste */}
-      <div className="bg-white rounded-xl border overflow-hidden">
-        <table className="w-full">
-          <thead className="bg-gray-50 border-b">
-            <tr>
-              <th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Client</th>
-              <th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Contact</th>
-              <th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Ville</th>
-              <th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Catégorie</th>
-              <th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Statut</th>
-              <th className="text-right px-4 py-3 text-sm font-medium text-gray-600">Revenus</th>
-              <th className="text-right px-4 py-3 text-sm font-medium text-gray-600">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {loading ? (
-              <tr>
-                <td colSpan={7} className="text-center py-8 text-gray-500">Chargement...</td>
-              </tr>
-            ) : filteredClients.length === 0 ? (
-              <tr>
-                <td colSpan={7} className="text-center py-8 text-gray-500">Aucun client trouvé</td>
-              </tr>
-            ) : (
-              filteredClients.map(client => (
-                <tr key={client.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                        client.type === 'entreprise' ? 'bg-blue-100' : 'bg-purple-100'
-                      }`}>
-                        {client.type === 'entreprise' ? (
-                          <Building2 size={18} className="text-blue-600" />
-                        ) : (
-                          <User size={18} className="text-purple-600" />
-                        )}
-                      </div>
-                      <div>
-                        <p className="font-medium text-gray-900">{client.name}</p>
-                        {client.company && <p className="text-sm text-gray-500">{client.company}</p>}
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    {client.email && (
-                      <div className="flex items-center gap-1 text-sm text-gray-600">
-                        <Mail size={14} /> {client.email}
-                      </div>
-                    )}
-                    {client.phone && (
-                      <div className="flex items-center gap-1 text-sm text-gray-500">
-                        <Phone size={14} /> {client.phone}
-                      </div>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-600">{client.city || '-'}</td>
-                  <td className="px-4 py-3">
-                    {client.category ? (
-                      <span className="px-2 py-1 text-xs rounded-full bg-gray-100">
-                        {CLIENT_CATEGORIES.find(c => c.value === client.category)?.label || client.category}
-                      </span>
-                    ) : '-'}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={`px-2 py-1 text-xs rounded-full ${
-                      client.status === 'actif' ? 'bg-green-100 text-green-700' :
-                      client.status === 'prospect' ? 'bg-amber-100 text-amber-700' :
-                      'bg-gray-100 text-gray-700'
-                    }`}>
-                      {client.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-right font-medium">
-                    {client.total_revenue > 0 ? client.total_revenue.toLocaleString('fr-CA', { style: 'currency', currency: 'CAD' }) : '-'}
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <div className="flex justify-end gap-1">
-                      <button onClick={() => openModal(client)} className="p-1.5 hover:bg-gray-100 rounded">
-                        <Edit size={16} className="text-gray-500" />
-                      </button>
-                      <button onClick={() => handleDelete(client.id)} className="p-1.5 hover:bg-red-50 rounded">
-                        <Trash2 size={16} className="text-red-500" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Modal */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-            <div className="p-4 border-b flex justify-between items-center">
-              <h2 className="text-lg font-bold">
-                {editingClient ? 'Modifier le client' : 'Nouveau client'}
-              </h2>
-              <button onClick={() => setShowModal(false)} className="p-1 hover:bg-gray-100 rounded">
-                <X size={20} />
-              </button>
-            </div>
-            
-            <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 space-y-6">
-              {/* Type */}
+      {showForm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h2 className="text-xl font-bold mb-4">Nouveau client</h2>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <input type="text" placeholder="Nom" value={formData.name || ''} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full px-3 py-2 border rounded-lg" required />
+              <input type="email" placeholder="Email" value={formData.email || ''} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full px-3 py-2 border rounded-lg" />
+              <input type="tel" placeholder="Téléphone" value={formData.phone || ''} onChange={e => setFormData({...formData, phone: e.target.value})} className="w-full px-3 py-2 border rounded-lg" />
               <div className="flex gap-4">
-                <label className="flex items-center gap-2 px-4 py-2 border rounded-lg cursor-pointer hover:bg-gray-50">
-                  <input
-                    type="radio"
-                    checked={form.type === 'entreprise'}
-                    onChange={() => setForm({ ...form, type: 'entreprise' })}
-                  />
-                  <Building2 size={16} /> Entreprise
-                </label>
-                <label className="flex items-center gap-2 px-4 py-2 border rounded-lg cursor-pointer hover:bg-gray-50">
-                  <input
-                    type="radio"
-                    checked={form.type === 'particulier'}
-                    onChange={() => setForm({ ...form, type: 'particulier' })}
-                  />
-                  <User size={16} /> Particulier
-                </label>
-              </div>
-
-              {/* Section: Informations générales */}
-              <div className="border rounded-lg p-4">
-                <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                  <Building2 size={18} className="text-teal-600" />
-                  Informations générales
-                </h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Nom *</label>
-                    <input
-                      type="text"
-                      value={form.name}
-                      onChange={(e) => setForm({ ...form, name: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500"
-                      required
-                    />
-                  </div>
-                  {form.type === 'entreprise' && (
-                    <div>
-                      <label className="block text-sm font-medium mb-1">Raison sociale</label>
-                      <input
-                        type="text"
-                        value={form.company}
-                        onChange={(e) => setForm({ ...form, company: e.target.value })}
-                        className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500"
-                      />
-                    </div>
-                  )}
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Catégorie</label>
-                    <select
-                      value={form.category}
-                      onChange={(e) => setForm({ ...form, category: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500"
-                    >
-                      <option value="">Sélectionner...</option>
-                      {CLIENT_CATEGORIES.map(c => (
-                        <option key={c.value} value={c.value}>{c.label}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Source</label>
-                    <select
-                      value={form.source}
-                      onChange={(e) => setForm({ ...form, source: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500"
-                    >
-                      <option value="">Sélectionner...</option>
-                      {CLIENT_SOURCES.map(s => (
-                        <option key={s.value} value={s.value}>{s.label}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Statut</label>
-                    <select
-                      value={form.status}
-                      onChange={(e) => setForm({ ...form, status: e.target.value as any })}
-                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500"
-                    >
-                      <option value="actif">Actif</option>
-                      <option value="prospect">Prospect</option>
-                      <option value="inactif">Inactif</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              {/* Section: Contact principal */}
-              <div className="border rounded-lg p-4">
-                <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                  <User size={18} className="text-blue-600" />
-                  Contact principal
-                </h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Nom du contact</label>
-                    <input
-                      type="text"
-                      value={form.contact_name}
-                      onChange={(e) => setForm({ ...form, contact_name: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Titre / Fonction</label>
-                    <input
-                      type="text"
-                      value={form.contact_title}
-                      onChange={(e) => setForm({ ...form, contact_title: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500"
-                      placeholder="Ex: Directeur, Gérant..."
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Email</label>
-                    <input
-                      type="email"
-                      value={form.email}
-                      onChange={(e) => setForm({ ...form, email: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Téléphone</label>
-                    <input
-                      type="tel"
-                      value={form.phone}
-                      onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Mobile</label>
-                    <input
-                      type="tel"
-                      value={form.mobile}
-                      onChange={(e) => setForm({ ...form, mobile: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500"
-                    />
-                  </div>
-                </div>
-                <p className="text-xs text-gray-500 mt-3 flex items-center gap-1">
-                  💡 Pour ajouter d'autres contacts, utilisez la section "Contacts" après création du client
-                </p>
-              </div>
-
-              {/* Section: Adresse */}
-              <div className="border rounded-lg p-4">
-                <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                  <MapPin size={18} className="text-green-600" />
-                  Adresse
-                </h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="col-span-2">
-                    <label className="block text-sm font-medium mb-1">Adresse</label>
-                    <input
-                      type="text"
-                      value={form.address}
-                      onChange={(e) => setForm({ ...form, address: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Ville</label>
-                    <input
-                      type="text"
-                      value={form.city}
-                      onChange={(e) => setForm({ ...form, city: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Province</label>
-                    <select
-                      value={form.province}
-                      onChange={(e) => setForm({ ...form, province: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500"
-                    >
-                      <option value="QC">Québec</option>
-                      <option value="ON">Ontario</option>
-                      <option value="BC">Colombie-Britannique</option>
-                      <option value="AB">Alberta</option>
-                      <option value="MB">Manitoba</option>
-                      <option value="SK">Saskatchewan</option>
-                      <option value="NS">Nouvelle-Écosse</option>
-                      <option value="NB">Nouveau-Brunswick</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Code postal</label>
-                    <input
-                      type="text"
-                      value={form.postal_code}
-                      onChange={(e) => setForm({ ...form, postal_code: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500"
-                      placeholder="H2X 1Y4"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Section: Facturation */}
-              <div className="border rounded-lg p-4 bg-amber-50 border-amber-200">
-                <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                  <DollarSign size={18} className="text-amber-600" />
-                  Comptes payables / Facturation
-                </h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Limite de crédit ($)</label>
-                    <input
-                      type="number"
-                      value={form.credit_limit}
-                      onChange={(e) => setForm({ ...form, credit_limit: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 bg-white"
-                      placeholder="0.00"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Termes de paiement</label>
-                    <select
-                      value={form.payment_terms}
-                      onChange={(e) => setForm({ ...form, payment_terms: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 bg-white"
-                    >
-                      <option value="0">Paiement immédiat</option>
-                      <option value="15">Net 15 jours</option>
-                      <option value="30">Net 30 jours</option>
-                      <option value="45">Net 45 jours</option>
-                      <option value="60">Net 60 jours</option>
-                      <option value="90">Net 90 jours</option>
-                    </select>
-                  </div>
-                  <div className="col-span-2 flex items-center gap-3">
-                    <input
-                      type="checkbox"
-                      id="tax_exempt"
-                      checked={form.tax_exempt}
-                      onChange={(e) => setForm({ ...form, tax_exempt: e.target.checked })}
-                      className="w-4 h-4 text-teal-600 rounded"
-                    />
-                    <label htmlFor="tax_exempt" className="text-sm">
-                      Exempté de taxes (TPS/TVQ)
-                    </label>
-                  </div>
-                </div>
-              </div>
-
-              {/* Notes */}
-              <div>
-                <label className="block text-sm font-medium mb-1">Notes internes</label>
-                <textarea
-                  value={form.notes}
-                  onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500"
-                  rows={3}
-                  placeholder="Notes privées sur ce client..."
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-4 border-t">
-                <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 border rounded-lg hover:bg-gray-50">
-                  Annuler
-                </button>
-                <button type="submit" className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700">
-                  {editingClient ? 'Enregistrer' : 'Créer le client'}
-                </button>
+                <button type="button" onClick={() => setShowForm(false)} className="flex-1 px-4 py-2 border rounded-lg">Annuler</button>
+                <button type="submit" className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg">Créer</button>
               </div>
             </form>
           </div>
         </div>
       )}
     </div>
-  )
+  );
 }

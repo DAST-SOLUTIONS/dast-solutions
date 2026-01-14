@@ -1,51 +1,45 @@
-import React, { useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
-import { useCosts } from '@/hooks/useCosts'
-import { useProjects } from '@/hooks/useProjects'
-const ProjectCosts: React.FC = () => {
-  const { projectId } = useParams<{ projectId: string }>()
-  const navigate = useNavigate()
-  
-  const { projects } = useProjects()
-  const {
-    materials, labor, equipment, subcontractors, overhead, loading, calculateSummary,
-    addMaterial, deleteMaterial, addLabor, deleteLabor, addEquipment, deleteEquipment,
-    addSubcontractor, deleteSubcontractor, addOverhead, deleteOverhead,
-  } = useCosts(projectId || null)
-  const project = projects.find((p) => p.id === projectId)
-  const summary = calculateSummary()
-  // États des formulaires (similaire à useCosts.ts)
-  const [newMaterial, setNewMaterial] = useState({
-    category: '', description: '', unit: 'm²', quantity: '', unit_price: '', notes: '',
-  })
-  // ... autres états (newLabor, newEquipment, newSubcontractor, newOverhead)
-  const handleAddMaterial = async (e: React.FormEvent) => {
-    e.preventDefault()
-    await addMaterial({
-      project_id: projectId || '',
-      category: newMaterial.category,
-      description: newMaterial.description,
-      unit: newMaterial.unit,
-      quantity: parseFloat(newMaterial.quantity),
-      unit_price: parseFloat(newMaterial.unit_price),
-      notes: newMaterial.notes || null,
-    })
-    setNewMaterial({ category: '', description: '', unit: 'm²', quantity: '', unit_price: '', notes: '' })
-  }
-  if (loading) return <div>Chargement...</div>
+import React from 'react';
+import { DollarSign } from 'lucide-react';
+import { useCosts } from '@/hooks/useCosts';
+import { useParams } from 'react-router-dom';
+
+export default function ProjectCosts() {
+  const { projectId } = useParams<{ projectId: string }>();
+  const { costs, loading, calculateSummary, materials, labor, equipment } = useCosts(projectId);
+  const summary = calculateSummary();
+
+  if (loading) return <div className="p-8 text-center">Chargement...</div>;
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 py-6">
-          <button onClick={() => navigate('/dashboard')}>
-            <ArrowLeft size={24} />
-          </button>
+    <div className="p-6">
+      <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
+        <DollarSign className="w-6 h-6" /> Coûts du projet
+      </h2>
+      <div className="grid grid-cols-3 gap-4 mb-6">
+        <div className="bg-white p-4 rounded-lg shadow-sm border">
+          <p className="text-sm text-gray-500">Total</p>
+          <p className="text-2xl font-bold">{summary.total.toLocaleString()} $</p>
         </div>
-      </header>
-      // ... reste du composant (affichage des coûts, formulaires, etc.)
+        <div className="bg-white p-4 rounded-lg shadow-sm border">
+          <p className="text-sm text-gray-500">Main d'oeuvre</p>
+          <p className="text-2xl font-bold">{summary.labor.toLocaleString()} $</p>
+        </div>
+        <div className="bg-white p-4 rounded-lg shadow-sm border">
+          <p className="text-sm text-gray-500">Matériaux</p>
+          <p className="text-2xl font-bold">{summary.materials.toLocaleString()} $</p>
+        </div>
+      </div>
+      <div className="bg-white rounded-lg shadow-sm border divide-y">
+        {costs.map(cost => (
+          <div key={cost.id} className="p-4 flex justify-between">
+            <div>
+              <p className="font-medium">{cost.description}</p>
+              <p className="text-sm text-gray-500">{cost.category}</p>
+            </div>
+            <p className="font-bold">{cost.total_cost.toLocaleString()} $</p>
+          </div>
+        ))}
+      </div>
     </div>
-  )
+  );
 }
-export default ProjectCosts
