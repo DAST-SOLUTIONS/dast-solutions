@@ -19,6 +19,7 @@ const Settings = lazy(() => import('./pages/Settings'));
 // Phase 2 Modules (1-9)
 const ReportCenter = lazy(() => import('./pages/Reports/ReportCenter'));
 const IntegrationCenter = lazy(() => import('./pages/Integrations/IntegrationCenter'));
+const QuebecDashboard = lazy(() => import('./pages/Integrations/QuebecDashboard'));
 const PlanningModule = lazy(() => import('./pages/Planning/PlanningModule'));
 const FournisseursModule = lazy(() => import('./pages/Fournisseurs/FournisseursModule'));
 
@@ -155,6 +156,7 @@ function App() {
                       {/* Phase 2 - Améliorations 1-9 */}
                       <Route path="/reports" element={<ReportCenter />} />
                       <Route path="/integrations" element={<IntegrationCenter />} />
+                      <Route path="/integrations/quebec" element={<QuebecDashboard />} />
                       <Route path="/planning" element={<PlanningModule />} />
                       <Route path="/fournisseurs" element={<FournisseursModule />} />
                       

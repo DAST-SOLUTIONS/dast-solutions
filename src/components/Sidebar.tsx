@@ -582,6 +582,11 @@ export default function Sidebar({ user, onLogout }: SidebarProps) {
 
           {expandedMenus.integrations && (
             <div className="mt-1 space-y-0.5">
+              <NavLink to="/integrations/quebec" className={({ isActive }) => subLinkClass(isActive)}>
+                <Building2 size={16} />
+                <span className="flex-1">Dashboard Québec</span>
+                <span className="px-1.5 py-0.5 bg-teal-100 text-teal-700 rounded text-xs">Nouveau</span>
+              </NavLink>
               <NavLink to="/integrations" className={({ isActive }) => subLinkClass(isActive)}>
                 <Plug size={16} />
                 Toutes les intégrations
@@ -590,9 +595,17 @@ export default function Sidebar({ user, onLogout }: SidebarProps) {
                 <HardHat size={16} />
                 CCQ - Taux horaires
               </NavLink>
-              <NavLink to="/rbq" className={({ isActive }) => subLinkClass(isActive)}>
+              <NavLink to="/entrepreneurs/rbq" className={({ isActive }) => subLinkClass(isActive)}>
                 <Shield size={16} />
                 RBQ - Licences
+              </NavLink>
+              <NavLink to="/paie/ccq" className={({ isActive }) => subLinkClass(isActive)}>
+                <Wallet size={16} />
+                Paie CCQ
+              </NavLink>
+              <NavLink to="/paie/standard" className={({ isActive }) => subLinkClass(isActive)}>
+                <DollarSign size={16} />
+                Paie Standard
               </NavLink>
               <NavLink to="/api" className={({ isActive }) => subLinkClass(isActive)}>
                 <Key size={16} />
