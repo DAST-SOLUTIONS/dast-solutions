@@ -400,11 +400,13 @@ export interface RBQVerificationResult {
   valid: boolean;
   verified?: boolean; // Alias pour valid
   source?: string; // Source de la vérification
+  checkedAt?: string; // Date de vérification
   data?: {
     licenseNumber?: string;
     companyName?: string;
     status?: string;
-    categories?: RBQCategorie[];
+    categories?: string[]; // Codes comme strings
+    categoriesData?: RBQCategorie[];
     expirationDate?: string;
     dateExpiration?: string; // Alias pour compatibilité
     address?: string;
@@ -435,7 +437,8 @@ export interface RBQVerificationResult {
   // Anciennes propriétés pour compatibilité
   licenseNumber?: string;
   companyName?: string;
-  categories?: RBQCategorie[];
+  categories?: string[]; // Codes comme strings
+  categoriesData?: RBQCategorie[];
   // Categories comme strings pour compatibilité
   rbq_categories?: string[];
   status?: string;
@@ -450,6 +453,7 @@ export interface RBQVerificationResult {
 export async function verifyRBQLicense(licenseNumber: string): Promise<RBQVerificationResult> {
   try {
     const entrepreneur = await rbqService.verifierLicence(licenseNumber);
+    const now = new Date().toISOString();
     
     if (!entrepreneur) {
       return {
@@ -457,6 +461,7 @@ export async function verifyRBQLicense(licenseNumber: string): Promise<RBQVerifi
         valid: false,
         verified: false,
         source: 'rbq',
+        checkedAt: now,
         message: 'Licence non trouvée'
       };
     }
@@ -469,6 +474,7 @@ export async function verifyRBQLicense(licenseNumber: string): Promise<RBQVerifi
       valid: isValid,
       verified: isValid,
       source: 'rbq',
+      checkedAt: now,
       entrepreneur,
       // Propriétés Partial<RBQEntrepreneur>
       neq: entrepreneur.neq,
@@ -483,11 +489,12 @@ export async function verifyRBQLicense(licenseNumber: string): Promise<RBQVerifi
       licence: entrepreneur.licence,
       infractions: entrepreneur.infractions,
       statut: entrepreneur.statut,
-      date_verification: entrepreneur.date_verification,
-      // Anciennes propriétés
+      date_verification: now,
+      // Anciennes propriétés - categories comme strings
       licenseNumber: entrepreneur.licence.numero,
       companyName: entrepreneur.nom_entreprise,
-      categories: entrepreneur.licence.categorie,
+      categories: categoriesStrings,
+      categoriesData: entrepreneur.licence.categorie,
       rbq_categories: categoriesStrings,
       status: entrepreneur.licence.statut,
       expirationDate: entrepreneur.licence.date_expiration,
@@ -497,9 +504,10 @@ export async function verifyRBQLicense(licenseNumber: string): Promise<RBQVerifi
         licenseNumber: entrepreneur.licence.numero,
         companyName: entrepreneur.nom_entreprise,
         status: entrepreneur.licence.statut,
-        categories: entrepreneur.licence.categorie,
+        categories: categoriesStrings,
+        categoriesData: entrepreneur.licence.categorie,
         expirationDate: entrepreneur.licence.date_expiration,
-        dateExpiration: entrepreneur.licence.date_expiration, // Alias
+        dateExpiration: entrepreneur.licence.date_expiration,
         address: entrepreneur.adresse,
         city: entrepreneur.ville,
         postalCode: entrepreneur.code_postal,
@@ -517,6 +525,7 @@ export async function verifyRBQLicense(licenseNumber: string): Promise<RBQVerifi
       valid: false,
       verified: false,
       source: 'rbq',
+      checkedAt: new Date().toISOString(),
       error: error instanceof Error ? error.message : 'Erreur de vérification'
     };
   }
