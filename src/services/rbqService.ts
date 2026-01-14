@@ -397,7 +397,7 @@ export const rbqService = new RBQService();
 // Type alias pour compatibilité avec l'ancien code
 export interface RBQVerificationResult {
   success: boolean;
-  valid: boolean;
+  valid?: boolean; // Optionnel pour compatibilité
   verified?: boolean; // Alias pour valid
   source?: string; // Source de la vérification
   checkedAt?: string; // Date de vérification
