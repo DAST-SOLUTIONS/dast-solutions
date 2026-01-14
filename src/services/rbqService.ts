@@ -1,337 +1,394 @@
 /**
- * DAST Solutions - Service Vérification RBQ
- * Vérification des licences via rbq.gouv.qc.ca
+ * Service RBQ - Régie du bâtiment du Québec
+ * Vérification des licences, répertoire des entrepreneurs, infractions
  */
-import { supabase } from '@/lib/supabase'
 
-export interface RBQVerificationResult {
-  success: boolean
-  verified: boolean
-  data?: {
-    licence: string
-    nom: string
-    nomLegal?: string
-    status: 'valide' | 'suspendu' | 'expire' | 'invalide'
-    categories: string[]
-    dateEmission?: string
-    dateExpiration?: string
-    adresse?: string
-    ville?: string
-    codePostal?: string
-    region?: string
-  }
-  error?: string
-  source: 'api' | 'scraping' | 'cache'
-  checkedAt: string
+import { supabase } from '../lib/supabase/client';
+
+// Types RBQ
+export interface RBQEntrepreneur {
+  neq: string; // Numéro d'entreprise du Québec
+  nom_entreprise: string;
+  nom_dirigeant?: string;
+  adresse: string;
+  ville: string;
+  code_postal: string;
+  telephone?: string;
+  courriel?: string;
+  site_web?: string;
+  licence: RBQLicence;
+  infractions: RBQInfraction[];
+  statut: 'actif' | 'suspendu' | 'revoque' | 'expire';
+  date_verification: string;
 }
 
-export interface RBQCategory {
-  code: string
-  description: string
-  sousCategories?: { code: string; description: string }[]
+export interface RBQLicence {
+  numero: string;
+  categorie: RBQCategorie[];
+  date_emission: string;
+  date_expiration: string;
+  statut: 'valide' | 'suspendue' | 'revoquee' | 'expiree';
+  restrictions?: string[];
+  cautionnement: number;
+}
+
+export interface RBQCategorie {
+  code: string;
+  description: string;
+  sous_categories?: RBQSousCategorie[];
+}
+
+export interface RBQSousCategorie {
+  code: string;
+  description: string;
+}
+
+export interface RBQInfraction {
+  date: string;
+  type: string;
+  description: string;
+  decision: string;
+  amende?: number;
 }
 
 // Catégories RBQ officielles
-export const RBQ_CATEGORIES: RBQCategory[] = [
-  { code: '1', description: 'Bâtiments résidentiels', sousCategories: [
-    { code: '1.1', description: 'Entrepreneur général' },
-    { code: '1.1.1', description: 'Bâtiments résidentiels neufs de 4 logements ou moins' },
-    { code: '1.1.2', description: 'Bâtiments résidentiels neufs de tout genre' },
-    { code: '1.2', description: 'Entrepreneur spécialisé' },
-  ]},
-  { code: '2', description: 'Bâtiments publics', sousCategories: [
-    { code: '2.1', description: 'Entrepreneur général' },
-    { code: '2.2', description: 'Entrepreneur spécialisé' },
-  ]},
-  { code: '3', description: 'Génie civil et voirie', sousCategories: [
-    { code: '3.1', description: 'Entrepreneur général' },
-    { code: '3.2', description: 'Entrepreneur spécialisé' },
-  ]},
-  { code: '4', description: 'Travaux connexes', sousCategories: [
-    { code: '4.1', description: 'Entrepreneur spécialisé' },
-  ]},
-]
+export const RBQ_CATEGORIES = {
+  '1': {
+    nom: 'Bâtiments résidentiels neufs et petits bâtiments',
+    sous_categories: {
+      '1.1': 'Bâtiments de 4 logements ou moins et maisons',
+      '1.1.1': 'Entrepreneur général',
+      '1.1.2': 'Petits travaux de rénovation',
+      '1.2': 'Petits bâtiments autres que résidentiels'
+    }
+  },
+  '2': {
+    nom: 'Bâtiments résidentiels de type mixte ou de grande hauteur',
+    sous_categories: {
+      '2.1': 'Pour l\'ensemble des travaux',
+      '2.2': 'Bâtiments de 5 à 8 logements',
+      '2.3': 'Bâtiments de plus de 8 logements'
+    }
+  },
+  '3': {
+    nom: 'Travaux de génie civil et voirie',
+    sous_categories: {
+      '3.1': 'Ouvrages de génie civil',
+      '3.2': 'Voirie municipale et travaux connexes'
+    }
+  },
+  '4': {
+    nom: 'Électricité',
+    sous_categories: {
+      '4.1': 'Installations électriques',
+      '4.2': 'Appareillage électrique',
+      '4.3': 'Systèmes d\'alarme et sécurité'
+    }
+  },
+  '5': {
+    nom: 'Gaz',
+    sous_categories: {
+      '5.1': 'Installations de gaz',
+      '5.2': 'Appareils au gaz'
+    }
+  },
+  '6': {
+    nom: 'Plomberie',
+    sous_categories: {
+      '6.1': 'Plomberie'
+    }
+  },
+  '7': {
+    nom: 'Chauffage',
+    sous_categories: {
+      '7.1': 'Systèmes de chauffage',
+      '7.2': 'Systèmes de ventilation',
+      '7.3': 'Climatisation et réfrigération'
+    }
+  },
+  '8': {
+    nom: 'Équipements pétroliers',
+    sous_categories: {
+      '8.1': 'Réservoirs et tuyauterie',
+      '8.2': 'Appareils de distribution'
+    }
+  },
+  '9': {
+    nom: 'Ascenseurs et autres appareils élévateurs',
+    sous_categories: {
+      '9.1': 'Ascenseurs',
+      '9.2': 'Monte-charges et escaliers mécaniques'
+    }
+  },
+  '10': {
+    nom: 'Systèmes de gicleurs',
+    sous_categories: {
+      '10.1': 'Systèmes de gicleurs'
+    }
+  },
+  '11': {
+    nom: 'Construction d\'aires de glissement',
+    sous_categories: {
+      '11.1': 'Aires de glissement'
+    }
+  },
+  '12': {
+    nom: 'Installations sous pression',
+    sous_categories: {
+      '12.1': 'Chaudières et récipients sous pression'
+    }
+  },
+  '13': {
+    nom: 'Travaux d\'excavation et de forage',
+    sous_categories: {
+      '13.1': 'Excavation et terrassement',
+      '13.2': 'Forage et sondage'
+    }
+  },
+  '14': {
+    nom: 'Travaux de fondations',
+    sous_categories: {
+      '14.1': 'Fondations profondes',
+      '14.2': 'Fondations superficielles'
+    }
+  },
+  '15': {
+    nom: 'Structures de béton',
+    sous_categories: {
+      '15.1': 'Structures de béton armé',
+      '15.2': 'Structures de béton précontraint'
+    }
+  },
+  '16': {
+    nom: 'Structures d\'acier et métalliques',
+    sous_categories: {
+      '16.1': 'Charpentes d\'acier',
+      '16.2': 'Revêtements métalliques'
+    }
+  }
+};
 
-// Sous-catégories communes
-export const RBQ_SOUS_CATEGORIES = {
-  // Électricité
-  '16': 'Systèmes d\'électricité',
-  // Plomberie
-  '15': 'Systèmes de plomberie',
-  // Chauffage
-  '17': 'Systèmes de chauffage',
-  // Ventilation
-  '18': 'Systèmes de ventilation',
-  // Isolation
-  '6.1': 'Isolation thermique',
-  // Revêtements
-  '7': 'Revêtements extérieurs',
-  '8': 'Revêtements de toiture',
-  // Structure
-  '9': 'Charpentes et structures',
-  '10': 'Fondations',
-  // Finition
-  '11': 'Peinture',
-  '12': 'Revêtements souples',
-  '13': 'Carrelage et céramique',
-  '14': 'Menuiserie',
-}
+// Régions administratives RBQ
+export const RBQ_REGIONS = [
+  { code: '01', nom: 'Bas-Saint-Laurent' },
+  { code: '02', nom: 'Saguenay–Lac-Saint-Jean' },
+  { code: '03', nom: 'Capitale-Nationale' },
+  { code: '04', nom: 'Mauricie' },
+  { code: '05', nom: 'Estrie' },
+  { code: '06', nom: 'Montréal' },
+  { code: '07', nom: 'Outaouais' },
+  { code: '08', nom: 'Abitibi-Témiscamingue' },
+  { code: '09', nom: 'Côte-Nord' },
+  { code: '10', nom: 'Nord-du-Québec' },
+  { code: '11', nom: 'Gaspésie–Îles-de-la-Madeleine' },
+  { code: '12', nom: 'Chaudière-Appalaches' },
+  { code: '13', nom: 'Laval' },
+  { code: '14', nom: 'Lanaudière' },
+  { code: '15', nom: 'Laurentides' },
+  { code: '16', nom: 'Montérégie' },
+  { code: '17', nom: 'Centre-du-Québec' }
+];
 
-/**
- * Vérifie une licence RBQ
- * Utilise d'abord le cache, puis tente l'API/scraping si nécessaire
- */
-export async function verifyRBQLicense(licenceNumber: string): Promise<RBQVerificationResult> {
-  const cleanedLicence = licenceNumber.replace(/\D/g, '')
+class RBQService {
+  private baseUrl = 'https://www.rbq.gouv.qc.ca';
   
-  if (!cleanedLicence || cleanedLicence.length < 8) {
-    return {
-      success: false,
-      verified: false,
-      error: 'Numéro de licence invalide. Format attendu: 8 chiffres minimum.',
-      source: 'cache',
-      checkedAt: new Date().toISOString()
-    }
-  }
-
-  // 1. Vérifier le cache (vérifié dans les 24h)
-  const cacheResult = await checkCache(cleanedLicence)
-  if (cacheResult) {
-    return cacheResult
-  }
-
-  // 2. Tenter la vérification via le site RBQ
-  try {
-    const result = await fetchFromRBQ(cleanedLicence)
-    
-    // Sauvegarder en cache
-    if (result.success) {
-      await saveToCache(cleanedLicence, result)
-    }
-    
-    return result
-  } catch (error) {
-    console.error('Erreur vérification RBQ:', error)
-    
-    // Retourner un résultat avec erreur mais permettre de continuer
-    return {
-      success: false,
-      verified: false,
-      error: 'Impossible de vérifier la licence. Le service RBQ est peut-être indisponible.',
-      source: 'api',
-      checkedAt: new Date().toISOString()
-    }
-  }
-}
-
-/**
- * Vérifie le cache local
- */
-async function checkCache(licence: string): Promise<RBQVerificationResult | null> {
-  try {
-    const { data } = await supabase
-      .from('rbq_verifications_cache')
-      .select('*')
-      .eq('licence', licence)
-      .gte('verified_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
-      .single()
-    
-    if (data) {
-      return {
-        success: true,
-        verified: true,
-        data: data.result_data,
-        source: 'cache',
-        checkedAt: data.verified_at
+  /**
+   * Vérifier une licence RBQ
+   */
+  async verifierLicence(numeroLicence: string): Promise<RBQEntrepreneur | null> {
+    try {
+      // Essayer d'abord notre cache/base de données
+      const cached = await this.getFromDatabase(numeroLicence);
+      if (cached && this.isCacheValid(cached.date_verification)) {
+        return cached;
       }
-    }
-  } catch {
-    // Cache miss, normal
-  }
-  return null
-}
 
-/**
- * Sauvegarde en cache
- */
-async function saveToCache(licence: string, result: RBQVerificationResult) {
-  try {
-    await supabase
-      .from('rbq_verifications_cache')
-      .upsert({
-        licence,
-        result_data: result.data,
-        status: result.data?.status || 'unknown',
-        verified_at: new Date().toISOString()
-      }, { onConflict: 'licence' })
-  } catch (error) {
-    console.error('Erreur sauvegarde cache RBQ:', error)
-  }
-}
+      // Appeler l'Edge Function pour scraper RBQ
+      const { data, error } = await supabase.functions.invoke('rbq-verification', {
+        body: { action: 'verify', licenceNumber: numeroLicence }
+      });
 
-/**
- * Récupère les données depuis le site RBQ
- * Note: Le RBQ n'a pas d'API publique, on simule une vérification
- * En production, utiliser un service de scraping ou une Edge Function
- */
-async function fetchFromRBQ(licence: string): Promise<RBQVerificationResult> {
-  // URL du registre RBQ
-  const rbqUrl = `https://www.rbq.gouv.qc.ca/services-en-ligne/registre-des-detenteurs-de-licence/`
-  
-  // En mode développement/démo, on simule une réponse
-  // En production, remplacer par un appel à une Edge Function Supabase
-  
-  // Simulation basée sur le format de licence
-  // Les vraies licences RBQ ont 10 chiffres format: XXXX-XXXX-XX
-  const isValidFormat = licence.length >= 8
-  
-  if (!isValidFormat) {
-    return {
-      success: true,
-      verified: true,
-      data: {
-        licence: formatLicence(licence),
-        nom: 'Non trouvé',
-        status: 'invalide',
-        categories: []
-      },
-      source: 'api',
-      checkedAt: new Date().toISOString()
-    }
-  }
+      if (error) throw error;
 
-  // Pour la démo, on génère des données simulées
-  // En production, faire un vrai appel
-  const mockStatuses: Array<'valide' | 'suspendu' | 'expire'> = ['valide', 'valide', 'valide', 'suspendu', 'expire']
-  const randomStatus = mockStatuses[Math.floor(Math.random() * mockStatuses.length)]
-  
-  // Générer une date d'expiration future ou passée selon le status
-  const now = new Date()
-  let expirationDate: Date
-  if (randomStatus === 'expire') {
-    expirationDate = new Date(now.getTime() - Math.random() * 365 * 24 * 60 * 60 * 1000)
-  } else {
-    expirationDate = new Date(now.getTime() + (1 + Math.random() * 2) * 365 * 24 * 60 * 60 * 1000)
-  }
-
-  return {
-    success: true,
-    verified: true,
-    data: {
-      licence: formatLicence(licence),
-      nom: `Entreprise vérifiée (${formatLicence(licence)})`,
-      status: randomStatus,
-      categories: ['1.1.2', '2.2'],
-      dateExpiration: expirationDate.toISOString().split('T')[0]
-    },
-    source: 'api',
-    checkedAt: new Date().toISOString()
-  }
-}
-
-/**
- * Formate un numéro de licence RBQ
- */
-function formatLicence(licence: string): string {
-  const clean = licence.replace(/\D/g, '')
-  if (clean.length >= 10) {
-    return `${clean.slice(0, 4)}-${clean.slice(4, 8)}-${clean.slice(8, 10)}`
-  } else if (clean.length >= 8) {
-    return `${clean.slice(0, 4)}-${clean.slice(4, 8)}`
-  }
-  return clean
-}
-
-/**
- * Met à jour un entrepreneur avec le résultat de vérification RBQ
- */
-export async function updateEntrepreneurRBQStatus(
-  entrepreneurId: string,
-  verificationResult: RBQVerificationResult
-): Promise<boolean> {
-  if (!verificationResult.success || !verificationResult.data) {
-    return false
-  }
-
-  try {
-    const { error } = await supabase
-      .from('entrepreneurs')
-      .update({
-        rbq_status: verificationResult.data.status,
-        rbq_date_verification: verificationResult.checkedAt,
-        rbq_date_expiration: verificationResult.data.dateExpiration,
-        rbq_categories: verificationResult.data.categories,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', entrepreneurId)
-
-    if (error) throw error
-    return true
-  } catch (error) {
-    console.error('Erreur mise à jour entrepreneur RBQ:', error)
-    return false
-  }
-}
-
-/**
- * Vérifie plusieurs licences en lot
- */
-export async function batchVerifyRBQ(licences: string[]): Promise<Map<string, RBQVerificationResult>> {
-  const results = new Map<string, RBQVerificationResult>()
-  
-  // Limiter à 10 vérifications simultanées
-  const batchSize = 10
-  for (let i = 0; i < licences.length; i += batchSize) {
-    const batch = licences.slice(i, i + batchSize)
-    const batchResults = await Promise.all(
-      batch.map(async (licence) => {
-        const result = await verifyRBQLicense(licence)
-        return { licence, result }
-      })
-    )
-    
-    batchResults.forEach(({ licence, result }) => {
-      results.set(licence, result)
-    })
-    
-    // Pause entre les lots pour ne pas surcharger
-    if (i + batchSize < licences.length) {
-      await new Promise(resolve => setTimeout(resolve, 1000))
-    }
-  }
-  
-  return results
-}
-
-/**
- * Lien direct vers la page RBQ pour vérification manuelle
- */
-export function getRBQVerificationUrl(licence?: string): string {
-  const baseUrl = 'https://www.rbq.gouv.qc.ca/services-en-ligne/registre-des-detenteurs-de-licence/'
-  if (licence) {
-    return `${baseUrl}?licence=${licence.replace(/\D/g, '')}`
-  }
-  return baseUrl
-}
-
-/**
- * Obtient la description d'une catégorie RBQ
- */
-export function getRBQCategoryDescription(code: string): string {
-  // Chercher dans les catégories principales
-  for (const cat of RBQ_CATEGORIES) {
-    if (cat.code === code) return cat.description
-    if (cat.sousCategories) {
-      for (const sub of cat.sousCategories) {
-        if (sub.code === code) return sub.description
+      if (data?.entrepreneur) {
+        // Sauvegarder en cache
+        await this.saveToDatabase(data.entrepreneur);
+        return data.entrepreneur;
       }
+
+      return null;
+    } catch (error) {
+      console.error('Erreur vérification RBQ:', error);
+      return this.getFromDatabase(numeroLicence);
     }
   }
-  
-  // Chercher dans les sous-catégories communes
-  if (RBQ_SOUS_CATEGORIES[code as keyof typeof RBQ_SOUS_CATEGORIES]) {
-    return RBQ_SOUS_CATEGORIES[code as keyof typeof RBQ_SOUS_CATEGORIES]
+
+  /**
+   * Rechercher des entrepreneurs par critères
+   */
+  async rechercherEntrepreneurs(params: {
+    nom?: string;
+    ville?: string;
+    region?: string;
+    categorie?: string;
+    statut?: string;
+  }): Promise<RBQEntrepreneur[]> {
+    try {
+      let query = supabase
+        .from('rbq_entrepreneurs')
+        .select('*')
+        .eq('statut', params.statut || 'actif')
+        .order('nom_entreprise', { ascending: true });
+
+      if (params.nom) {
+        query = query.ilike('nom_entreprise', `%${params.nom}%`);
+      }
+      if (params.ville) {
+        query = query.ilike('ville', `%${params.ville}%`);
+      }
+      if (params.region) {
+        query = query.eq('region', params.region);
+      }
+
+      const { data, error } = await query.limit(100);
+      
+      if (error) throw error;
+
+      // Filtrer par catégorie côté client si nécessaire
+      if (params.categorie && data) {
+        return data.filter((e: any) => 
+          e.licence?.categorie?.some((c: any) => c.code.startsWith(params.categorie!))
+        );
+      }
+
+      return data || [];
+    } catch (error) {
+      console.error('Erreur recherche RBQ:', error);
+      return [];
+    }
   }
-  
-  return `Catégorie ${code}`
+
+  /**
+   * Vérifier si un entrepreneur a les catégories requises pour un projet
+   */
+  async verifierCategoriePourProjet(
+    numeroLicence: string, 
+    categoriesRequises: string[]
+  ): Promise<{
+    valide: boolean;
+    categoriesManquantes: string[];
+    entrepreneur?: RBQEntrepreneur;
+  }> {
+    const entrepreneur = await this.verifierLicence(numeroLicence);
+    
+    if (!entrepreneur) {
+      return { 
+        valide: false, 
+        categoriesManquantes: categoriesRequises 
+      };
+    }
+
+    const categoriesEntrepreneur = entrepreneur.licence.categorie.map(c => c.code);
+    const categoriesManquantes = categoriesRequises.filter(
+      req => !categoriesEntrepreneur.some(cat => cat.startsWith(req) || req.startsWith(cat))
+    );
+
+    return {
+      valide: categoriesManquantes.length === 0 && entrepreneur.licence.statut === 'valide',
+      categoriesManquantes,
+      entrepreneur
+    };
+  }
+
+  /**
+   * Obtenir les infractions d'un entrepreneur
+   */
+  async getInfractions(numeroLicence: string): Promise<RBQInfraction[]> {
+    const entrepreneur = await this.verifierLicence(numeroLicence);
+    return entrepreneur?.infractions || [];
+  }
+
+  /**
+   * Générer le lien de vérification RBQ
+   */
+  getLienVerification(numeroLicence: string): string {
+    return `${this.baseUrl}/services-en-ligne/verification-licence/?licence=${numeroLicence}`;
+  }
+
+  /**
+   * Formater un numéro de licence RBQ
+   */
+  formaterNumeroLicence(numero: string): string {
+    // Format: 1234-5678-90
+    const cleaned = numero.replace(/\D/g, '');
+    if (cleaned.length === 10) {
+      return `${cleaned.slice(0, 4)}-${cleaned.slice(4, 8)}-${cleaned.slice(8)}`;
+    }
+    return numero;
+  }
+
+  private async getFromDatabase(numeroLicence: string): Promise<RBQEntrepreneur | null> {
+    try {
+      const { data } = await supabase
+        .from('rbq_entrepreneurs')
+        .select('*')
+        .eq('licence_numero', numeroLicence.replace(/-/g, ''))
+        .single();
+      
+      return data ? this.mapToEntrepreneur(data) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private async saveToDatabase(entrepreneur: RBQEntrepreneur): Promise<void> {
+    try {
+      await (supabase.from('rbq_entrepreneurs').upsert({
+        neq: entrepreneur.neq,
+        nom_entreprise: entrepreneur.nom_entreprise,
+        nom_dirigeant: entrepreneur.nom_dirigeant,
+        adresse: entrepreneur.adresse,
+        ville: entrepreneur.ville,
+        code_postal: entrepreneur.code_postal,
+        telephone: entrepreneur.telephone,
+        courriel: entrepreneur.courriel,
+        site_web: entrepreneur.site_web,
+        licence_numero: entrepreneur.licence.numero.replace(/-/g, ''),
+        licence: entrepreneur.licence,
+        infractions: entrepreneur.infractions,
+        statut: entrepreneur.statut,
+        date_verification: new Date().toISOString()
+      } as any) as any);
+    } catch (error) {
+      console.error('Erreur sauvegarde RBQ:', error);
+    }
+  }
+
+  private mapToEntrepreneur(row: any): RBQEntrepreneur {
+    return {
+      neq: row.neq,
+      nom_entreprise: row.nom_entreprise,
+      nom_dirigeant: row.nom_dirigeant,
+      adresse: row.adresse,
+      ville: row.ville,
+      code_postal: row.code_postal,
+      telephone: row.telephone,
+      courriel: row.courriel,
+      site_web: row.site_web,
+      licence: row.licence,
+      infractions: row.infractions || [],
+      statut: row.statut,
+      date_verification: row.date_verification
+    };
+  }
+
+  private isCacheValid(dateVerification: string): boolean {
+    const cacheDate = new Date(dateVerification);
+    const now = new Date();
+    const diffDays = (now.getTime() - cacheDate.getTime()) / (1000 * 60 * 60 * 24);
+    return diffDays < 7; // Cache valide 7 jours
+  }
 }
+
+export const rbqService = new RBQService();
+export default rbqService;
