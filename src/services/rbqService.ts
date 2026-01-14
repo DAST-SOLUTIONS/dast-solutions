@@ -391,4 +391,124 @@ class RBQService {
 }
 
 export const rbqService = new RBQService();
+
+// ============ EXPORTS POUR COMPATIBILITÉ ============
+
+// Type alias pour compatibilité avec l'ancien code
+export interface RBQVerificationResult {
+  success: boolean;
+  valid: boolean;
+  entrepreneur?: RBQEntrepreneur;
+  licenseNumber?: string;
+  companyName?: string;
+  categories?: RBQCategorie[];
+  status?: string;
+  expirationDate?: string;
+  message?: string;
+  error?: string;
+}
+
+/**
+ * Vérifier une licence RBQ (fonction exportée pour compatibilité)
+ */
+export async function verifyRBQLicense(licenseNumber: string): Promise<RBQVerificationResult> {
+  try {
+    const entrepreneur = await rbqService.verifierLicence(licenseNumber);
+    
+    if (!entrepreneur) {
+      return {
+        success: false,
+        valid: false,
+        message: 'Licence non trouvée'
+      };
+    }
+
+    return {
+      success: true,
+      valid: entrepreneur.licence.statut === 'valide',
+      entrepreneur,
+      licenseNumber: entrepreneur.licence.numero,
+      companyName: entrepreneur.nom_entreprise,
+      categories: entrepreneur.licence.categorie,
+      status: entrepreneur.licence.statut,
+      expirationDate: entrepreneur.licence.date_expiration,
+      message: entrepreneur.licence.statut === 'valide' 
+        ? 'Licence valide' 
+        : `Licence ${entrepreneur.licence.statut}`
+    };
+  } catch (error) {
+    return {
+      success: false,
+      valid: false,
+      error: error instanceof Error ? error.message : 'Erreur de vérification'
+    };
+  }
+}
+
+/**
+ * Mettre à jour le statut RBQ d'un entrepreneur dans la DB
+ */
+export async function updateEntrepreneurRBQStatus(
+  entrepreneurId: string, 
+  rbqData: Partial<RBQEntrepreneur>
+): Promise<boolean> {
+  try {
+    const { error } = await supabase
+      .from('entrepreneurs')
+      .update({
+        rbq_licence: rbqData.licence?.numero,
+        rbq_statut: rbqData.statut,
+        rbq_categories: rbqData.licence?.categorie,
+        rbq_derniere_verification: new Date().toISOString()
+      })
+      .eq('id', entrepreneurId);
+    
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Vérification batch de plusieurs licences
+ */
+export async function batchVerifyRBQ(
+  licenseNumbers: string[]
+): Promise<Map<string, RBQVerificationResult>> {
+  const results = new Map<string, RBQVerificationResult>();
+  
+  for (const license of licenseNumbers) {
+    const result = await verifyRBQLicense(license);
+    results.set(license, result);
+  }
+  
+  return results;
+}
+
+/**
+ * Obtenir l'URL de vérification RBQ
+ */
+export function getRBQVerificationUrl(licenseNumber: string): string {
+  return rbqService.getLienVerification(licenseNumber);
+}
+
+/**
+ * Obtenir la description d'une catégorie RBQ
+ */
+export function getRBQCategoryDescription(categoryCode: string): string {
+  const parts = categoryCode.split('.');
+  const mainCode = parts[0];
+  const cat = RBQ_CATEGORIES[mainCode as keyof typeof RBQ_CATEGORIES];
+  
+  if (!cat) return categoryCode;
+  
+  if (parts.length > 1) {
+    const fullCode = `${parts[0]}.${parts[1]}`;
+    const sousCat = cat.sous_categories?.[fullCode as keyof typeof cat.sous_categories];
+    if (sousCat) return sousCat;
+  }
+  
+  return cat.nom;
+}
+
 export default rbqService;

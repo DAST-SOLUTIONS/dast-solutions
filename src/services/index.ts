@@ -48,12 +48,18 @@ export type {
   RBQLicence,
   RBQCategorie,
   RBQSousCategorie,
-  RBQInfraction
+  RBQInfraction,
+  RBQVerificationResult
 } from './rbqService';
 
 export {
   RBQ_CATEGORIES,
-  RBQ_REGIONS
+  RBQ_REGIONS,
+  verifyRBQLicense,
+  updateEntrepreneurRBQStatus,
+  batchVerifyRBQ,
+  getRBQVerificationUrl,
+  getRBQCategoryDescription
 } from './rbqService';
 
 // ============ TYPES APPELS D'OFFRES CANADA ============

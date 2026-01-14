@@ -471,6 +471,7 @@ class AppelsOffresCanadaService {
       categorie: row.category,
       region: row.location,
       province: this.determineProvince(row.location),
+      date_publication: row.open_date, // Utiliser open_date comme date_publication
       date_ouverture: row.open_date,
       date_fermeture: row.close_date,
       budget_affiche: row.budget_range,
@@ -590,6 +591,7 @@ class AppelsOffresCanadaService {
         province: 'QC',
         ville: 'Montréal',
         date_publication: '2026-01-11',
+        date_ouverture: '2026-01-11',
         date_fermeture: '2026-02-10',
         budget_affiche: '500 000$ - 800 000$',
         description: 'Réaménagement complet du parc incluant mobilier urbain et plantation',
