@@ -399,12 +399,14 @@ export interface RBQVerificationResult {
   success: boolean;
   valid: boolean;
   verified?: boolean; // Alias pour valid
+  source?: string; // Source de la vérification
   data?: {
     licenseNumber?: string;
     companyName?: string;
     status?: string;
     categories?: RBQCategorie[];
     expirationDate?: string;
+    dateExpiration?: string; // Alias pour compatibilité
     address?: string;
     city?: string;
     postalCode?: string;
@@ -416,9 +418,26 @@ export interface RBQVerificationResult {
     neq?: string;
   };
   entrepreneur?: RBQEntrepreneur;
+  // Propriétés compatibles avec Partial<RBQEntrepreneur>
+  neq?: string;
+  nom_entreprise?: string;
+  nom_dirigeant?: string;
+  adresse?: string;
+  ville?: string;
+  code_postal?: string;
+  telephone?: string;
+  courriel?: string;
+  site_web?: string;
+  licence?: RBQLicence;
+  infractions?: RBQInfraction[];
+  statut?: 'actif' | 'suspendu' | 'revoque' | 'expire';
+  date_verification?: string;
+  // Anciennes propriétés pour compatibilité
   licenseNumber?: string;
   companyName?: string;
   categories?: RBQCategorie[];
+  // Categories comme strings pour compatibilité
+  rbq_categories?: string[];
   status?: string;
   expirationDate?: string;
   message?: string;
@@ -437,20 +456,39 @@ export async function verifyRBQLicense(licenseNumber: string): Promise<RBQVerifi
         success: false,
         valid: false,
         verified: false,
+        source: 'rbq',
         message: 'Licence non trouvée'
       };
     }
 
     const isValid = entrepreneur.licence.statut === 'valide';
+    const categoriesStrings = entrepreneur.licence.categorie.map(c => c.code);
 
     return {
       success: true,
       valid: isValid,
       verified: isValid,
+      source: 'rbq',
       entrepreneur,
+      // Propriétés Partial<RBQEntrepreneur>
+      neq: entrepreneur.neq,
+      nom_entreprise: entrepreneur.nom_entreprise,
+      nom_dirigeant: entrepreneur.nom_dirigeant,
+      adresse: entrepreneur.adresse,
+      ville: entrepreneur.ville,
+      code_postal: entrepreneur.code_postal,
+      telephone: entrepreneur.telephone,
+      courriel: entrepreneur.courriel,
+      site_web: entrepreneur.site_web,
+      licence: entrepreneur.licence,
+      infractions: entrepreneur.infractions,
+      statut: entrepreneur.statut,
+      date_verification: entrepreneur.date_verification,
+      // Anciennes propriétés
       licenseNumber: entrepreneur.licence.numero,
       companyName: entrepreneur.nom_entreprise,
       categories: entrepreneur.licence.categorie,
+      rbq_categories: categoriesStrings,
       status: entrepreneur.licence.statut,
       expirationDate: entrepreneur.licence.date_expiration,
       message: isValid ? 'Licence valide' : `Licence ${entrepreneur.licence.statut}`,
@@ -461,6 +499,7 @@ export async function verifyRBQLicense(licenseNumber: string): Promise<RBQVerifi
         status: entrepreneur.licence.statut,
         categories: entrepreneur.licence.categorie,
         expirationDate: entrepreneur.licence.date_expiration,
+        dateExpiration: entrepreneur.licence.date_expiration, // Alias
         address: entrepreneur.adresse,
         city: entrepreneur.ville,
         postalCode: entrepreneur.code_postal,
@@ -477,6 +516,7 @@ export async function verifyRBQLicense(licenseNumber: string): Promise<RBQVerifi
       success: false,
       valid: false,
       verified: false,
+      source: 'rbq',
       error: error instanceof Error ? error.message : 'Erreur de vérification'
     };
   }
