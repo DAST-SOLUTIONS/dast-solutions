@@ -8,6 +8,15 @@ import { CCQ_TAUX_2025_2026, CCQ_SECTEURS, CCQ_METIERS } from './ccqServiceEnhan
 
 // ============ TYPES ============
 
+// Extended CCQ rate type for paie calculations
+interface CCQTauxHorairePaie {
+  taux_base: number;
+  avantages_sociaux?: number;
+  regime_retraite?: number;
+  fonds_formation?: number;
+  [key: string]: number | undefined;
+}
+
 export interface Employe {
   id: string;
   numero_employe: string;
@@ -282,35 +291,21 @@ class PaieService {
   /**
    * Obtenir le taux horaire d'un employé
    */
-  getTauxHoraire(employe: Employe): number {
+  private getTauxHoraire(employe: Employe): number {
     if (employe.type_employe === 'ccq' && employe.metier_ccq && employe.secteur_ccq) {
-      const tauxCCQ = CCQ_TAUX_2025_2026[employe.secteur_ccq]?.[employe.metier_ccq];
+      const tauxCCQ = CCQ_TAUX_2025_2026[employe.secteur_ccq]?.[employe.metier_ccq] as CCQTauxHorairePaie | undefined;
       if (tauxCCQ) {
-        // Ajuster pour apprentis
-        if (employe.classification_ccq === 'apprenti' && employe.niveau_apprenti) {
-          const pourcentages = [0.50, 0.60, 0.70, 0.80, 0.90];
-          return tauxCCQ.taux_base * (pourcentages[employe.niveau_apprenti - 1] || 0.50);
-        }
-        return tauxCCQ.taux_base;
+        return tauxCCQ.taux_base || 0;
       }
     }
-    
-    if (employe.taux_horaire) {
-      return employe.taux_horaire;
-    }
-    
-    if (employe.salaire_annuel) {
-      return employe.salaire_annuel / 2080; // 52 semaines x 40h
-    }
-    
-    return 0;
+    return employe.taux_horaire || 0;
   }
 
   /**
-   * Calculer les déductions employé
+   * Calculer les déductions de l'employé
    */
   private calculerDeductionsEmploye(
-    salaireBrut: number, 
+    salaireBrut: number,
     employe: Employe,
     periode: PeriodePaie
   ): {
@@ -324,9 +319,11 @@ class PaieService {
     autres: number;
     total: number;
   } {
-    // Annualiser pour calcul d'impôt
+    // Nombre de périodes par an
     const periodesParAn = periode.type === 'hebdomadaire' ? 52 : 
                           periode.type === 'bi_hebdomadaire' ? 26 : 12;
+    
+    // Annualiser le salaire
     const salaireAnnuel = salaireBrut * periodesParAn;
 
     // Impôt fédéral (simplifié)
@@ -422,12 +419,12 @@ class PaieService {
     let ccq_formation = 0;
 
     if (employe.type_employe === 'ccq' && employe.metier_ccq && employe.secteur_ccq) {
-      const tauxCCQ = CCQ_TAUX_2025_2026[employe.secteur_ccq]?.[employe.metier_ccq];
-      if (tauxCCQ) {
+      const tauxCCQ = CCQ_TAUX_2025_2026[employe.secteur_ccq]?.[employe.metier_ccq] as CCQTauxHorairePaie | undefined;
+      if (tauxCCQ && tauxCCQ.taux_base) {
         const heuresEquivalentes = salaireBrut / tauxCCQ.taux_base;
-        ccq_avantages = tauxCCQ.avantages_sociaux * heuresEquivalentes;
-        ccq_retraite = tauxCCQ.regime_retraite * heuresEquivalentes;
-        ccq_formation = tauxCCQ.fonds_formation * heuresEquivalentes;
+        ccq_avantages = (tauxCCQ.avantages_sociaux || 0) * heuresEquivalentes;
+        ccq_retraite = (tauxCCQ.regime_retraite || 0) * heuresEquivalentes;
+        ccq_formation = (tauxCCQ.fonds_formation || 0) * heuresEquivalentes;
       }
     }
 

@@ -3,7 +3,85 @@
  * Génère des PDFs de haute qualité pour les soumissions
  */
 import jsPDF from 'jspdf'
-import type { SoumissionV2, SoumissionSection } from '@/types/pricing-types'
+
+// Local types to ensure all required properties exist
+interface SoumissionItem {
+  id?: string;
+  description: string;
+  quantite?: number;
+  quantity?: number;
+  unite?: string;
+  unit?: string;
+  prix_unitaire?: number;
+  unit_price?: number;
+  total?: number;
+  total_price?: number;
+  is_included?: boolean;
+  inclus?: boolean;
+}
+
+interface SoumissionSection {
+  id?: string;
+  nom?: string;
+  name?: string;
+  titre?: string;
+  items?: SoumissionItem[];
+}
+
+interface SoumissionV2 {
+  id?: string;
+  numero: string;
+  revision?: number;
+  date_creation?: string;
+  date_validite?: string;
+  // Client info - support both FR and EN naming
+  client_nom?: string;
+  client_name?: string;
+  client_adresse?: string;
+  client_address?: string;
+  client_telephone?: string;
+  client_phone?: string;
+  client_email?: string;
+  // Project info
+  projet_nom?: string;
+  project_name?: string;
+  projet_adresse?: string;
+  project_address?: string;
+  projet_description?: string;
+  project_description?: string;
+  // Sections
+  sections?: SoumissionSection[];
+  // Totals
+  sous_total?: number;
+  subtotal?: number;
+  rabais_montant?: number;
+  discount_amount?: number;
+  rabais_pourcent?: number;
+  discount_percent?: number;
+  contingence_montant?: number;
+  contingency_amount?: number;
+  contingence_pourcent?: number;
+  contingency_percent?: number;
+  profit_montant?: number;
+  profit_amount?: number;
+  profit_pourcent?: number;
+  profit_percent?: number;
+  tps?: number;
+  tps_amount?: number;
+  tvq?: number;
+  tvq_amount?: number;
+  total?: number;
+  grand_total?: number;
+  // Additional
+  conditions?: string;
+  terms_conditions?: string;
+  notes?: string;
+  notes_internes?: string;
+  prepare_par?: string;
+  prepared_by?: string;
+  prepare_par_titre?: string;
+  prepared_by_title?: string;
+}
 
 interface CompanyInfo {
   name: string
@@ -34,6 +112,40 @@ const COLORS = {
   white: [255, 255, 255] as [number, number, number],
   border: [229, 231, 235] as [number, number, number],     // Gray-200
 }
+
+// Helper functions to get values with fallbacks
+const getClientName = (s: SoumissionV2) => s.client_name || s.client_nom || '-';
+const getClientAddress = (s: SoumissionV2) => s.client_address || s.client_adresse || '';
+const getClientPhone = (s: SoumissionV2) => s.client_phone || s.client_telephone || '';
+const getProjectName = (s: SoumissionV2) => s.project_name || s.projet_nom || '-';
+const getProjectAddress = (s: SoumissionV2) => s.project_address || s.projet_adresse || '';
+const getProjectDescription = (s: SoumissionV2) => s.project_description || s.projet_description || '';
+const getDateValidite = (s: SoumissionV2) => s.date_validite || '';
+const getSubtotal = (s: SoumissionV2) => s.subtotal || s.sous_total || 0;
+const getDiscountAmount = (s: SoumissionV2) => s.discount_amount || s.rabais_montant || 0;
+const getDiscountPercent = (s: SoumissionV2) => s.discount_percent || s.rabais_pourcent || 0;
+const getContingencyAmount = (s: SoumissionV2) => s.contingency_amount || s.contingence_montant || 0;
+const getContingencyPercent = (s: SoumissionV2) => s.contingency_percent || s.contingence_pourcent || 0;
+const getProfitAmount = (s: SoumissionV2) => s.profit_amount || s.profit_montant || 0;
+const getProfitPercent = (s: SoumissionV2) => s.profit_percent || s.profit_pourcent || 0;
+const getTpsAmount = (s: SoumissionV2) => s.tps_amount || s.tps || 0;
+const getTvqAmount = (s: SoumissionV2) => s.tvq_amount || s.tvq || 0;
+const getGrandTotal = (s: SoumissionV2) => s.grand_total || s.total || 0;
+const getTermsConditions = (s: SoumissionV2) => s.terms_conditions || s.conditions || '';
+const getNotes = (s: SoumissionV2) => s.notes || s.notes_internes || '';
+const getPreparedBy = (s: SoumissionV2) => s.prepared_by || s.prepare_par || '';
+const getPreparedByTitle = (s: SoumissionV2) => s.prepared_by_title || s.prepare_par_titre || '';
+const getRevision = (s: SoumissionV2) => s.revision || 1;
+
+// Section helpers
+const getSectionName = (section: SoumissionSection) => section.name || section.nom || section.titre || 'Section';
+
+// Item helpers
+const getItemQuantity = (item: SoumissionItem) => item.quantity || item.quantite || 0;
+const getItemUnit = (item: SoumissionItem) => item.unit || item.unite || '';
+const getItemUnitPrice = (item: SoumissionItem) => item.unit_price || item.prix_unitaire || 0;
+const getItemTotalPrice = (item: SoumissionItem) => item.total_price || item.total || 0;
+const getItemIsIncluded = (item: SoumissionItem) => item.is_included !== undefined ? item.is_included : (item.inclus !== undefined ? item.inclus : true);
 
 export async function generateSoumissionPDF(
   soumission: SoumissionV2,
@@ -143,8 +255,8 @@ export async function generateSoumissionPDF(
     color: COLORS.white,
     align: 'right'
   })
-  if (soumission.revision > 1) {
-    addText(`Révision ${soumission.revision}`, pageWidth - margin, 34, {
+  if (getRevision(soumission) > 1) {
+    addText(`Révision ${getRevision(soumission)}`, pageWidth - margin, 34, {
       fontSize: 10,
       color: COLORS.white,
       align: 'right'
@@ -167,13 +279,14 @@ export async function generateSoumissionPDF(
     fontStyle: 'bold',
     color: COLORS.secondary
   })
-  addText(soumission.client_name || '-', margin + 5, y + 16, {
+  addText(getClientName(soumission), margin + 5, y + 16, {
     fontSize: 11,
     fontStyle: 'bold',
     color: COLORS.dark
   })
-  if (soumission.client_address) {
-    const addressLines = soumission.client_address.split('\n')
+  const clientAddr = getClientAddress(soumission);
+  if (clientAddr) {
+    const addressLines = clientAddr.split('\n')
     addressLines.forEach((line, i) => {
       addText(line, margin + 5, y + 23 + (i * 5), {
         fontSize: 9,
@@ -181,8 +294,9 @@ export async function generateSoumissionPDF(
       })
     })
   }
-  if (soumission.client_phone) {
-    addText(soumission.client_phone, margin + 5, y + 36, {
+  const clientTel = getClientPhone(soumission);
+  if (clientTel) {
+    addText(clientTel, margin + 5, y + 36, {
       fontSize: 9,
       color: COLORS.secondary
     })
@@ -195,13 +309,14 @@ export async function generateSoumissionPDF(
     fontStyle: 'bold',
     color: COLORS.secondary
   })
-  addText(soumission.project_name || '-', margin + colWidth + 15, y + 16, {
+  addText(getProjectName(soumission), margin + colWidth + 15, y + 16, {
     fontSize: 11,
     fontStyle: 'bold',
     color: COLORS.dark
   })
-  if (soumission.project_address) {
-    const addressLines = soumission.project_address.split('\n')
+  const projectAddr = getProjectAddress(soumission);
+  if (projectAddr) {
+    const addressLines = projectAddr.split('\n')
     addressLines.forEach((line, i) => {
       addText(line, margin + colWidth + 15, y + 23 + (i * 5), {
         fontSize: 9,
@@ -217,7 +332,7 @@ export async function generateSoumissionPDF(
     fontSize: 9,
     color: COLORS.secondary
   })
-  addText(`Valide jusqu'au: ${soumission.date_validite || '-'}`, margin + 60, y, {
+  addText(`Valide jusqu'au: ${getDateValidite(soumission) || '-'}`, margin + 60, y, {
     fontSize: 9,
     color: COLORS.secondary
   })
@@ -225,14 +340,15 @@ export async function generateSoumissionPDF(
   y += 10
 
   // Description
-  if (soumission.project_description) {
+  const projectDesc = getProjectDescription(soumission);
+  if (projectDesc) {
     addText('Description des travaux:', margin, y, {
       fontSize: 9,
       fontStyle: 'bold',
       color: COLORS.dark
     })
     y += 5
-    const descLines = doc.splitTextToSize(soumission.project_description, contentWidth)
+    const descLines = doc.splitTextToSize(projectDesc, contentWidth)
     addText(descLines.join('\n'), margin, y, {
       fontSize: 9,
       color: COLORS.secondary,
@@ -299,7 +415,7 @@ export async function generateSoumissionPDF(
 
     // Section header
     addRect(margin, y, contentWidth, 7, COLORS.light)
-    addText(section.name.toUpperCase(), margin + 3, y + 5, {
+    addText(getSectionName(section).toUpperCase(), margin + 3, y + 5, {
       fontSize: 9,
       fontStyle: 'bold',
       color: COLORS.dark
@@ -307,22 +423,27 @@ export async function generateSoumissionPDF(
     y += 9
 
     // Items
-    section.items?.filter(item => item.is_included).forEach((item, itemIndex) => {
-      checkPageBreak(8)
+    section.items?.forEach((item, itemIndex) => {
+      if (!getItemIsIncluded(item)) return
+      
+      checkPageBreak(10)
 
-      const rowBg = itemIndex % 2 === 0 ? COLORS.white : COLORS.light
-      addRect(margin, y, contentWidth, 7, rowBg)
+      // Alternating row background
+      if (itemIndex % 2 === 0) {
+        addRect(margin, y, contentWidth, 7, [255, 255, 255])
+      }
 
-      // Description (with text wrap)
-      const descText = doc.splitTextToSize(item.description || '', cols.desc.w - 4)
-      addText(descText[0] || '', cols.desc.x + 2, y + 5, {
+      // Description
+      const descText = doc.splitTextToSize(item.description, cols.desc.w - 4)
+      addText(descText[0], cols.desc.x + 2, y + 5, {
         fontSize: 9,
         color: COLORS.dark
       })
 
       // Quantity
-      if (item.quantity) {
-        addText(item.quantity.toString(), cols.qty.x + cols.qty.w - 2, y + 5, {
+      const qty = getItemQuantity(item);
+      if (qty) {
+        addText(qty.toString(), cols.qty.x + cols.qty.w - 2, y + 5, {
           fontSize: 9,
           color: COLORS.dark,
           align: 'right'
@@ -330,14 +451,18 @@ export async function generateSoumissionPDF(
       }
 
       // Unit
-      addText(item.unit || '', cols.unit.x + 2, y + 5, {
-        fontSize: 9,
-        color: COLORS.secondary
-      })
+      const unit = getItemUnit(item);
+      if (unit) {
+        addText(unit, cols.unit.x + 2, y + 5, {
+          fontSize: 9,
+          color: COLORS.dark
+        })
+      }
 
       // Unit price
-      if (item.unit_price) {
-        addText(formatCurrency(item.unit_price), cols.price.x + cols.price.w - 2, y + 5, {
+      const unitPrice = getItemUnitPrice(item);
+      if (unitPrice) {
+        addText(formatCurrency(unitPrice), cols.price.x + cols.price.w - 2, y + 5, {
           fontSize: 9,
           color: COLORS.dark,
           align: 'right'
@@ -345,7 +470,7 @@ export async function generateSoumissionPDF(
       }
 
       // Total
-      addText(formatCurrency(item.total_price || 0), cols.total.x + cols.total.w - 2, y + 5, {
+      addText(formatCurrency(getItemTotalPrice(item)), cols.total.x + cols.total.w - 2, y + 5, {
         fontSize: 9,
         fontStyle: 'bold',
         color: COLORS.dark,
@@ -368,12 +493,12 @@ export async function generateSoumissionPDF(
 
     // Section subtotal
     const sectionTotal = section.items
-      ?.filter(i => i.is_included)
-      .reduce((sum, item) => sum + (item.total_price || 0), 0) || 0
+      ?.filter(i => getItemIsIncluded(i))
+      .reduce((sum, item) => sum + getItemTotalPrice(item), 0) || 0
     
     addLine(cols.total.x, y, cols.total.x + cols.total.w, y, COLORS.secondary)
     y += 1
-    addText(`Sous-total ${section.name}:`, cols.price.x, y + 4, {
+    addText(`Sous-total ${getSectionName(section)}:`, cols.price.x, y + 4, {
       fontSize: 8,
       color: COLORS.secondary,
       align: 'right'
@@ -405,7 +530,7 @@ export async function generateSoumissionPDF(
     color: COLORS.secondary,
     align: 'right'
   })
-  addText(formatCurrency(soumission.subtotal || 0), totalsValueX, y, {
+  addText(formatCurrency(getSubtotal(soumission)), totalsValueX, y, {
     fontSize: 10,
     fontStyle: 'bold',
     color: COLORS.dark,
@@ -414,13 +539,14 @@ export async function generateSoumissionPDF(
   y += 6
 
   // Discount
-  if (soumission.discount_amount && soumission.discount_amount > 0) {
-    addText(`Rabais (${soumission.discount_percent}%):`, totalsX, y, {
+  const discountAmt = getDiscountAmount(soumission);
+  if (discountAmt > 0) {
+    addText(`Rabais (${getDiscountPercent(soumission)}%):`, totalsX, y, {
       fontSize: 9,
       color: COLORS.secondary,
       align: 'right'
     })
-    addText(`-${formatCurrency(soumission.discount_amount)}`, totalsValueX, y, {
+    addText(`-${formatCurrency(discountAmt)}`, totalsValueX, y, {
       fontSize: 9,
       color: [220, 38, 38],
       align: 'right'
@@ -429,13 +555,14 @@ export async function generateSoumissionPDF(
   }
 
   // Contingency
-  if (soumission.contingency_amount && soumission.contingency_amount > 0) {
-    addText(`Contingence (${soumission.contingency_percent}%):`, totalsX, y, {
+  const contingencyAmt = getContingencyAmount(soumission);
+  if (contingencyAmt > 0) {
+    addText(`Contingence (${getContingencyPercent(soumission)}%):`, totalsX, y, {
       fontSize: 9,
       color: COLORS.secondary,
       align: 'right'
     })
-    addText(formatCurrency(soumission.contingency_amount), totalsValueX, y, {
+    addText(formatCurrency(contingencyAmt), totalsValueX, y, {
       fontSize: 9,
       color: COLORS.dark,
       align: 'right'
@@ -444,13 +571,14 @@ export async function generateSoumissionPDF(
   }
 
   // Profit
-  if (soumission.profit_amount && soumission.profit_amount > 0) {
-    addText(`Profit (${soumission.profit_percent}%):`, totalsX, y, {
+  const profitAmt = getProfitAmount(soumission);
+  if (profitAmt > 0) {
+    addText(`Profit (${getProfitPercent(soumission)}%):`, totalsX, y, {
       fontSize: 9,
       color: COLORS.secondary,
       align: 'right'
     })
-    addText(formatCurrency(soumission.profit_amount), totalsValueX, y, {
+    addText(formatCurrency(profitAmt), totalsValueX, y, {
       fontSize: 9,
       color: COLORS.dark,
       align: 'right'
@@ -466,7 +594,7 @@ export async function generateSoumissionPDF(
     color: COLORS.secondary,
     align: 'right'
   })
-  addText(formatCurrency(soumission.tps_amount || 0), totalsValueX, y, {
+  addText(formatCurrency(getTpsAmount(soumission)), totalsValueX, y, {
     fontSize: 9,
     color: COLORS.dark,
     align: 'right'
@@ -478,7 +606,7 @@ export async function generateSoumissionPDF(
     color: COLORS.secondary,
     align: 'right'
   })
-  addText(formatCurrency(soumission.tvq_amount || 0), totalsValueX, y, {
+  addText(formatCurrency(getTvqAmount(soumission)), totalsValueX, y, {
     fontSize: 9,
     color: COLORS.dark,
     align: 'right'
@@ -493,7 +621,7 @@ export async function generateSoumissionPDF(
     color: COLORS.white,
     align: 'right'
   })
-  addText(formatCurrency(soumission.grand_total || 0), totalsValueX, y + 6, {
+  addText(formatCurrency(getGrandTotal(soumission)), totalsValueX, y + 6, {
     fontSize: 14,
     fontStyle: 'bold',
     color: COLORS.white,
@@ -507,7 +635,8 @@ export async function generateSoumissionPDF(
   
   checkPageBreak(40)
   
-  if (soumission.terms_conditions) {
+  const termsConditions = getTermsConditions(soumission);
+  if (termsConditions) {
     addText('CONDITIONS:', margin, y, {
       fontSize: 9,
       fontStyle: 'bold',
@@ -515,7 +644,7 @@ export async function generateSoumissionPDF(
     })
     y += 5
 
-    const termsLines = doc.splitTextToSize(soumission.terms_conditions, contentWidth)
+    const termsLines = doc.splitTextToSize(termsConditions, contentWidth)
     doc.setFontSize(8)
     doc.setTextColor(...COLORS.secondary)
     termsLines.forEach(line => {
@@ -527,7 +656,8 @@ export async function generateSoumissionPDF(
   }
 
   // Notes
-  if (soumission.notes) {
+  const notes = getNotes(soumission);
+  if (notes) {
     checkPageBreak(20)
     addText('NOTES:', margin, y, {
       fontSize: 9,
@@ -535,7 +665,7 @@ export async function generateSoumissionPDF(
       color: COLORS.dark
     })
     y += 5
-    const notesLines = doc.splitTextToSize(soumission.notes, contentWidth)
+    const notesLines = doc.splitTextToSize(notes, contentWidth)
     doc.setFontSize(8)
     doc.setTextColor(...COLORS.secondary)
     notesLines.forEach(line => {
@@ -565,21 +695,22 @@ export async function generateSoumissionPDF(
   y += 15
   addLine(margin, y, margin + sigWidth, y, COLORS.dark)
   y += 4
-  addText(soumission.prepared_by || company.name, margin, y, {
+  addText(getPreparedBy(soumission) || company.name, margin, y, {
     fontSize: 10,
     fontStyle: 'bold',
     color: COLORS.dark
   })
-  if (soumission.prepared_by_title) {
+  const preparedByTitle = getPreparedByTitle(soumission);
+  if (preparedByTitle) {
     y += 4
-    addText(soumission.prepared_by_title, margin, y, {
+    addText(preparedByTitle, margin, y, {
       fontSize: 8,
       color: COLORS.secondary
     })
   }
 
   // Accepted by
-  y -= (soumission.prepared_by_title ? 23 : 19)
+  y -= (preparedByTitle ? 23 : 19)
   addText('Accepté par:', margin + sigWidth + 20, y, {
     fontSize: 8,
     color: COLORS.secondary
@@ -587,7 +718,7 @@ export async function generateSoumissionPDF(
   y += 15
   addLine(margin + sigWidth + 20, y, pageWidth - margin, y, COLORS.dark)
   y += 4
-  addText(soumission.client_name || 'Client', margin + sigWidth + 20, y, {
+  addText(getClientName(soumission), margin + sigWidth + 20, y, {
     fontSize: 10,
     fontStyle: 'bold',
     color: COLORS.dark
@@ -648,3 +779,6 @@ export async function openSoumissionPDF(soumission: SoumissionV2) {
   const url = URL.createObjectURL(blob)
   window.open(url, '_blank')
 }
+
+// Export types for use in other files
+export type { SoumissionV2, SoumissionSection, SoumissionItem, CompanyInfo }
