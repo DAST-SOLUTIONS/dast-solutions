@@ -8,15 +8,6 @@ import { CCQ_TAUX_2025_2026, CCQ_SECTEURS, CCQ_METIERS } from './ccqServiceEnhan
 
 // ============ TYPES ============
 
-// Extended CCQ rate type for paie calculations
-interface CCQTauxHorairePaie {
-  taux_base: number;
-  avantages_sociaux?: number;
-  regime_retraite?: number;
-  fonds_formation?: number;
-  [key: string]: number | undefined;
-}
-
 export interface Employe {
   id: string;
   numero_employe: string;
@@ -293,9 +284,9 @@ class PaieService {
    */
   private getTauxHoraire(employe: Employe): number {
     if (employe.type_employe === 'ccq' && employe.metier_ccq && employe.secteur_ccq) {
-      const tauxCCQ = CCQ_TAUX_2025_2026[employe.secteur_ccq]?.[employe.metier_ccq] as CCQTauxHorairePaie | undefined;
-      if (tauxCCQ) {
-        return tauxCCQ.taux_base || 0;
+      const tauxCCQ = CCQ_TAUX_2025_2026[employe.secteur_ccq]?.[employe.metier_ccq];
+      if (tauxCCQ && typeof tauxCCQ === 'object' && 'taux_base' in tauxCCQ) {
+        return (tauxCCQ as any).taux_base || 0;
       }
     }
     return employe.taux_horaire || 0;
@@ -419,12 +410,13 @@ class PaieService {
     let ccq_formation = 0;
 
     if (employe.type_employe === 'ccq' && employe.metier_ccq && employe.secteur_ccq) {
-      const tauxCCQ = CCQ_TAUX_2025_2026[employe.secteur_ccq]?.[employe.metier_ccq] as CCQTauxHorairePaie | undefined;
-      if (tauxCCQ && tauxCCQ.taux_base) {
-        const heuresEquivalentes = salaireBrut / tauxCCQ.taux_base;
-        ccq_avantages = (tauxCCQ.avantages_sociaux || 0) * heuresEquivalentes;
-        ccq_retraite = (tauxCCQ.regime_retraite || 0) * heuresEquivalentes;
-        ccq_formation = (tauxCCQ.fonds_formation || 0) * heuresEquivalentes;
+      const tauxCCQ = CCQ_TAUX_2025_2026[employe.secteur_ccq]?.[employe.metier_ccq];
+      if (tauxCCQ && typeof tauxCCQ === 'object' && 'taux_base' in tauxCCQ) {
+        const taux = tauxCCQ as any;
+        const heuresEquivalentes = salaireBrut / (taux.taux_base || 1);
+        ccq_avantages = (taux.avantages_sociaux || 0) * heuresEquivalentes;
+        ccq_retraite = (taux.regime_retraite || 0) * heuresEquivalentes;
+        ccq_formation = (taux.fonds_formation || 0) * heuresEquivalentes;
       }
     }
 
