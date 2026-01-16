@@ -179,3 +179,55 @@ export interface EquipmentRate {
   operator_required?: boolean;
   operator_rate?: number;
 }
+
+// Soumission V2 Types
+export interface SoumissionV2 {
+  id: string;
+  numero: string;
+  titre: string;
+  project_id?: string;
+  client_id?: string;
+  statut: string;
+  montant_ht: number;
+  tps: number;
+  tvq: number;
+  montant_total: number;
+  sections?: SoumissionSection[];
+  items?: SoumissionItem[];
+  date_creation: string;
+  user_id: string;
+}
+
+export interface SoumissionSection {
+  id: string;
+  nom: string;
+  description?: string;
+  sort_order: number;
+  items?: SoumissionItem[];
+  sous_total?: number;
+}
+
+export interface SoumissionItem {
+  id: string;
+  description: string;
+  quantite: number;
+  unite: string;
+  prix_unitaire: number;
+  montant: number;
+  categorie?: string;
+}
+
+export interface SoumissionTemplate {
+  id: string;
+  name: string;
+  description?: string;
+  sections: SoumissionSection[];
+}
+
+export interface SoumissionFilters {
+  statut?: string;
+  client_id?: string;
+  project_id?: string;
+  dateFrom?: string;
+  dateTo?: string;
+}

@@ -1,4 +1,2 @@
-// Pages Soumissions - Index
-export { default as SoumissionTemplates } from './SoumissionTemplates'
-export { default as SoumissionBuilderAdvanced } from './SoumissionBuilderAdvanced'
-export { default as SoumissionAnalytics } from './SoumissionAnalytics'
+export { default as Soumissions } from './Soumissions'
+export { default as BonsCommande } from './BonsCommande'

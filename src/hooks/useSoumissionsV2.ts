@@ -1,41 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase/client';
-
-export interface SoumissionV2 {
-  id: string;
-  numero: string;
-  titre: string;
-  project_id?: string;
-  client_id?: string;
-  statut: string;
-  montant_ht: number;
-  tps: number;
-  tvq: number;
-  montant_total: number;
-  date_creation: string;
-  user_id: string;
-}
-
-export interface SoumissionTemplate {
-  id: string;
-  name: string;
-  description?: string;
-}
-
-export interface SoumissionFilters {
-  statut?: string;
-  client_id?: string;
-  project_id?: string;
-}
-
-export interface SoumissionItem {
-  id: string;
-  description: string;
-  quantite: number;
-  unite: string;
-  prix_unitaire: number;
-  montant: number;
-}
+import type { SoumissionV2, SoumissionTemplate, SoumissionFilters, SoumissionItem } from '@/types/pricing-types';
 
 export function useSoumissionsV2(filters?: SoumissionFilters) {
   const [soumissions, setSoumissions] = useState<SoumissionV2[]>([]);
