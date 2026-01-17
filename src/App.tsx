@@ -146,10 +146,14 @@ function App() {
                       <Route path="/" element={<Dashboard />} />
                       <Route path="/projects" element={<Projects />} />
                       <Route path="/projects/:id" element={<ProjectDetail />} />
+                      <Route path="/project/new" element={<ProjectDetail />} />
+                      <Route path="/project/:id" element={<ProjectDetail />} />
                       <Route path="/takeoff" element={<Takeoff />} />
                       <Route path="/takeoff/:id" element={<TakeoffViewer />} />
                       <Route path="/estimating" element={<Estimating />} />
                       <Route path="/soumissions" element={<Soumissions />} />
+                      <Route path="/soumission/new" element={<Soumissions />} />
+                      <Route path="/soumission/:id" element={<Soumissions />} />
                       <Route path="/documents" element={<Documents />} />
                       <Route path="/settings" element={<Settings />} />
                       
