@@ -1,6 +1,7 @@
 /**
  * DAST Solutions - Project Details COMPLET
  * Avec onglets: Aperçu, Documents, Estimation, Gestion, Finances
+ * CORRIGÉ: Gestion des dates vides (null au lieu de "")
  */
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
@@ -1013,10 +1014,18 @@ function TabEdit({ project, onSave, saving }: {
     building_type: project.building_type || 'residence_unifamiliale'
   })
 
+  // CORRIGÉ: Convertir les valeurs vides en null pour PostgreSQL
   const handleSubmit = () => {
     onSave({
       ...form,
-      budget: form.budget ? parseFloat(form.budget) : undefined
+      budget: form.budget ? parseFloat(form.budget) : null,
+      start_date: form.start_date || null,
+      end_date: form.end_date || null,
+      description: form.description || null,
+      address: form.address || null,
+      city: form.city || null,
+      postal_code: form.postal_code || null,
+      client_name: form.client_name || null
     })
   }
 
@@ -1288,15 +1297,30 @@ export default function ProjectDetails() {
     setSearchParams({ tab })
   }
 
-  // Sauvegarder
+  // Sauvegarder - CORRIGÉ: Nettoyer les valeurs vides
   const handleSave = async (data: Partial<Project>) => {
     setSaving(true)
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('Non authentifié')
 
-      const projectData = {
-        ...data,
+      // CORRIGÉ: Nettoyer les données - convertir "" en null
+      const projectData: Record<string, any> = {
+        name: data.name,
+        status: data.status || 'draft',
+        project_type: data.project_type || 'prive',
+        project_scope: data.project_scope || 'neuf',
+        building_type: data.building_type || 'residence_unifamiliale',
+        province: data.province || 'QC',
+        // Champs optionnels - null si vides
+        client_name: data.client_name || null,
+        address: data.address || null,
+        city: data.city || null,
+        postal_code: data.postal_code || null,
+        description: data.description || null,
+        budget: data.budget || null,
+        start_date: data.start_date || null,
+        end_date: data.end_date || null,
         updated_at: new Date().toISOString()
       }
 
