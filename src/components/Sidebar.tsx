@@ -524,6 +524,14 @@ export default function Sidebar({ user, onLogout }: SidebarProps) {
                 <Receipt size={16} />
                 Prix Québec
               </NavLink>
+              <NavLink to="/prix-updater" className={({ isActive }) => subLinkClass(isActive)}>
+                <RefreshCw size={16} />
+                Mise à jour des prix
+              </NavLink>
+              <NavLink to="/export-soumission" className={({ isActive }) => subLinkClass(isActive)}>
+                <FileSpreadsheet size={16} />
+                Exporter soumission
+              </NavLink>
             </div>
           )}
         </div>
