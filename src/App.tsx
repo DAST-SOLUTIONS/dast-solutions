@@ -57,6 +57,9 @@ const ReclamationsModule = lazy(() => import('./pages/Reclamations/ReclamationsM
 const SSTModule = lazy(() => import('./pages/SST/SSTModule'));
 const BudgetTempsReelModule = lazy(() => import('./pages/BudgetTempsReel/BudgetTempsReelModule'));
 const PhotothequeModule = lazy(() => import('./pages/Phototheque/PhotothequeModule'));
+const CostDatabase = lazy(() => import('./pages/CostDatabase'));
+const PrixUpdaterModule = lazy(() => import('./pages/PrixUpdater/PrixUpdaterModule'));
+const SoumissionExporterModule = lazy(() => import('./pages/SoumissionExporter/SoumissionExporterModule'));
 
 // Protected Route Component
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -203,6 +206,11 @@ function App() {
                       <Route path="/budget-temps-reel" element={<BudgetTempsReelModule />} />
                       <Route path="/phototheque" element={<PhotothequeModule />} />
                       
+                      {/* Sprint 1 - Base de coûts */}
+                      <Route path="/database" element={<CostDatabase />} />
+                      <Route path="/prix-updater" element={<PrixUpdaterModule />} />
+                      <Route path="/export-soumission" element={<SoumissionExporterModule />} />
+
                       {/* Catch all */}
                       <Route path="*" element={<Navigate to="/" replace />} />
                     </Routes>
