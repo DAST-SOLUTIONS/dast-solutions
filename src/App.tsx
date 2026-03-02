@@ -103,18 +103,7 @@ const NotificationsModuleWrapper: React.FC = () => {
   return <Component />;
 };
 
-const TakeoffSyncModuleWrapper: React.FC = () => {
-  const [Component, setComponent] = React.useState<React.ComponentType | null>(null);
-  
-  React.useEffect(() => {
-    import('./pages/Modules/AdditionalModules').then(mod => {
-      setComponent(() => mod.TakeoffSyncModule);
-    });
-  }, []);
-  
-  if (!Component) return <LoadingSpinner />;
-  return <Component />;
-};
+const TakeoffSyncModuleWrapper = lazy(() => import('./pages/Modules/TakeoffSyncModule'));
 
 const AIRecognitionModuleWrapper: React.FC = () => {
   const [Component, setComponent] = React.useState<React.ComponentType | null>(null);
@@ -230,5 +219,6 @@ function App() {
 }
 
 export default App;
+
 
 
