@@ -121,6 +121,12 @@ export default function EstimationPage() {
   const [showMarginsModal, setShowMarginsModal] = useState(false)
 
   // Charger les données
+  // Redirect if no projectId
+  if (!projectId) {
+    navigate('/projects')
+    return null
+  }
+
   useEffect(() => {
     if (!projectId) return
     loadData()
@@ -986,3 +992,4 @@ function getDivisionName(code: string): string {
   }
   return names[code] || ''
 }
+
