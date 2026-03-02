@@ -5,9 +5,10 @@
 import { useState, useRef } from 'react';
 import { RefreshCw, Upload, Check, AlertCircle, ExternalLink, DollarSign } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-// Toast helper (no external dep)
-const toast = { success: (m: string) => console.log('✅', m), error: (m: string) => console.error('❌', m) };
 import * as XLSX from 'xlsx';
+
+// Toast helper
+const toast = { success: (m: string) => console.log('✅', m), error: (m: string) => console.error('❌', m) };
 
 interface PriceUpdate {
   code: string;
