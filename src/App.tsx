@@ -59,7 +59,7 @@ const BudgetTempsReelModule = lazy(() => import('./pages/BudgetTempsReel/BudgetT
 const PhotothequeModule = lazy(() => import('./pages/Phototheque/PhotothequeModule'));
 const CostDatabase = lazy(() => import('./pages/CostDatabase'));
 const PrixUpdaterModule = lazy(() => import('./pages/PrixUpdater/PrixUpdaterModule'));
-const SoumissionExporterModule = lazy(() => import('./pages/SoumissionExporter/SoumissionExporterModule'));
+const SoumissionExporterModule = lazy(() => import('./pages/SoumissionExporter/SoumissionExporterPage'));
 
 // Protected Route Component
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -230,4 +230,5 @@ function App() {
 }
 
 export default App;
+
 
