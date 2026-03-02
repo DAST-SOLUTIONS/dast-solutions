@@ -221,7 +221,7 @@ export default function EstimationPage() {
     if (!estimate) return
     try {
       await supabase.from('estimate_items').insert({
-        estimate_id: estimate.id,
+        estimate_id: (estimate?.id ?? ""),
         cost_item_id: costItem.id,
         code: costItem.full_code,
         description: costItem.description,
@@ -271,7 +271,7 @@ export default function EstimationPage() {
     )
   }
 
-  if (!project || !estimate) {
+  if (!project) {
     return (
       <div className="flex items-center justify-center h-screen">
         <p className="text-gray-500">Projet non trouvé</p>
@@ -308,7 +308,7 @@ export default function EstimationPage() {
               <div>
                 <p className="text-sm text-white/60">Total estimé</p>
                 <p className="text-2xl font-bold text-green-400">
-                  {formatCurrency(estimate.grand_total)}
+                  {formatCurrency((estimate?.grand_total ?? 0))}
                 </p>
               </div>
               <div>
@@ -494,11 +494,11 @@ export default function EstimationPage() {
               </div>
               <div className="border-l pl-4">
                 <span className="text-gray-500">Sous-total:</span>
-                <span className="font-bold ml-2">{formatCurrency(estimate.subtotal)}</span>
+                <span className="font-bold ml-2">{formatCurrency((estimate?.subtotal ?? 0))}</span>
               </div>
               <div className="border-l pl-4">
                 <span className="text-gray-500">Grand total:</span>
-                <span className="font-bold text-lg text-green-600 ml-2">{formatCurrency(estimate.grand_total)}</span>
+                <span className="font-bold text-lg text-green-600 ml-2">{formatCurrency((estimate?.grand_total ?? 0))}</span>
               </div>
             </div>
           </div>
@@ -723,8 +723,8 @@ function MarginsModal({
   onSave: () => void
 }) {
   const [form, setForm] = useState({
-    overhead_percent: estimate.overhead_percent.toString(),
-    profit_percent: estimate.profit_percent.toString(),
+    overhead_percent: (estimate?.overhead_percent ?? 0).toString(),
+    profit_percent: (estimate?.profit_percent ?? 0).toString(),
     contingency_percent: estimate.contingency_percent.toString()
   })
   const [saving, setSaving] = useState(false)
@@ -746,7 +746,7 @@ function MarginsModal({
     }
   }
 
-  const subtotal = estimate.subtotal
+  const subtotal = (estimate?.subtotal ?? 0)
   const overhead = subtotal * (parseFloat(form.overhead_percent) || 0) / 100
   const profit = subtotal * (parseFloat(form.profit_percent) || 0) / 100
   const contingency = subtotal * (parseFloat(form.contingency_percent) || 0) / 100
@@ -937,15 +937,15 @@ function SummaryTab({ estimate }: { estimate: Estimate }) {
             <div className="space-y-3">
               <div className="flex justify-between py-2 border-b">
                 <span className="text-gray-600">Sous-total direct</span>
-                <span className="font-medium">{formatCurrency(estimate.subtotal)}</span>
+                <span className="font-medium">{formatCurrency((estimate?.subtotal ?? 0))}</span>
               </div>
               <div className="flex justify-between py-2">
-                <span className="text-gray-600">Frais généraux ({estimate.overhead_percent}%)</span>
-                <span>{formatCurrency(estimate.overhead_amount)}</span>
+                <span className="text-gray-600">Frais généraux ({(estimate?.overhead_percent ?? 0)}%)</span>
+                <span>{formatCurrency((estimate?.overhead_amount ?? 0))}</span>
               </div>
               <div className="flex justify-between py-2">
-                <span className="text-gray-600">Profit ({estimate.profit_percent}%)</span>
-                <span>{formatCurrency(estimate.profit_amount)}</span>
+                <span className="text-gray-600">Profit ({(estimate?.profit_percent ?? 0)}%)</span>
+                <span>{formatCurrency((estimate?.profit_amount ?? 0))}</span>
               </div>
               <div className="flex justify-between py-2">
                 <span className="text-gray-600">Contingence ({estimate.contingency_percent}%)</span>
@@ -953,7 +953,7 @@ function SummaryTab({ estimate }: { estimate: Estimate }) {
               </div>
               <div className="flex justify-between py-3 bg-green-50 -mx-6 px-6 mt-4 rounded">
                 <span className="font-bold text-green-800">GRAND TOTAL</span>
-                <span className="text-xl font-bold text-green-600">{formatCurrency(estimate.grand_total)}</span>
+                <span className="text-xl font-bold text-green-600">{formatCurrency((estimate?.grand_total ?? 0))}</span>
               </div>
             </div>
           </div>
@@ -989,5 +989,6 @@ function getDivisionName(code: string): string {
   }
   return names[code] || ''
 }
+
 
 
