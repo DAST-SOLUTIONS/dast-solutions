@@ -5,9 +5,11 @@
 import { useState } from 'react';
 import * as XLSX from 'xlsx';
 import { FileSpreadsheet, Download, RefreshCw, FileText } from 'lucide-react';
-const toast = { success: (m: string) => console.log('✅', m), error: (m: string) => console.error('❌', m) };
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
+
+// Toast helper
+const toast = { success: (m: string) => console.log('✅', m), error: (m: string) => console.error('❌', m) };
 
 // ─────────────────────────────────────────────
 // TYPES
