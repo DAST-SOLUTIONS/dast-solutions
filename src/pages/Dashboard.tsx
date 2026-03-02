@@ -85,8 +85,17 @@ export default function Dashboard() {
   
   // Widgets personnalisables
   const [widgets, setWidgets] = useState<WidgetConfig[]>(() => {
-    const saved = localStorage.getItem('dast_dashboard_widgets')
-    return saved ? JSON.parse(saved) : DEFAULT_WIDGETS
+    try {
+      const saved = localStorage.getItem('dast_dashboard_widgets_v2')
+      if (saved) {
+        const savedPrefs: {id: string, visible: boolean}[] = JSON.parse(saved)
+        return DEFAULT_WIDGETS.map(w => ({
+          ...w,
+          visible: savedPrefs.find(s => s.id === w.id)?.visible ?? w.visible
+        }))
+      }
+    } catch {}
+    return DEFAULT_WIDGETS
   })
   const [showWidgetSettings, setShowWidgetSettings] = useState(false)
 
@@ -94,9 +103,13 @@ export default function Dashboard() {
     loadDashboardData()
   }, [])
 
-  // Sauvegarder config widgets
+  // Sauvegarder config widgets (seulement id+visible, pas les icônes)
   useEffect(() => {
-    localStorage.setItem('dast_dashboard_widgets', JSON.stringify(widgets))
+    try {
+      localStorage.setItem('dast_dashboard_widgets_v2', 
+        JSON.stringify(widgets.map(w => ({ id: w.id, visible: w.visible })))
+      )
+    } catch {}
   }, [widgets])
 
   const loadDashboardData = async () => {
@@ -605,3 +618,4 @@ export default function Dashboard() {
     </div>
   )
 }
+
