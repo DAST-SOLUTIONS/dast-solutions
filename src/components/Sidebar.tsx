@@ -296,42 +296,30 @@ export default function Sidebar({ user, onLogout }: SidebarProps) {
         </div>
 
         {/* ============ BASES DE DONNÉES ============ */}
-        <div className="pt-2">
-          <button
-            onClick={() => toggleMenu('basesDonnees')}
-            className="w-full flex items-center justify-between px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-lg"
-          >
-            <span className="flex items-center gap-2">
+        <div className="pt-4">
+          <p className="px-3 mb-1 text-xs font-semibold text-gray-400 uppercase tracking-wider">Bases de données</p>
+          <div className="space-y-0.5">
+            <NavLink to="/database" className={({ isActive }) => linkClass(isActive)}>
               <Database size={18} />
-              Bases de données
-            </span>
-            {expandedMenus.basesDonnees ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-          </button>
-
-          {expandedMenus.basesDonnees && (
-            <div className="mt-1 space-y-0.5">
-              <NavLink to="/database" className={({ isActive }) => subLinkClass(isActive)}>
-                <Database size={16} />
-                Coûts (ProEst)
-              </NavLink>
-              <NavLink to="/materials" className={({ isActive }) => subLinkClass(isActive)}>
-                <Package size={16} />
-                Matériaux
-              </NavLink>
-              <NavLink to="/materiaux-prix" className={({ isActive }) => subLinkClass(isActive)}>
-                <Receipt size={16} />
-                Prix Québec
-              </NavLink>
-              <NavLink to="/prix-updater" className={({ isActive }) => subLinkClass(isActive)}>
-                <RefreshCw size={16} />
-                Mise à jour des prix
-              </NavLink>
-              <NavLink to="/export-soumission" className={({ isActive }) => subLinkClass(isActive)}>
-                <FileSpreadsheet size={16} />
-                Exporter soumission
-              </NavLink>
-            </div>
-          )}
+              Coûts (ProEst)
+            </NavLink>
+            <NavLink to="/materials" className={({ isActive }) => linkClass(isActive)}>
+              <Package size={18} />
+              Matériaux
+            </NavLink>
+            <NavLink to="/materiaux-prix" className={({ isActive }) => linkClass(isActive)}>
+              <Receipt size={18} />
+              Prix Québec
+            </NavLink>
+            <NavLink to="/prix-updater" className={({ isActive }) => linkClass(isActive)}>
+              <RefreshCw size={18} />
+              Mise à jour des prix
+            </NavLink>
+            <NavLink to="/export-soumission" className={({ isActive }) => linkClass(isActive)}>
+              <FileSpreadsheet size={18} />
+              Exporter soumission
+            </NavLink>
+          </div>
         </div>
         {/* ============ PLANIFICATION ============ */}
         <div className="pt-2">
@@ -703,5 +691,6 @@ export default function Sidebar({ user, onLogout }: SidebarProps) {
     </aside>
   )
 }
+
 
 
