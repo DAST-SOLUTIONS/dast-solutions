@@ -5,7 +5,7 @@
 import { useState } from 'react';
 import * as XLSX from 'xlsx';
 import { FileSpreadsheet, Download, RefreshCw, FileText } from 'lucide-react';
-import { toast } from 'react-hot-toast';
+const toast = { success: (m: string) => console.log('✅', m), error: (m: string) => console.error('❌', m) };
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 
@@ -385,9 +385,9 @@ export function exportToPDF(
 // UI COMPONENT
 // ─────────────────────────────────────────────
 interface SubmissionExporterProps {
-  lines: EstimationLine[];
-  project: ProjectInfo;
-  config: SubmissionConfig;
+  lines?: EstimationLine[];
+  project?: ProjectInfo;
+  config?: SubmissionConfig;
 }
 
 const P = {
