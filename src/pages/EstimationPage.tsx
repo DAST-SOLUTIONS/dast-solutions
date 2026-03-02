@@ -279,6 +279,14 @@ export default function EstimationPage() {
     )
   }
 
+  if (!estimate) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <Loader2 className="animate-spin text-teal-600" size={40} />
+      </div>
+    )
+  }
+
   return (
     <div className="h-screen flex flex-col bg-gray-100">
       {/* Header avec fond image */}
@@ -314,12 +322,12 @@ export default function EstimationPage() {
               <div>
                 <p className="text-sm text-white/60">Statut</p>
                 <span className="px-2 py-1 bg-green-500 text-white text-sm rounded">
-                  {estimate.status === 'active' ? 'Actif' : estimate.status}
+                  {estimate?.status === 'active' ? 'Actif' : estimate?.status}
                 </span>
               </div>
               <div>
                 <p className="text-sm text-white/60">Type</p>
-                <p className="text-sm">{estimate.project_type || project.name}</p>
+                <p className="text-sm">{estimate?.project_type || project.name}</p>
               </div>
             </div>
           </div>
@@ -482,15 +490,15 @@ export default function EstimationPage() {
             <div className="flex justify-end gap-8 text-sm">
               <div>
                 <span className="text-gray-500">Matériaux:</span>
-                <span className="font-medium ml-2">{formatCurrency(estimate.total_material)}</span>
+                <span className="font-medium ml-2">{formatCurrency((estimate?.total_material ?? 0))}</span>
               </div>
               <div>
                 <span className="text-gray-500">Main-d'œuvre:</span>
-                <span className="font-medium ml-2">{formatCurrency(estimate.total_labor)}</span>
+                <span className="font-medium ml-2">{formatCurrency((estimate?.total_labor ?? 0))}</span>
               </div>
               <div>
                 <span className="text-gray-500">Sous-traitants:</span>
-                <span className="font-medium ml-2">{formatCurrency(estimate.total_subcontractor)}</span>
+                <span className="font-medium ml-2">{formatCurrency((estimate?.total_subcontractor ?? 0))}</span>
               </div>
               <div className="border-l pl-4">
                 <span className="text-gray-500">Sous-total:</span>
@@ -725,7 +733,7 @@ function MarginsModal({
   const [form, setForm] = useState({
     overhead_percent: (estimate?.overhead_percent ?? 0).toString(),
     profit_percent: (estimate?.profit_percent ?? 0).toString(),
-    contingency_percent: estimate.contingency_percent.toString()
+    contingency_percent: (estimate?.contingency_percent ?? 0).toString()
   })
   const [saving, setSaving] = useState(false)
 
@@ -736,7 +744,7 @@ function MarginsModal({
         overhead_percent: parseFloat(form.overhead_percent) || 0,
         profit_percent: parseFloat(form.profit_percent) || 0,
         contingency_percent: parseFloat(form.contingency_percent) || 0
-      }).eq('id', estimate.id)
+      }).eq('id', (estimate?.id ?? "")
       onSave()
       onClose()
     } catch (err: any) {
@@ -895,11 +903,11 @@ function SummaryTab({ estimate }: { estimate: Estimate }) {
     value.toLocaleString('fr-CA', { style: 'currency', currency: 'CAD', minimumFractionDigits: 2 })
 
   const data = [
-    { label: 'Matériaux', value: estimate.total_material, color: 'bg-blue-500' },
-    { label: 'Main-d\'œuvre', value: estimate.total_labor, color: 'bg-green-500' },
-    { label: 'Équipement', value: estimate.total_equipment, color: 'bg-purple-500' },
-    { label: 'Sous-traitants', value: estimate.total_subcontractor, color: 'bg-amber-500' },
-    { label: 'Autres', value: estimate.total_other, color: 'bg-gray-500' },
+    { label: 'Matériaux', value: (estimate?.total_material ?? 0), color: 'bg-blue-500' },
+    { label: 'Main-d\'œuvre', value: (estimate?.total_labor ?? 0), color: 'bg-green-500' },
+    { label: 'Équipement', value: (estimate?.total_equipment ?? 0), color: 'bg-purple-500' },
+    { label: 'Sous-traitants', value: (estimate?.total_subcontractor ?? 0), color: 'bg-amber-500' },
+    { label: 'Autres', value: (estimate?.total_other ?? 0), color: 'bg-gray-500' },
   ]
 
   const maxValue = Math.max(...data.map(d => d.value))
@@ -948,8 +956,8 @@ function SummaryTab({ estimate }: { estimate: Estimate }) {
                 <span>{formatCurrency((estimate?.profit_amount ?? 0))}</span>
               </div>
               <div className="flex justify-between py-2">
-                <span className="text-gray-600">Contingence ({estimate.contingency_percent}%)</span>
-                <span>{formatCurrency(estimate.contingency_amount)}</span>
+                <span className="text-gray-600">Contingence ({(estimate?.contingency_percent ?? 0)}%)</span>
+                <span>{formatCurrency((estimate?.contingency_amount ?? 0))}</span>
               </div>
               <div className="flex justify-between py-3 bg-green-50 -mx-6 px-6 mt-4 rounded">
                 <span className="font-bold text-green-800">GRAND TOTAL</span>
@@ -989,6 +997,7 @@ function getDivisionName(code: string): string {
   }
   return names[code] || ''
 }
+
 
 
 
