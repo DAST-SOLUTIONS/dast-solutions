@@ -148,9 +148,9 @@ function App() {
                       {/* Core Routes */}
                       <Route path="/" element={<Dashboard />} />
                       <Route path="/projects" element={<Projects />} />
-                      <Route path="/projects/:id" element={<ProjectDetail />} />
+                      <Route path="/projects/:projectId" element={<ProjectDetail />} />
                       <Route path="/project/new" element={<ProjectDetail />} />
-                      <Route path="/project/:id" element={<ProjectDetail />} />
+                      <Route path="/project/:projectId" element={<ProjectDetail />} />
                       <Route path="/takeoff" element={<Takeoff />} />
                       <Route path="/takeoff/:id" element={<TakeoffViewer />} />
                       <Route path="/estimating" element={<Estimating />} />
