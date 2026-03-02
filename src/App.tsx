@@ -154,6 +154,10 @@ function App() {
                       <Route path="/takeoff" element={<Takeoff />} />
                       <Route path="/takeoff/:id" element={<TakeoffViewer />} />
                       <Route path="/estimating" element={<Estimating />} />
+                      <Route path="/estimating/:projectId" element={<Estimating />} />
+                      <Route path="/projets/estimation" element={<Projects />} />
+                      <Route path="/projets/conception" element={<Projects />} />
+                      <Route path="/projets/gestion" element={<Projects />} />
                       <Route path="/soumissions" element={<Soumissions />} />
                       <Route path="/soumission/new" element={<Soumissions />} />
                       <Route path="/soumission/:id" element={<Soumissions />} />
@@ -226,3 +230,4 @@ function App() {
 }
 
 export default App;
+
