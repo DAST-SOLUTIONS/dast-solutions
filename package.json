@@ -1,9 +1,9 @@
 {
   "name": "dast-solutions",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.1.0",
   "type": "module",
-  "description": "DAST Solutions - Application de gestion de projets de construction avec module Takeoff",
+  "description": "DAST Solutions - Plateforme de gestion de construction Quebec - v1.1.0",
   "author": "DAST Solutions Team",
   "license": "MIT",
   "scripts": {
