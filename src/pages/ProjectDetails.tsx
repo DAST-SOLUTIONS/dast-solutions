@@ -637,7 +637,10 @@ function TabEstimation({ projectId, navigate }: { projectId: string; navigate: (
               <p className="text-xl font-bold">0 $</p>
             </div>
           </div>
-          <button className="w-full py-2 text-sm text-blue-600 hover:bg-blue-50 rounded-lg">
+          <button 
+            onClick={() => navigate(`/estimating/${projectId}`)}
+            className="w-full py-2 text-sm text-blue-600 hover:bg-blue-50 rounded-lg"
+          >
             Voir détails →
           </button>
         </div>
@@ -653,7 +656,7 @@ function TabEstimation({ projectId, navigate }: { projectId: string; navigate: (
             </div>
           </div>
           <button 
-            onClick={() => navigate('/ccq-navigator')}
+            onClick={() => navigate('/ccq')}
             className="w-full py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg"
           >
             Calculer CCQ →
