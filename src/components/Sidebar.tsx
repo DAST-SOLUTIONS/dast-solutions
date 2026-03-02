@@ -18,7 +18,7 @@ import {
   PieChart, Target, DollarSign, Wallet, CreditCard,
   FileInput, FileOutput, GitCompare, Flag,
   CalendarDays, UserCheck, Factory, ShoppingCart,
-  ClipboardCheck, Shield, Wrench, Zap, GanttChartSquare
+  ClipboardCheck, Shield, Wrench, Zap, GanttChartSquare, RefreshCw
 } from 'lucide-react'
 
 interface Project {
@@ -703,3 +703,4 @@ export default function Sidebar({ user, onLogout }: SidebarProps) {
     </aside>
   )
 }
+
