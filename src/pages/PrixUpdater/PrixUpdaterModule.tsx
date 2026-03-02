@@ -5,7 +5,8 @@
 import { useState, useRef } from 'react';
 import { RefreshCw, Upload, Check, AlertCircle, ExternalLink, DollarSign } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { toast } from 'react-hot-toast';
+// Toast helper (no external dep)
+const toast = { success: (m: string) => console.log('✅', m), error: (m: string) => console.error('❌', m) };
 import * as XLSX from 'xlsx';
 
 interface PriceUpdate {
