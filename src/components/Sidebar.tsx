@@ -58,7 +58,7 @@ export default function Sidebar({ user, onLogout }: SidebarProps) {
     fournisseurs: false,
     integrations: false,
     outilsAvances: false,
-    basesDonnees: false
+    basesDonnees: true
   })
 
   useEffect(() => {
@@ -295,6 +295,44 @@ export default function Sidebar({ user, onLogout }: SidebarProps) {
           )}
         </div>
 
+        {/* ============ BASES DE DONNÉES ============ */}
+        <div className="pt-2">
+          <button
+            onClick={() => toggleMenu('basesDonnees')}
+            className="w-full flex items-center justify-between px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-lg"
+          >
+            <span className="flex items-center gap-2">
+              <Database size={18} />
+              Bases de données
+            </span>
+            {expandedMenus.basesDonnees ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+          </button>
+
+          {expandedMenus.basesDonnees && (
+            <div className="mt-1 space-y-0.5">
+              <NavLink to="/database" className={({ isActive }) => subLinkClass(isActive)}>
+                <Database size={16} />
+                Coûts (ProEst)
+              </NavLink>
+              <NavLink to="/materials" className={({ isActive }) => subLinkClass(isActive)}>
+                <Package size={16} />
+                Matériaux
+              </NavLink>
+              <NavLink to="/materiaux-prix" className={({ isActive }) => subLinkClass(isActive)}>
+                <Receipt size={16} />
+                Prix Québec
+              </NavLink>
+              <NavLink to="/prix-updater" className={({ isActive }) => subLinkClass(isActive)}>
+                <RefreshCw size={16} />
+                Mise à jour des prix
+              </NavLink>
+              <NavLink to="/export-soumission" className={({ isActive }) => subLinkClass(isActive)}>
+                <FileSpreadsheet size={16} />
+                Exporter soumission
+              </NavLink>
+            </div>
+          )}
+        </div>
         {/* ============ PLANIFICATION ============ */}
         <div className="pt-2">
           <button
@@ -497,44 +535,6 @@ export default function Sidebar({ user, onLogout }: SidebarProps) {
           )}
         </div>
 
-        {/* ============ BASES DE DONNÉES ============ */}
-        <div className="pt-2">
-          <button
-            onClick={() => toggleMenu('basesDonnees')}
-            className="w-full flex items-center justify-between px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-lg"
-          >
-            <span className="flex items-center gap-2">
-              <Database size={18} />
-              Bases de données
-            </span>
-            {expandedMenus.basesDonnees ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-          </button>
-
-          {expandedMenus.basesDonnees && (
-            <div className="mt-1 space-y-0.5">
-              <NavLink to="/database" className={({ isActive }) => subLinkClass(isActive)}>
-                <Database size={16} />
-                Coûts (ProEst)
-              </NavLink>
-              <NavLink to="/materials" className={({ isActive }) => subLinkClass(isActive)}>
-                <Package size={16} />
-                Matériaux
-              </NavLink>
-              <NavLink to="/materiaux-prix" className={({ isActive }) => subLinkClass(isActive)}>
-                <Receipt size={16} />
-                Prix Québec
-              </NavLink>
-              <NavLink to="/prix-updater" className={({ isActive }) => subLinkClass(isActive)}>
-                <RefreshCw size={16} />
-                Mise à jour des prix
-              </NavLink>
-              <NavLink to="/export-soumission" className={({ isActive }) => subLinkClass(isActive)}>
-                <FileSpreadsheet size={16} />
-                Exporter soumission
-              </NavLink>
-            </div>
-          )}
-        </div>
 
         {/* ============ RESSOURCES ============ */}
         <div className="pt-2">
@@ -703,4 +703,5 @@ export default function Sidebar({ user, onLogout }: SidebarProps) {
     </aside>
   )
 }
+
 
