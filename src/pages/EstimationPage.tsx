@@ -744,7 +744,7 @@ function MarginsModal({
         overhead_percent: parseFloat(form.overhead_percent) || 0,
         profit_percent: parseFloat(form.profit_percent) || 0,
         contingency_percent: parseFloat(form.contingency_percent) || 0
-      }).eq('id', (estimate?.id ?? "")
+      }).eq('id', estimate?.id ?? "")
       onSave()
       onClose()
     } catch (err: any) {
