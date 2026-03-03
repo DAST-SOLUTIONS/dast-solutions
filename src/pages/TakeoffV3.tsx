@@ -826,7 +826,7 @@ export default function TakeoffV3() {
           <button onClick={exportToExcel} className="px-3 py-1.5 border rounded-lg text-sm hover:bg-gray-50 flex items-center gap-1">
             <Download size={16} />Excel
           </button>
-          <button onClick={() => navigate(`/bid-proposal/${projectId}`)} className="px-3 py-1.5 bg-teal-600 text-white rounded-lg text-sm hover:bg-teal-700 flex items-center gap-1">
+          <button onClick={() => navigate(`/soumissions`)} className="px-3 py-1.5 bg-teal-600 text-white rounded-lg text-sm hover:bg-teal-700 flex items-center gap-1">
             <Send size={16} />Soumission
           </button>
         </div>
@@ -1055,7 +1055,7 @@ export default function TakeoffV3() {
 
             {/* AI Analysis Button */}
             <button 
-              onClick={() => navigate(`/takeoff-ai/${projectId}`)}
+              onClick={() => navigate(`/ai-takeoff`)}
               className="px-3 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded flex items-center gap-1.5 text-xs font-medium hover:from-purple-700 hover:to-indigo-700 transition-all shadow-lg"
               title="Analyse automatique par IA"
             >
