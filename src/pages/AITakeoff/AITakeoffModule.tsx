@@ -69,18 +69,27 @@ export default function AITakeoffModule() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
-      // Charger le projet
-      const { data: proj } = await supabase
-        .from('projects').select('*').eq('id', projectId).single()
-      setProject(proj)
+      // Charger le projet si projectId disponible
+      if (projectId) {
+        const { data: proj } = await supabase
+          .from('projects').select('*').eq('id', projectId).single()
+        setProject(proj)
+      }
 
       // Charger les plans depuis takeoff_plans (même table que TakeoffV3)
-      const { data: plansData } = await supabase
+      let query = supabase
         .from('takeoff_plans')
         .select('*')
-        .eq('project_id', projectId)
         .eq('user_id', user.id)
-        .order('sort_order')
+        .order('created_at', { ascending: false })
+
+      if (projectId) {
+        query = query.eq('project_id', projectId)
+      } else {
+        query = query.limit(20)
+      }
+
+      const { data: plansData } = await query
 
       if (plansData?.length) {
         const withUrls = plansData.map(p => {
