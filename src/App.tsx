@@ -186,6 +186,7 @@ function App() {
                       
                       {/* Phase 4 - Modules IA 30-35 NOUVEAUX */}
                       <Route path="/ai-takeoff" element={<AITakeoffModule />} />
+            <Route path="/ai-takeoff/:projectId" element={<AITakeoffModule />} />
                       <Route path="/ai-estimation" element={<AIEstimationModule />} />
                       <Route path="/ocr-documents" element={<OCRDocumentsModule />} />
                       <Route path="/assistant-ia" element={<AssistantIAModule />} />
