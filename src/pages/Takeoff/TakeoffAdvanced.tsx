@@ -29,13 +29,14 @@ import {
 // Types
 interface DrawingSet {
   id: string
+  project_id: string
   name: string
   version: string
   issue_date: string
   received_date: string
   status: 'draft' | 'for_review' | 'approved' | 'superseded'
   drawings: Drawing[]
-  created_at: string
+  created_at?: string
 }
 
 interface Drawing {
@@ -50,9 +51,9 @@ interface Drawing {
   page_count: number
   current_page: number
   status: 'pending' | 'in_progress' | 'measured' | 'verified'
-  takeoff_items: TakeoffItem[]
-  annotations: Annotation[]
-  version_history: DrawingVersion[]
+  takeoff_items?: TakeoffItem[]
+  annotations?: Annotation[]
+  version_history?: DrawingVersion[]
 }
 
 interface DrawingVersion {
@@ -259,61 +260,82 @@ export default function TakeoffAdvanced() {
   const handleCreateDrawingSet = async () => {
     if (!uploadForm.setName || uploadForm.files.length === 0) return
     
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
+    // Créer le set localement (fonctionne sans base de données)
+    const newSetId = crypto.randomUUID()
+    const drawings: Drawing[] = uploadForm.files.map((file, idx) => ({
+      id: crypto.randomUUID(),
+      set_id: newSetId,
+      number: file.name.split('.')[0],
+      name: file.name.split('.')[0],
+      discipline: 'A',
+      file_url: URL.createObjectURL(file),
+      file_type: file.type,
+      page_count: 1,
+      current_page: 1,
+      status: 'pending'
+    }))
 
-    // Créer le set
-    const { data: newSet, error: setError } = await supabase
-      .from('drawing_sets')
-      .insert({
-        user_id: user.id,
-        project_id: projectId,
-        name: uploadForm.setName,
-        version: uploadForm.version,
-        issue_date: uploadForm.issueDate,
-        received_date: new Date().toISOString(),
-        status: 'draft'
-      })
-      .select()
-      .single()
-
-    if (setError || !newSet) {
-      console.error('Erreur création set:', setError)
-      return
+    const newSet: DrawingSet = {
+      id: newSetId,
+      project_id: projectId || '',
+      name: uploadForm.setName,
+      version: uploadForm.version,
+      issue_date: uploadForm.issueDate,
+      received_date: new Date().toISOString(),
+      status: 'draft',
+      drawings
     }
 
-    // Upload des fichiers et création des dessins
-    for (const file of uploadForm.files) {
-      const fileName = `${projectId}/${newSet.id}/${file.name}`
-      
-      // Upload vers Supabase Storage
-      const { error: uploadError } = await supabase.storage
-        .from('drawings')
-        .upload(fileName, file)
+    // Essayer de sauvegarder dans Supabase (optionnel)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const { data: savedSet } = await supabase
+          .from('drawing_sets')
+          .insert({
+            user_id: user.id,
+            project_id: projectId,
+            name: uploadForm.setName,
+            version: uploadForm.version,
+            issue_date: uploadForm.issueDate,
+            received_date: new Date().toISOString(),
+            status: 'draft'
+          })
+          .select()
+          .single()
 
-      if (!uploadError) {
-        const { data: { publicUrl } } = supabase.storage
-          .from('drawings')
-          .getPublicUrl(fileName)
-
-        // Créer l'entrée drawing
-        await supabase.from('drawings').insert({
-          set_id: newSet.id,
-          number: file.name.split('.')[0],
-          name: file.name.split('.')[0],
-          discipline: 'A',
-          file_url: publicUrl,
-          file_type: file.type,
-          page_count: 1,
-          current_page: 1,
-          status: 'pending'
-        })
+        if (savedSet) {
+          // Upload fichiers vers storage
+          for (const file of uploadForm.files) {
+            const fileName = `${projectId}/${savedSet.id}/${file.name}`
+            const { error: uploadError } = await supabase.storage.from('dast-assets').upload(fileName, file)
+            if (!uploadError) {
+              const { data: { publicUrl } } = supabase.storage.from('dast-assets').getPublicUrl(fileName)
+              await supabase.from('drawings').insert({
+                set_id: savedSet.id,
+                number: file.name.split('.')[0],
+                name: file.name.split('.')[0],
+                discipline: 'A',
+                file_url: publicUrl,
+                file_type: file.type,
+                page_count: 1,
+                current_page: 1,
+                status: 'pending'
+              })
+            }
+          }
+        }
       }
+    } catch (err) {
+      // Supabase non disponible - on continue avec les données locales
+      console.log('Plans sauvegardés localement seulement')
     }
 
+    // Ajouter au state local (toujours)
+    setDrawingSets(prev => [...prev, newSet])
+    setSelectedSet(newSet)
     setShowUploadModal(false)
     setUploadForm({ setName: '', version: '1.0', issueDate: new Date().toISOString().split('T')[0], files: [] })
-    loadData()
   }
 
   const handleToolSelect = (toolId: string) => {
@@ -848,3 +870,4 @@ export default function TakeoffAdvanced() {
     </div>
   )
 }
+
