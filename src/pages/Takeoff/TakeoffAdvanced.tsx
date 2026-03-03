@@ -213,7 +213,7 @@ export default function TakeoffAdvanced() {
         canvas.width = vp.width
         canvas.height = vp.height
         const ctx = canvas.getContext('2d')
-        if (ctx) await page.render({ canvasContext: ctx, viewport: vp }).promise
+        await page.render({ canvasContext: ctx as any, viewport: vp } as any).promise
       } catch (err) {
         console.error('PDF render error:', err)
         const ctx = canvas.getContext('2d')
