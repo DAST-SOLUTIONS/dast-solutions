@@ -15,7 +15,7 @@ import {
   Plus, FolderOpen, Settings, HelpCircle, Cpu, Wand2, Sparkles
 } from 'lucide-react'
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.mjs', import.meta.url).toString()
 
 type Tool = 'select' | 'pan' | 'calibrate' | 'line' | 'rectangle' | 'polygon' | 'count'
 type Point = { x: number; y: number }
