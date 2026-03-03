@@ -341,7 +341,7 @@ Format requis: tableau d'objets avec les champs:
         unit: r.unite,
         color: '#8B5CF6',
         points: []
-      }).catch(console.error)
+      })
     }
     alert(`✅ ${allResults.length} éléments transférés vers le Takeoff`)
     navigate(`/takeoff/${projectId}`)
