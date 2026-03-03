@@ -32,7 +32,8 @@
     "tailwind-merge": "^1.14.0",
     "tesseract.js": "^5.1.0",
     "xlsx": "^0.18.5",
-    "react-hot-toast": "^2.4.1"
+    "react-hot-toast": "^2.4.1",
+    "@anthropic-ai/sdk": "^0.39.0"
   },
   "optionalDependencies": {
     "@types/three": "^0.160.0",
