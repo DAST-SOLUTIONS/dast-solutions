@@ -231,7 +231,7 @@ function TabApercu({ project, stats, navigate, projectId }: {
         </button>
 
         <button
-          onClick={() => navigate(`/soumissions/nouveau?project=${projectId}`)}
+          onClick={() => navigate(`/soumission/new`)}
           className="bg-white rounded-xl p-6 border hover:shadow-lg transition group text-left"
         >
           <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center mb-4 group-hover:scale-110 transition">
@@ -255,7 +255,7 @@ function TabApercu({ project, stats, navigate, projectId }: {
         </button>
 
         <button
-          onClick={() => navigate(`/factures/nouveau?project=${projectId}`)}
+          onClick={() => navigate(`/invoicing`)}
           className="bg-white rounded-xl p-6 border hover:shadow-lg transition group text-left"
         >
           <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center mb-4 group-hover:scale-110 transition">
@@ -920,7 +920,7 @@ function TabFinances({ projectId, stats, project, navigate }: {
       <div className="flex justify-between items-center">
         <h3 className="font-semibold text-lg">Finances</h3>
         <button 
-          onClick={() => navigate(`/factures/nouveau?project=${projectId}`)}
+          onClick={() => navigate(`/invoicing`)}
           className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
         >
           <Receipt size={16} />
