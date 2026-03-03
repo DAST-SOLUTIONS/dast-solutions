@@ -1,8 +1,7 @@
-// Vercel Serverless Function - CommonJS (no ES module imports)
-// Appel direct à l'API Anthropic via fetch — pas besoin du SDK
+// Vercel Serverless Function - ES Module syntax (matches project "type": "module")
+export const config = { maxDuration: 30 };
 
-module.exports = async function handler(req, res) {
-  // CORS headers
+export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -14,7 +13,7 @@ module.exports = async function handler(req, res) {
   if (!imageBase64) return res.status(400).json({ error: 'imageBase64 required' });
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return res.status(500).json({ error: 'ANTHROPIC_API_KEY not configured in Vercel env vars' });
+  if (!apiKey) return res.status(500).json({ error: 'ANTHROPIC_API_KEY not configured' });
 
   const systemPrompt = `Tu es un expert en estimation construction au Quebec.
 Tu analyses des plans de construction pour extraire les quantites.
@@ -49,25 +48,21 @@ Chaque objet doit avoir: element, type (surface|lineaire|comptage|volume), quant
 
     if (!response.ok) {
       const errText = await response.text();
-      console.error('Anthropic API error:', response.status, errText);
-      return res.status(500).json({ error: `Anthropic error ${response.status}: ${errText.slice(0, 200)}` });
+      console.error('Anthropic error:', response.status, errText);
+      return res.status(500).json({ error: `Anthropic ${response.status}: ${errText.slice(0, 200)}` });
     }
 
     const data = await response.json();
-    const text = (data.content && data.content[0] && data.content[0].text) || '[]';
+    const text = data?.content?.[0]?.text || '[]';
     const clean = text.replace(/```json|```/g, '').trim();
 
     let results = [];
-    try {
-      results = JSON.parse(clean);
-    } catch (e) {
-      console.error('JSON parse error:', e.message, 'raw:', clean.slice(0, 200));
-      return res.status(500).json({ error: 'Invalid JSON from Claude: ' + clean.slice(0, 100) });
-    }
+    try { results = JSON.parse(clean); }
+    catch (e) { return res.status(500).json({ error: 'JSON parse error: ' + clean.slice(0, 100) }); }
 
     return res.status(200).json({ results });
   } catch (err) {
-    console.error('Handler error:', err);
+    console.error('Handler error:', err.message);
     return res.status(500).json({ error: err.message });
   }
-};
+}
