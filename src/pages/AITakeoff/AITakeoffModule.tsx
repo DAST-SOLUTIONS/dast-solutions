@@ -206,69 +206,34 @@ export default function AITakeoffModule() {
     }
   }
 
-  // ── Appel réel à Claude Vision via Anthropic API ───────────────────────────
+  // ── Appel via proxy Vercel /api/analyze (évite CORS) ──────────────────────
   const analyzeWithClaude = async (plan: Plan): Promise<AnalysisResult[]> => {
     if (!plan.file_url) throw new Error('Aucun fichier URL disponible')
 
     const imageBase64 = await pdfPageToBase64(plan.file_url, 1)
     if (!imageBase64) throw new Error('Impossible de convertir le PDF en image')
 
-    const systemPrompt = `Tu es un expert en estimation construction au Québec. 
-Tu analyses des plans de construction pour extraire les quantités.
-Réponds UNIQUEMENT en JSON valide, sans markdown, sans explication.
-Format requis: tableau d'objets avec les champs:
-- element: nom de l'élément (string)
-- type: "surface" | "lineaire" | "comptage" | "volume"  
-- quantite: nombre (float)
-- unite: unité de mesure (m², m, unités, m³)
-- confiance: score 0-100
-- zone: zone ou niveau du plan (string)
-- categorie: catégorie CSI (string)`
-
-    const userPrompt = analysisMode === 'guided' && guidedElements.length > 0
-      ? `Analyse ce plan de construction et trouve ces éléments spécifiques: ${guidedElements.join(', ')}. 
-         Extrait les quantités pour chacun. Si un élément n'est pas visible, ne l'inclus pas.
-         Retourne un tableau JSON.`
-      : `Analyse ce plan de construction et identifie tous les éléments quantifiables.
-         Cherche: surfaces (dalles, murs, toitures), linéaires (fondations, poutres, gouttières), 
-         comptages (portes, fenêtres, colonnes), volumes (béton, remblai).
-         Retourne un tableau JSON avec toutes les quantités trouvées.`
-
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetch('/api/analyze', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-opus-4-5',
-        max_tokens: 2000,
-        system: systemPrompt,
-        messages: [{
-          role: 'user',
-          content: [
-            {
-              type: 'image',
-              source: { type: 'base64', media_type: 'image/jpeg', data: imageBase64 }
-            },
-            { type: 'text', text: userPrompt }
-          ]
-        }]
+        imageBase64,
+        mode: analysisMode,
+        elements: guidedElements
       })
     })
 
     if (!response.ok) {
-      const err = await response.text()
-      throw new Error(`API error ${response.status}: ${err}`)
+      const err = await response.json().catch(() => ({ error: response.statusText }))
+      throw new Error(err.error || `Erreur API ${response.status}`)
     }
 
     const data = await response.json()
-    const text = data.content?.[0]?.text || '[]'
-
-    // Parse JSON response
-    const clean = text.replace(/```json|```/g, '').trim()
-    const parsed = JSON.parse(clean)
+    const parsed = data.results || []
 
     return parsed.map((item: any, i: number) => ({
       id: crypto.randomUUID(),
-      type: item.type || 'surface',
+      type: (item.type || 'surface') as 'surface' | 'lineaire' | 'comptage' | 'volume',
       element: item.element || `Élément ${i+1}`,
       quantite: parseFloat(item.quantite) || 0,
       unite: item.unite || 'm²',
