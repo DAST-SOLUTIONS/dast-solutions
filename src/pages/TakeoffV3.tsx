@@ -538,7 +538,7 @@ export default function TakeoffV3() {
       setMeasureLabel('')
     } catch (err: any) {
       console.error('Error saving measure:', err)
-      alert('Erreur: ' + err.message)
+      console.error('Calibration save error:', err.message)
     }
   }
 
@@ -587,22 +587,37 @@ export default function TakeoffV3() {
         pixels_per_unit: pixelDistance / parseFloat(calibrationDistance)
       }
 
-      const { data, error } = await supabase
+      // Try insert first, then update if exists
+      let calData = null
+      const { data: inserted, error: insertErr } = await supabase
         .from('takeoff_calibrations')
-        .upsert(payload, { onConflict: 'plan_id,page_number,user_id' })
+        .insert(payload)
         .select()
         .single()
 
-      if (error) throw error
+      if (insertErr) {
+        // Already exists - update it
+        const { data: updated, error: updateErr } = await supabase
+          .from('takeoff_calibrations')
+          .update(payload)
+          .eq('plan_id', activePlan.id)
+          .eq('user_id', user.id)
+          .select()
+          .single()
+        if (updateErr) throw updateErr
+        calData = updated
+      } else {
+        calData = inserted
+      }
 
-      setCalibration(data)
+      setCalibration(calData)
       setCalibrationPoints([])
       setCalibrationStep(0)
       setCalibrationDistance('')
       setTool('select')
     } catch (err: any) {
       console.error('Error saving calibration:', err)
-      alert('Erreur: ' + err.message)
+      console.error('Calibration save error:', err.message)
     }
   }
 
@@ -734,7 +749,7 @@ export default function TakeoffV3() {
       }
     } catch (err: any) {
       console.error('Upload error:', err)
-      alert('Erreur: ' + err.message)
+      console.error('Calibration save error:', err.message)
     } finally {
       setUploading(false)
       setTimeout(() => setUploadProgress(0), 1000)
