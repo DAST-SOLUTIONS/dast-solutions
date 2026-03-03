@@ -141,7 +141,7 @@ function App() {
                       <Route path="/project/new" element={<ProjectDetail />} />
                       <Route path="/project/:projectId" element={<ProjectDetail />} />
                       <Route path="/takeoff" element={<Takeoff />} />
-                      <Route path="/takeoff/:id" element={<TakeoffViewer />} />
+                      <Route path="/takeoff/:projectId" element={<TakeoffViewer />} />
                       <Route path="/estimating" element={<Estimating />} />
                       <Route path="/estimating/:projectId" element={<Estimating />} />
                       <Route path="/projets/estimation" element={<Projects />} />
