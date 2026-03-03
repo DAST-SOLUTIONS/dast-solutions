@@ -190,6 +190,51 @@ export default function TakeoffAdvanced() {
     loadData()
   }, [projectId])
 
+  // Rendu PDF quand un dessin est selectionne
+  useEffect(() => {
+    if (!selectedDrawing || !selectedDrawing.file_url) return
+    const canvas = canvasRef.current
+    if (!canvas) return
+
+    const renderPDF = async () => {
+      try {
+        const pdfjsLib = await import('pdfjs-dist')
+        pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+          'pdfjs-dist/build/pdf.worker.mjs',
+          import.meta.url
+        ).toString()
+        const pdf = await pdfjsLib.getDocument(selectedDrawing.file_url).promise
+        const page = await pdf.getPage(1)
+        const container = containerRef.current
+        const w = container ? container.clientWidth - 20 : 880
+        const vp0 = page.getViewport({ scale: 1 })
+        const fitScale = Math.min(w / vp0.width, 2) * scale
+        const vp = page.getViewport({ scale: fitScale })
+        canvas.width = vp.width
+        canvas.height = vp.height
+        const ctx = canvas.getContext('2d')
+        if (ctx) await page.render({ canvasContext: ctx, viewport: vp }).promise
+      } catch (err) {
+        console.error('PDF render error:', err)
+        const ctx = canvas.getContext('2d')
+        if (ctx) {
+          canvas.width = 800
+          canvas.height = 500
+          ctx.fillStyle = '#1e293b'
+          ctx.fillRect(0, 0, 800, 500)
+          ctx.fillStyle = '#94a3b8'
+          ctx.font = '18px sans-serif'
+          ctx.textAlign = 'center'
+          ctx.fillText(selectedDrawing.name, 400, 240)
+          ctx.fillStyle = '#64748b'
+          ctx.font = '13px sans-serif'
+          ctx.fillText('Apercu PDF non disponible pour ce fichier', 400, 270)
+        }
+      }
+    }
+    renderPDF()
+  }, [selectedDrawing, scale])
+
   const loadData = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser()
