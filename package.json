@@ -1,7 +1,7 @@
 {
   "name": "dast-solutions",
   "private": true,
-  "version": "1.1.0",
+  "version": "1.1.1",
   "type": "module",
   "description": "DAST Solutions - Plateforme de gestion de construction Quebec - v1.1.0",
   "author": "DAST Solutions Team",
@@ -12,7 +12,7 @@
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
     "type-check": "tsc --noEmit",
-    "check:deps": "npm ls jspdf jspdf-autotable xlsx || echo \"🔧 Installe: npm i jspdf jspdf-autotable xlsx\""
+    "check:deps": "npm ls jspdf jspdf-autotable xlsx || echo \"\ud83d\udd27 Installe: npm i jspdf jspdf-autotable xlsx\""
   },
   "dependencies": {
     "@stripe/stripe-js": "^8.5.2",
