@@ -1070,7 +1070,7 @@ export default function TakeoffV3() {
 
             {/* AI Analysis Button */}
             <button 
-              onClick={() => navigate(`/ai-takeoff`)}
+              onClick={() => navigate(`/ai-takeoff/${projectId}`)}
               className="px-3 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded flex items-center gap-1.5 text-xs font-medium hover:from-purple-700 hover:to-indigo-700 transition-all shadow-lg"
               title="Analyse automatique par IA"
             >
