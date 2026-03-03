@@ -597,7 +597,7 @@ export default function Dashboard() {
           <span className="font-medium text-gray-700">Nouvelle soumission</span>
         </button>
         <button 
-          onClick={() => navigate('/factures')}
+          onClick={() => navigate('/invoicing')}
           className="bg-white rounded-xl border p-4 hover:shadow-md transition flex items-center gap-3"
         >
           <div className="w-10 h-10 rounded-lg bg-teal-100 flex items-center justify-center">
@@ -606,7 +606,7 @@ export default function Dashboard() {
           <span className="font-medium text-gray-700">Facturation</span>
         </button>
         <button 
-          onClick={() => navigate('/analytics')}
+          onClick={() => navigate('/reports')}
           className="bg-white rounded-xl border p-4 hover:shadow-md transition flex items-center gap-3"
         >
           <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center">
