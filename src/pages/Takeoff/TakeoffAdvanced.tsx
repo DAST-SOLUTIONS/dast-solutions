@@ -478,7 +478,7 @@ export default function TakeoffAdvanced() {
   const deleteMeasure = async (id: string) => {
     setMeasures(prev => prev.filter(m => m.id !== id))
     setSelectedMeasure(null)
-    await supabase.from('takeoff_items').delete().eq('id', id).catch(console.error)
+    await supabase.from('takeoff_items').delete().eq('id', id)
   }
 
   const isMeasureHit = (m: Measure, pt: Point): boolean => {
