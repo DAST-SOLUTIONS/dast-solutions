@@ -65,4 +65,4 @@ Chaque objet doit avoir: element, type (surface|lineaire|comptage|volume), quant
     console.error('Handler error:', err.message);
     return res.status(500).json({ error: err.message });
   }
-}
+} 
