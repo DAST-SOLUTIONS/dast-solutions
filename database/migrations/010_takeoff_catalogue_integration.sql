@@ -1,12 +1,10 @@
 -- ============================================================================
--- DAST Solutions - Migration 010: Takeoff ↔ Catalogue Integration (CORRIGÉ)
--- Exécuter dans Supabase SQL Editor
--- Prérequis: tables takeoff_items, cost_items, cost_assemblies existent ✅
+-- DAST Solutions - Migration 010: Takeoff ↔ Catalogue Integration (v3)
+-- Adapté aux vraies colonnes de takeoff_items
 -- ============================================================================
 
 -- ============================================================================
 -- 1. AJOUTER LES COLONNES MANQUANTES dans takeoff_items
---    ALTER TABLE hors du bloc DO $$ pour éviter l'erreur 42703
 -- ============================================================================
 
 ALTER TABLE public.takeoff_items 
@@ -17,9 +15,6 @@ ALTER TABLE public.takeoff_items
 
 ALTER TABLE public.takeoff_items 
     ADD COLUMN IF NOT EXISTS pricing_note TEXT;
-
-ALTER TABLE public.takeoff_items 
-    ADD COLUMN IF NOT EXISTS label VARCHAR(255);
 
 -- ============================================================================
 -- 2. TABLE LIENS TAKEOFF ↔ ASSEMBLAGES
@@ -47,6 +42,7 @@ CREATE INDEX IF NOT EXISTS idx_takeoff_items_cost_item
 
 -- ============================================================================
 -- 3. VUE : Takeoff avec prix du catalogue
+--    Colonnes réelles: description, unit_cost, total_cost
 -- ============================================================================
 
 DROP VIEW IF EXISTS v_takeoff_with_pricing;
@@ -55,22 +51,34 @@ CREATE VIEW v_takeoff_with_pricing AS
 SELECT 
     ti.id AS takeoff_item_id,
     ti.project_id,
-    COALESCE(ti.label, ti.item_name) AS label,
+    ti.user_id,
+    ti.description AS label,
     ti.category,
+    ti.subcategory,
+    ti.measurement_type,
     ti.quantity,
     ti.unit,
+
+    -- Prix depuis cost_items (catalogue)
     ci.id AS catalogue_item_id,
     ci.code AS catalogue_code,
     ci.name AS catalogue_name,
     ci.price_material,
     ci.price_labor,
     ci.price_total AS catalogue_unit_price,
-    COALESCE(ti.unit_price_override, ci.price_total, ti.unit_price) AS effective_unit_price,
+
+    -- Prix effectif (override → catalogue → unit_cost existant)
+    COALESCE(ti.unit_price_override, ci.price_total, ti.unit_cost) AS effective_unit_price,
+
+    -- Totaux calculés
     ti.quantity * COALESCE(ti.unit_price_override, ci.price_material, 0) AS total_material,
-    ti.quantity * COALESCE(ci.price_labor, 0) AS total_labor,
-    ti.quantity * COALESCE(ti.unit_price_override, ci.price_total, ti.unit_price, 0) AS total_price,
+    ti.quantity * COALESCE(ci.price_labor, 0)                            AS total_labor,
+    ti.quantity * COALESCE(ti.unit_price_override, ci.price_total, ti.unit_cost, 0) AS total_price,
+
     ti.pricing_note,
+    ti.notes,
     ti.created_at
+
 FROM public.takeoff_items ti
 LEFT JOIN cost_items ci ON ti.cost_item_id = ci.id;
 
@@ -91,7 +99,7 @@ BEGIN
     SELECT
         SUM(ti.quantity * COALESCE(ti.unit_price_override, ci.price_material, 0))::DECIMAL(15,4),
         SUM(ti.quantity * COALESCE(ci.price_labor, 0))::DECIMAL(15,4),
-        SUM(ti.quantity * COALESCE(ti.unit_price_override, ci.price_total, ti.unit_price, 0))::DECIMAL(15,4),
+        SUM(ti.quantity * COALESCE(ti.unit_price_override, ci.price_total, ti.unit_cost, 0))::DECIMAL(15,4),
         COUNT(*)::BIGINT,
         COUNT(ti.cost_item_id)::BIGINT
     FROM public.takeoff_items ti
@@ -123,7 +131,7 @@ CREATE POLICY "Liens takeoff par utilisateur" ON takeoff_assembly_links
 DO $$
 BEGIN
     RAISE NOTICE '✅ Migration 010 terminée avec succès!';
-    RAISE NOTICE '   Colonnes ajoutées à takeoff_items: cost_item_id, unit_price_override, pricing_note, label';
+    RAISE NOTICE '   Colonnes ajoutées: cost_item_id, unit_price_override, pricing_note';
     RAISE NOTICE '   Table créée: takeoff_assembly_links';
     RAISE NOTICE '   Vue créée: v_takeoff_with_pricing';
     RAISE NOTICE '   Fonction créée: calculate_takeoff_total()';
